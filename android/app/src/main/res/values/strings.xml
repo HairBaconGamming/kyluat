@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Kỷ luật</string>
+    <string name="accessibility_description">Phát hiện ứng dụng đang mở để phủ cảnh báo trong phiên focus và đếm thời gian tập gym.</string>
+</resources>

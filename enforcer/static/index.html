@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kỷ luật</title>
+<style>
+  :root {
+    --bg: #f4f5f6;
+    --surface: #ffffff;
+    --border: #e3e5e8;
+    --text: #17191c;
+    --muted: #6d737b;
+    --accent: #2f6f5e;
+    --accent-soft: #edf3f0;
+    --track: #e3e5e8;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 30px 20px 56px; }
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; letter-spacing: .1px; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status strong { color: var(--text); font-weight: 500; }
+  .head-right { text-align: right; display: grid; gap: 6px; justify-items: end; }
+  .clock { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  }
+  .pill.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 14px; }
+  .label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .value { font-size: 24px; font-weight: 600; margin: 6px 0 2px; font-variant-numeric: tabular-nums; letter-spacing: -.2px; }
+  .sub { font-size: 12.5px; color: var(--muted); }
+  .bar { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width .25s ease; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  button {
+    font: inherit; font-size: 13px; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  }
+  button:hover { border-color: #c8ccd0; }
+  button:active { background: #f0f1f2; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #296354; }
+  section { margin-top: 26px; }
+  h2 {
+    font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .08em; margin: 0 0 10px;
+  }
+  table {
+    width: 100%; border-collapse: collapse; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  tr:last-child td { border-bottom: none; }
+  th { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  td.day { color: var(--muted); white-space: nowrap; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  th.num { text-align: right; }
+  .cellbar { display: flex; align-items: center; gap: 10px; }
+  .cellbar .track { flex: 1; height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+  .cellbar .track > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .cellbar .num { min-width: 38px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+  .cellbar.muted .track > span { background: #9aa1a8; }
+  .cellbar.muted .num { color: var(--muted); }
+  .rulelist { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { font-size: 12.5px; color: var(--muted); border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 3px 10px; }
+  footer { margin-top: 34px; font-size: 12px; color: var(--muted); }
+  @media (max-width: 560px) {
+    .wrap { padding: 22px 14px 40px; }
+    header { flex-direction: column; }
+    .head-right { justify-items: start; text-align: left; }
+    th, td { padding: 8px 10px; }
+    td.num { width: 48px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Kỷ luật <span>· máy tính &amp; thói quen</span></h1>
+      <div class="status"><strong id="statusText">Đang tải…</strong> <span id="statusDetail"></span></div>
+    </div>
+    <div class="head-right">
+      <div class="clock" id="clock"></div>
+      <span class="pill" id="statusPill">—</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Học hôm nay</div>
+      <div class="value" id="studyValue">–</div>
+      <div class="sub" id="studySub"></div>
+      <div class="bar"><span id="studyBar"></span></div>
+      <div class="actions">
+        <button class="primary" data-habit="study" data-minutes="30">+30 phút</button>
+        <button data-habit="study" data-minutes="60">+60 phút</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label">Gym tuần này</div>
+      <div class="value" id="gymValue">–</div>
+      <div class="sub" id="gymSub"></div>
+      <div class="bar"><span id="gymBar"></span></div>
+      <div class="actions">
+        <button class="primary" data-habit="gym" data-minutes="0">+1 buổi gym</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label">Bị chặn hôm nay</div>
+      <div class="value" id="blockValue">–</div>
+      <div class="sub" id="blockSub"></div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Phiên focus</h2>
+    <div class="card">
+      <div class="sub" id="sessionInfo">Không có phiên.</div>
+      <div class="actions">
+        <button class="primary" data-session="25">25 phút</button>
+        <button data-session="50">50 phút</button>
+        <button data-session="stop">Dừng phiên</button>
+        <button data-session="cancel">Hủy dừng</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>7 ngày qua</h2>
+    <table>
+      <thead>
+        <tr><th>Ngày</th><th>Học</th><th class="num">Gym</th><th>Bị chặn</th></tr>
+      </thead>
+      <tbody id="days"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Luật đang áp dụng</h2>
+    <div class="rulelist" id="rules"></div>
+  </section>
+
+  <footer>Dữ liệu lưu cục bộ trên máy này · chỉ lắng nghe tại 127.0.0.1</footer>
+</div>
+<noscript>Trang này cần JavaScript.</noscript>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const fmt = (value) => new Intl.NumberFormat("vi-VN").format(value);
+
+  function pct(value, goal) {
+    return goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
+  }
+
+  function cell(text, className) {
+    const td = document.createElement("td");
+    if (className) td.className = className;
+    td.textContent = text;
+    return td;
+  }
+
+  function barCell(label, ratio, muted) {
+    const td = document.createElement("td");
+    const box = document.createElement("div");
+    box.className = "cellbar" + (muted ? " muted" : "");
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = label;
+    const track = document.createElement("div");
+    track.className = "track";
+    const fill = document.createElement("span");
+    fill.style.width = Math.round(Math.max(0, Math.min(1, ratio)) * 100) + "%";
+    track.appendChild(fill);
+    box.appendChild(num);
+    box.appendChild(track);
+    td.appendChild(box);
+    return td;
+  }
+
+  function render(data) {
+    const focus = data.focus;
+    $("statusText").textContent = focus.text;
+    $("statusDetail").textContent = focus.detail ? "· " + focus.detail : "";
+    const pill = $("statusPill");
+    pill.textContent = focus.active ? "Đang focus" : "Ngoài giờ";
+    pill.classList.toggle("on", focus.active);
+    $("clock").textContent = data.date + " · " + data.time;
+
+    const study = data.habits.study;
+    const gym = data.habits.gym;
+    const blocks = data.blocks;
+
+    $("studyValue").textContent = fmt(study.today) + " / " + fmt(study.goal) + " phút";
+    let studySub = "Tuần " + fmt(study.week) + "/" + fmt(study.week_goal) + " phút · chuỗi " + study.streak + " ngày";
+    if (study.missed.length) studySub += " · thiếu " + study.missed.length + " ngày";
+    $("studySub").textContent = studySub;
+    $("studyBar").style.width = pct(study.today, study.goal) + "%";
+
+    $("gymValue").textContent = gym.week + " / " + gym.goal + " buổi";
+    $("gymSub").textContent = "Chuỗi " + gym.streak_weeks + " tuần đạt mục tiêu";
+    $("gymBar").style.width = pct(gym.week, gym.goal) + "%";
+
+    $("blockValue").textContent = fmt(blocks.today) + " lần";
+    $("blockSub").textContent = blocks.top.length
+      ? "7 ngày: " + blocks.top.map(([name, count]) => name + " (" + count + ")").join(" · ")
+      : "7 ngày: chưa có gì bị chặn";
+
+    const body = $("days");
+    body.replaceChildren();
+    const maxStudy = Math.max(1, ...study.series.map((row) => row.value));
+    const maxBlocks = Math.max(1, ...blocks.series.map((row) => row.value));
+    study.series.forEach((row, index) => {
+      const gymRow = gym.series[index] || { value: 0 };
+      const blockRow = blocks.series[index] || { value: 0 };
+      const tr = document.createElement("tr");
+      tr.appendChild(cell(row.label, "day"));
+      tr.appendChild(barCell(row.value + "′", row.value / maxStudy));
+      tr.appendChild(cell(String(gymRow.value), "num"));
+      tr.appendChild(barCell(String(blockRow.value), blockRow.value / maxBlocks, true));
+      body.appendChild(tr);
+    });
+
+    const session = data.session;
+    if (session) {
+      let text = "Phiên «" + session.label + "» đến " + session.end.slice(11, 16) + " · còn " + session.remaining_minutes + " phút.";
+      if (session.stop_after) text += " Yêu cầu dừng lúc " + session.stop_after.slice(11, 16) + ".";
+      $("sessionInfo").textContent = text;
+    } else {
+      $("sessionInfo").textContent = "Không có phiên. Bắt đầu để khóa app và web ngay.";
+    }
+
+    const rules = data.rules;
+    const tags = [
+      rules.processes + " app bị chặn",
+      rules.domains + " domain web",
+      Math.round(rules.weekly_minutes / 60) + "h focus/tuần",
+      "cooldown " + rules.cooldown_hours + "h",
+      "chặn web " + (data.net ? "bật" : "tắt"),
+      "daemon " + (data.daemon ? "chạy" : "tắt"),
+    ];
+    const ruleBox = $("rules");
+    ruleBox.replaceChildren(...tags.map((text) => {
+      const span = document.createElement("span");
+      span.className = "tag";
+      span.textContent = text;
+      return span;
+    }));
+  }
+
+  async function refresh() {
+    const response = await fetch("/api/summary", { cache: "no-store" });
+    if (!response.ok) throw new Error("bad response");
+    render(await response.json());
+  }
+
+  document.querySelectorAll("button[data-habit]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        const response = await fetch("/api/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ habit: button.dataset.habit, minutes: Number(button.dataset.minutes) }),
+        });
+        if (!response.ok) throw new Error("bad response");
+        await refresh();
+      } catch (error) {
+        $("statusDetail").textContent = "· không ghi được check-in";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll("button[data-session]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        const value = button.dataset.session;
+        let body;
+        if (value === "stop") body = { action: "stop" };
+        else if (value === "cancel") body = { action: "cancel_stop" };
+        else body = { action: "start", minutes: Number(value), label: "Focus " + value + " phút" };
+        const response = await fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) throw new Error("bad response");
+        await refresh();
+      } catch (error) {
+        $("statusDetail").textContent = "· không đổi được phiên";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+
+  refresh().catch(() => {
+    $("statusText").textContent = "Không tải được dữ liệu";
+  });
+  setInterval(() => refresh().catch(() => {}), 30000);
+</script>
+</body>
+</html>

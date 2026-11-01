@@ -1,0 +1,11 @@
+# Noi dung hoa leu luon luu bang LF; file nay checkout ra CRLF se chay hong tren Linux/macOS
+* text=auto
+
+*.sh text eol=lf
+gradlew text eol=lf
+
+*.png binary
+*.ico binary
+*.jar binary
+*.apk binary
+*.woff2 binary

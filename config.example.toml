@@ -1,0 +1,56 @@
+# Luật enforcer thi hành. Sao chép thành config.toml rồi chạy: python -m enforcer apply
+# Thay đổi làm YẾU luật (bỏ chặn, giảm giờ focus, giảm cooldown) chỉ có hiệu lực sau cooldown_hours.
+# Daemon luôn đọc luật từ DB (đã duyệt qua apply), không đọc trực tiếp file này.
+
+[general]
+poll_seconds = 3
+cooldown_hours = 24
+# Khi yêu cầu dừng sớm một phiên focus, phải chờ ngần này phút mới được dừng
+session_stop_delay_minutes = 10
+
+[block]
+# Tên tiến trình, không phân biệt hoa thường, hỗ trợ * (vd "*steam*")
+processes = [
+  "steam.exe",
+  "discord.exe",
+]
+# true = tắt luôn trình duyệt trong giờ focus; chỉ bật khi không cần tra tài liệu online
+kill_browsers = false
+
+[web]
+# Domain bị chặn trong giờ focus, áp dụng cho mọi subdomain.
+# Cần chạy một lần: python -m enforcer net install (PowerShell Administrator)
+domains = [
+  "youtube.com",
+  "youtu.be",
+]
+
+[plan]
+# Mục tiêu hiển thị trên dashboard và review tuần
+study_minutes_daily = 120
+gym_sessions_weekly = 4
+
+[reminders]
+# Toast nhắc khi vào/ra phiên, và nhắc học nếu cuối ngày chưa đủ mục tiêu
+enabled = true
+study_check_time = "21:00"
+
+# Mỗi [[focus]] là một khung giờ chặn. days: mon, tue, wed, thu, fri, sat, sun
+
+[[focus]]
+label = "Ca sáng"
+days = ["mon", "tue", "wed", "thu", "fri"]
+start = "08:00"
+end = "11:30"
+
+[[focus]]
+label = "Ca chiều"
+days = ["mon", "tue", "wed", "thu", "fri"]
+start = "13:30"
+end = "17:00"
+
+[[focus]]
+label = "Cuối tuần"
+days = ["sat", "sun"]
+start = "07:30"
+end = "10:30"

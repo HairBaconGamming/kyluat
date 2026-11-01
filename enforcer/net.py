@@ -1,0 +1,299 @@
+from __future__ import annotations
+
+import asyncio
+import ctypes
+import ipaddress
+import json
+import os
+import socket
+import sqlite3
+import subprocess
+import threading
+import time
+from pathlib import Path
+from typing import Callable
+
+from dnslib import A, AAAA, QTYPE, RR, DNSRecord
+
+from .config import Config
+from .store import Store
+
+UPSTREAMS = ("1.1.1.1", "8.8.8.8")
+SELF_NAME = "enforcer.local"
+DOH_POLICIES = (
+    (r"SOFTWARE\Policies\Google\Chrome", "DnsOverHttpsMode"),
+    (r"SOFTWARE\Policies\Microsoft\Edge", "DnsOverHttpsMode"),
+)
+
+
+def domain_matches(qname: str, domain: str) -> bool:
+    name = qname.rstrip(".").lower()
+    base = domain.rstrip(".").lower()
+    return name == base or name.endswith("." + base)
+
+
+class _DnsProtocol(asyncio.DatagramProtocol):
+    def __init__(self, sinkhole: "Sinkhole"):
+        self.sinkhole = sinkhole
+        self.transport: asyncio.DatagramTransport | None = None
+
+    def connection_made(self, transport) -> None:
+        self.transport = transport
+
+    def datagram_received(self, data: bytes, addr) -> None:
+        if self.transport is not None:
+            asyncio.create_task(self.sinkhole.handle(data, addr, self.transport))
+
+
+class _ResponseProtocol(asyncio.DatagramProtocol):
+    def __init__(self, future: asyncio.Future):
+        self.future = future
+
+    def datagram_received(self, data: bytes, addr) -> None:
+        if not self.future.done():
+            self.future.set_result(data)
+
+
+class Sinkhole:
+    def __init__(
+        self,
+        get_config: Callable[[], Config],
+        get_blocking: Callable[[], bool],
+        db_path: Path,
+        port: int = 53,
+    ):
+        self.get_config = get_config
+        self.get_blocking = get_blocking
+        self.port = port
+        self.store = Store(db_path)
+        self._transports: list[asyncio.DatagramTransport] = []
+        self._logged_at: dict[str, float] = {}
+
+    def blocked(self, qname: str) -> bool:
+        if not self.get_blocking():
+            return False
+        config = self.get_config()
+        if not config.web_domains:
+            return False
+        return any(domain_matches(qname, domain) for domain in config.web_domains)
+
+    async def handle(self, data: bytes, addr, transport) -> None:
+        try:
+            request = DNSRecord.parse(data)
+        except Exception:
+            return
+        qname = str(request.q.qname).rstrip(".").lower()
+        if qname == SELF_NAME:
+            reply = request.reply()
+            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A("127.0.0.1"), ttl=5))
+            transport.sendto(reply.pack(), addr)
+            return
+        if qname and self.blocked(qname):
+            reply = request.reply()
+            if request.q.qtype == QTYPE.A:
+                reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A("0.0.0.0"), ttl=30))
+            elif request.q.qtype == QTYPE.AAAA:
+                reply.add_answer(RR(request.q.qname, QTYPE.AAAA, rdata=AAAA("::"), ttl=30))
+            transport.sendto(reply.pack(), addr)
+            self._log(qname)
+            return
+        try:
+            response = await self._forward(data)
+        except (OSError, asyncio.TimeoutError):
+            return
+        transport.sendto(response, addr)
+
+    async def _forward(self, data: bytes) -> bytes:
+        for upstream in UPSTREAMS:
+            try:
+                return await asyncio.wait_for(self._query(upstream, data), timeout=2)
+            except (OSError, asyncio.TimeoutError):
+                continue
+        raise OSError("upstream không phản hồi")
+
+    async def _query(self, upstream: str, data: bytes) -> bytes:
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        transport, _ = await loop.create_datagram_endpoint(
+            lambda: _ResponseProtocol(future), remote_addr=(upstream, 53)
+        )
+        try:
+            transport.sendto(data)
+            return await future
+        finally:
+            transport.close()
+
+    async def serve(self) -> None:
+        loop = asyncio.get_running_loop()
+        last_error: OSError | None = None
+        for host in ("127.0.0.1", "::1"):
+            try:
+                transport, _ = await loop.create_datagram_endpoint(
+                    lambda: _DnsProtocol(self), local_addr=(host, self.port)
+                )
+                self._transports.append(transport)
+            except OSError as exc:
+                last_error = exc
+        if not self._transports:
+            raise OSError(f"không bind được cổng {self.port}: {last_error}")
+        while True:
+            await asyncio.sleep(3600)
+
+    def _log(self, qname: str) -> None:
+        now = time.monotonic()
+        if now - self._logged_at.get(qname, 0.0) < 60:
+            return
+        self._logged_at[qname] = now
+        try:
+            self.store.event("block_web", qname)
+        except sqlite3.Error:
+            pass
+
+
+def start_sinkhole(
+    get_config: Callable[[], Config],
+    get_blocking: Callable[[], bool],
+    db_path: Path,
+    port: int = 53,
+) -> threading.Thread:
+    def runner() -> None:
+        sinkhole = Sinkhole(get_config, get_blocking, db_path, port)
+        try:
+            asyncio.run(sinkhole.serve())
+        except OSError as exc:
+            try:
+                sinkhole.store.event("net_error", str(exc)[:300])
+            except sqlite3.Error:
+                pass
+            print(f"[net] {exc}", flush=True)
+
+    thread = threading.Thread(target=runner, name="enforcer-dns", daemon=True)
+    thread.start()
+    return thread
+
+
+def probe(port: int = 53, timeout: float = 2.0) -> str | None:
+    try:
+        query = DNSRecord.question(SELF_NAME, "A")
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.settimeout(timeout)
+            sock.sendto(query.pack(), ("127.0.0.1", port))
+            data, _ = sock.recvfrom(4096)
+        reply = DNSRecord.parse(data)
+        for record in reply.rr:
+            if record.rtype == QTYPE.A:
+                return str(record.rdata)
+    except (OSError, ValueError):
+        return None
+    return None
+
+
+def is_admin() -> bool:
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except (AttributeError, OSError):
+        return False
+
+
+def _run_ps(script: str) -> str:
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True,
+            timeout=20,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("PowerShell timeout") from None
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout).decode("utf-8", "replace").strip()
+        raise RuntimeError(message or "PowerShell thất bại")
+    return result.stdout.decode("utf-8", "replace").strip()
+
+
+def active_interface_index() -> int | None:
+    try:
+        text = _run_ps(
+            "(Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null } "
+            "| Select-Object -First 1).InterfaceIndex"
+        )
+    except RuntimeError:
+        return None
+    return int(text) if text.isdigit() else None
+
+
+def get_dns(index: int) -> dict[str, list[str]]:
+    script = (
+        f"$i={index}; "
+        "$a=(Get-DnsClientServerAddress -InterfaceIndex $i -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses; "
+        "$b=(Get-DnsClientServerAddress -InterfaceIndex $i -AddressFamily IPv6 -ErrorAction SilentlyContinue).ServerAddresses; "
+        "[pscustomobject]@{v4=@($a);v6=@($b)} | ConvertTo-Json -Compress"
+    )
+    data = json.loads(_run_ps(script) or "{}")
+
+    def as_list(value) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        return [str(item) for item in (value or [])]
+
+    return {"v4": as_list(data.get("v4")), "v6": as_list(data.get("v6"))}
+
+
+def set_dns(index: int, v4: list[str], v6: list[str]) -> None:
+    if not v4 and not v6:
+        _run_ps(f"Set-DnsClientServerAddress -InterfaceIndex {index} -ResetServerAddresses")
+        return
+    for addresses in (v4, v6):
+        if not addresses:
+            continue
+        for address in addresses:
+            ipaddress.ip_address(address)
+        joined = ",".join(f"'{address}'" for address in addresses)
+        _run_ps(f"Set-DnsClientServerAddress -InterfaceIndex {index} -ServerAddresses @({joined})")
+
+
+def reg_get(key: str, name: str) -> str | None:
+    result = subprocess.run(["reg", "query", rf"HKLM\{key}", "/v", name], capture_output=True)
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.decode("utf-8", "replace").splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0].lower() == name.lower():
+            return parts[-1]
+    return ""
+
+
+def reg_set(key: str, name: str, value: str) -> None:
+    result = subprocess.run(
+        ["reg", "add", rf"HKLM\{key}", "/v", name, "/t", "REG_SZ", "/d", value, "/f"],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout).decode("utf-8", "replace").strip()
+        raise RuntimeError(message or "reg add thất bại")
+
+
+def reg_delete(key: str, name: str) -> None:
+    subprocess.run(["reg", "delete", rf"HKLM\{key}", "/v", name, "/f"], capture_output=True)
+
+
+def flush_dns() -> None:
+    try:
+        subprocess.Popen(["ipconfig", "/flushdns"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass
+
+
+def current_wiring() -> dict | None:
+    try:
+        index = active_interface_index()
+        if index is None:
+            return None
+        dns = get_dns(index)
+    except RuntimeError:
+        return None
+    return {
+        "index": index,
+        "v4": dns["v4"],
+        "v6": dns["v6"],
+        "loopback": dns["v4"] == ["127.0.0.1"],
+    }

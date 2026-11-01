@@ -1,0 +1,6 @@
+psutil>=5.9
+dnslib>=0.9.26
+PySide6>=6.7
+tomlkit>=0.12
+segno>=1.6
+zeroconf>=0.130

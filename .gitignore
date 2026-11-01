@@ -1,0 +1,26 @@
+# Luật thật và dữ liệu sử dụng của máy này
+/config.toml
+/data/
+
+# Bản dựng và file phát hành
+/dist/
+/build/
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+*.apk
+
+# Bộ nhớ đệm Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Build web: Next sinh ra, không bao giờ commit
+web/node_modules/
+web/.next/
+web/out/
+.vercel/
+
+# Nhật ký chạy
+*.log
