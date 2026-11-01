@@ -26,7 +26,7 @@ Bản phát hành có ba file trên GitHub Releases:
 
 - `KYLUAT-Setup-v1.1.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
 - `KYLUAT-windows-x64-v1.1.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
-- `kyluat-android-v3.5.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play.
+- `kyluat-android-v3.6.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
 
@@ -120,10 +120,22 @@ Cần JDK 17 và Android SDK 34. `tools/android_setup.sh` tải JDK, command-lin
 
 ```bash
 cd android
-./gradlew :app:assembleDebug
+./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 10 tương ứng `versionName` 3.5. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 11 tương ứng `versionName` 3.6. APK build ra nằm ở `android/app/build/` và không được commit.
+
+Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
+
+Keystore nằm ngoài repo, ở `%USERPROFILE%\.kyluat\kyluat-release.p12`, chứng chỉ RSA 2048 tự ký, hạn 03/2054, fingerprint `62:C9:F6:EA:7B:96:BF:91:BC:2C:04:31:0D:A6:6F:3A:A1:8F:A0:28:9B:E9:50:1A:92:90:0A:E8:66:2A:3F:B8`. Mật khẩu đi kèm ở `%USERPROFILE%\.kyluat\release-password.txt`. Hai việc phải làm ngay và chỉ làm một lần: chép cả hai file ra nơi khác, và nhớ rằng đổi key là mọi máy đang cài phải gỡ rồi cài lại.
+
+Kiểm chữ ký trước khi upload:
+
+```powershell
+& "$env:ANDROID_HOME\build-tools\34.0.0\apksigner.bat" verify --print-certs app-release.apk
+```
+
+`Signer #1 certificate DN` phải là `CN=Kyluat Release, ...`, không phải `CN=Android Debug`. Bản 3.6 ký bằng key mới nên máy đang cài bản debug 3.5 phải gỡ trước, các bản từ 3.6 trở lên cài đè bình thường.
 
 ### Trang web
 

@@ -134,6 +134,11 @@ export default function Page() {
                     <td>Đóng gói thành một file exe chạy độc lập, thêm lệnh <code>Kyluat.exe turn-off</code>.</td>
                   </tr>
                   <tr>
+                    <td className="yes">Android 3.6</td>
+                    <td>01/11/2026</td>
+                    <td>Ký bằng key phát hành riêng thay cho chữ ký debug. Máy đang cài bản 3.5 phải gỡ rồi cài lại một lần.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.5</td>
                     <td>01/11/2026</td>
                     <td>Quỹ mạng xã hội đổi được trong khoảng 15–120 phút, kèm đoạn cam kết gõ tay.</td>

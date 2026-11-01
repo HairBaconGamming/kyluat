@@ -78,8 +78,10 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Cài file APK</h3>
-              <p>Tải <code>kyluat-android-v3.5.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Tải <code>kyluat-android-v3.6.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
               <p>Android 8.0 trở lên. Không lên CH Play.</p>
+              <p>File phát hành trên GitHub nên Google không nhận ra người gửi và hiện cảnh báo <strong>Ứng dụng chưa được xác minh</strong>; trên vài máy phải bấm <strong>Chi tiết khác</strong> rồi mới thấy <strong>Vẫn cài</strong>. Trước khi bấm, so dãy SHA-256 ở trang <a href="/tai-nguyen">Tải về</a> với file vừa tải để chắc nó không bị sửa giữa đường.</p>
+              <p>Bản 3.6 trở lên cài đè nhau bình thường. Máy đang cài bản 3.5 thì gỡ bản đó trước, vì hai bản ký bằng hai key khác nhau.</p>
             </div>
 
             <div className="block">

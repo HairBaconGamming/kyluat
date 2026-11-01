@@ -12,10 +12,10 @@ ROOT = Path(__file__).resolve().parent.parent
 FILES = [
     ROOT / "dist" / "KYLUAT-Setup-v1.1.exe",
     ROOT / "dist" / "KYLUAT-windows-x64-v1.1.zip",
-    ROOT / "dist" / "cai-nghien-companion-v3.5.apk",
+    ROOT / "dist" / "cai-nghien-companion-v3.6.apk",
 ]
 # Tên file sẽ công khai trên GitHub Releases (applicationId giữ nguyên để cài đè được).
-RENAME = {"cai-nghien-companion-v3.5.apk": "kyluat-android-v3.5.apk"}
+RENAME = {"cai-nghien-companion-v3.6.apk": "kyluat-android-v3.6.apk"}
 
 
 def sha256(path: Path) -> str:

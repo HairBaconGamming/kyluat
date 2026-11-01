@@ -11,6 +11,12 @@ android/.gradle/
 android/local.properties
 *.apk
 
+# Key ký bản Android: không bao giờ vào repo, kể cả khi lỡ git add .
+*.jks
+*.keystore
+*.p12
+release-password.txt
+
 # Bộ nhớ đệm Python
 __pycache__/
 *.py[cod]

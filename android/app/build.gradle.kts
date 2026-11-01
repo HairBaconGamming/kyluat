@@ -1,7 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// Key ký bản phát hành nằm ngoài repo, đường dẫn và mật khẩu đọc từ android/local.properties
+// (file đã gitignore) hoặc biến môi trường KYLUAT_* khi build trên máy khác.
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun secret(name: String): String? =
+    System.getenv("KYLUAT_${name.uppercase()}") ?: localProps.getProperty("kyluat.$name")
+
+val storePath = secret("storeFile")
 
 android {
     namespace = "com.cainghien.companion"
@@ -11,13 +25,35 @@ android {
         applicationId = "com.cainghien.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "3.5"
+        versionCode = 11
+        versionName = "3.6"
+    }
+
+    signingConfigs {
+        if (storePath != null) {
+            create("release") {
+                storeFile = file(storePath)
+                storePassword = secret("storePassword")
+                keyAlias = secret("keyAlias")
+                keyPassword = secret("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (storePath == null) {
+                val wantsRelease = gradle.startParameter.taskNames.any { it.contains("Release") }
+                if (wantsRelease) {
+                    throw GradleException(
+                        "Thiếu kyluat.storeFile trong android/local.properties. " +
+                            "Release không ký thì người dùng nhận đúng loại bản debug mà Play Protect chặn."
+                    )
+                }
+            } else {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
