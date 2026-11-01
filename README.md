@@ -1,6 +1,6 @@
 # Kỷ luật
 
-Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình nền Python và PySide6 trên Windows, một DNS sinkhole chạy ngay trên máy để chặn tên miền, một app Android phủ màn khoá lên ứng dụng đang mở, và trang web tải về viết bằng Next.js. Mã nguồn ở [github.com/HairBaconGamming/kyluat](https://github.com/HairBaconGamming/kyluat); thứ phát hành công khai duy nhất tính tới lúc này là [GitHub Releases v1.0](https://github.com/HairBaconGamming/kyluat/releases/tag/v1.0), vì trang web trong thư mục `web/` mới dựng được trên máy dev và chưa deploy.
+Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình nền Python và PySide6 trên Windows, một DNS sinkhole local chặn tên miền, một app Android phủ màn khoá lên ứng dụng đang mở, và trang web hướng dẫn cùng tải về viết bằng Next.js. Mã nguồn ở [github.com/HairBaconGamming/kyluat](https://github.com/HairBaconGamming/kyluat); nơi duy nhất phát hành bản dùng được là [GitHub Releases v1.0](https://github.com/HairBaconGamming/kyluat/releases/tag/v1.0). Trang web chưa có URL công khai, nó mới chạy nội bộ bằng `npm run dev` và chờ được deploy từ repo này.
 
 ![Màn hình Hôm nay trên Windows](web/public/assets/img/desktop-hom-nay.png)
 
@@ -34,21 +34,27 @@ File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: ch�
 
 Máy tính và điện thoại nói chuyện với nhau qua Wi-Fi nội bộ, mỗi bên tự giữ luật của mình.
 
-- `enforcer/` chạy trên Windows. Tiến trình nền kiểm tra mỗi 3 giây và tắt tiến trình thuộc danh sách chặn trong giờ tập trung. Chặn web bằng cách chạy một DNS sinkhole ngay trên máy: nó trả `127.0.0.1` cho tên miền bị chặn và chuyển tiếp mọi truy vấn khác lên DNS cũ. `net install` trỏ DNS của card mạng về `127.0.0.1`, `net uninstall` khôi phục đúng DNS cũ.
-- `android/` chạy trên Android. Lớp phủ toàn màn hình do một AccessibilityService vẽ, quyền Trợ năng chỉ dùng để biết app nào đang ở phía trước, không đọc nội dung màn hình. Không đổi DNS, không đổi chính sách hệ thống.
+- `enforcer/` chạy trên Windows. Tiến trình nền kiểm tra mỗi 3 giây và tắt tiến trình thuộc danh sách chặn trong giờ tập trung.
+- `android/` chạy trên Android. Màn khoá chỉ là một lớp phủ hình ảnh do `WindowManager.addView` với cửa sổ `TYPE_APPLICATION_OVERLAY` vẽ lên, còn AccessibilityService chỉ báo về app nào đang ở phía trước. Lớp phủ không lấy focus, không đổi chính sách hệ thống, không đọc nội dung màn hình. Hai nút trên màn khoá luôn còn: "Quay lại Kỷ luật" và "Dùng app khác"; thu hồi quyền Trợ năng là app dừng chặn ngay.
 - Ghép nối: máy tính sinh mã 6 số và QR, hết hạn sau 5 phút, sai 5 lần thì phải lấy mã mới. Server chỉ lắng nghe trong mạng nội bộ, cổng 8766. Key nằm trong Android Keystore.
+
+### Chặn web bằng DNS sinkhole local
+
+Thay vì cấu hình router hay hosts, máy tính tự chạy một DNS server nhỏ trên chính nó. Tên miền trong danh sách chặn nhận câu trả lời `127.0.0.1` với TTL 5 giây, mọi truy vấn khác được chuyển tiếp nguyên trạng lên DNS cũ. Vì vậy chỉ máy này bị ảnh hưởng, router và các thiết bị khác không đổi theo, và đây là cơ chế chặn tên miền chứ không phải chặn thiết bị.
+
+Cảnh báo cho người review: `net install` sửa cấu hình mạng của máy. Nó cần PowerShell Administrator, ghi DNS của card mạng về `127.0.0.1`, và đặt policy tắt DoH trong registry để trình duyệt không đi vòng qua sinkhole; DNS cũ cùng giá trị registry cũ được lưu trong DB ngay trước khi sửa. Lệnh này thuận nghịch: `net uninstall` khôi phục đúng DNS cũ và dựng lại từng policy DoH về trạng thái trước (xoá nếu trước đó không đặt), `net repair` dùng khi router làm lại DNS sau khi đổi Wi-Fi, còn `turn-off` gom ba bước tắt bảo vệ. Bước khôi phục còn fail-safe: nếu DNS chưa về cũ được thì daemon vẫn chạy và task được bật lại, để bạn không mất internet giữa chừng. Nếu máy tắt đột ngột, `net uninstall` vẫn đưa mọi thứ về cũ.
 
 ## Chạy từ mã nguồn
 
-Yêu cầu tuỳ theo phần bạn chạy:
+Môi trường đã chạy thật, tuỳ theo phần bạn cần:
 
-| Phần | Yêu cầu |
-| --- | --- |
-| `enforcer/` và `tests/` | Windows 10 hoặc 11, Python 3.12 |
-| `android/` | JDK 17, Android SDK 34, Gradle 8.7 |
-| `web/` | Node 20.9 trở lên, vì `next@16.4.3` khai báo `engines.node >= 20.9.0`. `npm run build` cũng cần chừng đó. |
+| Phần | Chạy được trên | Ghi chú |
+| --- | --- | --- |
+| `enforcer/` và `tests/` | Windows 10 hoặc 11, Python 3.12.10 | đây là môi trường tôi đã test, `requirements.txt` không pin bản Python nên chưa kiểm chứng bản thấp hơn |
+| `android/` | JDK 17, Android SDK 34 | `compileSdk`/`targetSdk` 34, `minSdk` 26, Gradle 8.7 theo wrapper đã pin |
+| `web/` | Node 20.9 trở lên, bản tôi dùng là v24.12.0 và npm 11.6.2 | `next@16.4.3` khai báo `engines.node >= 20.9.0` trong `package-lock.json`, nên `npm run build` cần chừng đó |
 
-Python 3.12 là môi trường tôi dev và test. `requirements.txt` chỉ đặt sàn `PySide6>=6.7` và không pin bản Python, nên bản thấp hơn chưa được kiểm chứng.
+Python và Node thấp hơn phần khai báo ở trên thì chưa ai chạy thử, kể cả `npm run build` trên Node 20.9: tôi build trên Node v24.12.0.
 
 ```powershell
 pip install -r requirements.txt
