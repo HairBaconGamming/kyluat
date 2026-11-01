@@ -5,14 +5,13 @@ import ipaddress
 import json
 import secrets
 import socket
-import subprocess
 import threading
 import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import discovery, pairing, sessions
+from . import discovery, pairing, proc, sessions
 from .config import Config
 from .dashboard import build_summary
 from .store import APPROVED_KEY, Store
@@ -62,7 +61,7 @@ def lan_ip() -> str:
 
 
 def add_firewall_rule(port: int = PHONE_PORT) -> bool:
-    result = subprocess.run(
+    result = proc.run(
         [
             "netsh", "advfirewall", "firewall", "add", "rule",
             f"name=CaiNghienPhone{port}", "dir=in", "action=allow",

@@ -24,6 +24,7 @@ a = Analysis(
         "enforcer.notify",
         "enforcer.pairing",
         "enforcer.phone_api",
+        "enforcer.proc",
         "enforcer.rules",
         "enforcer.schedule",
         "enforcer.sessions",
@@ -42,6 +43,9 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+# Kyluat.exe là app GUI nên build kiểu windowed: Windows không cấp console, không có
+# cửa sổ đen nhấp nháy lúc mở app hay lúc task mỗi phút đánh thức daemon.
+# Muốn gõ lệnh thì dùng Kyluat-cli.exe (subsystem console) — giống cặp pythonw/python.
 exe = EXE(
     pyz,
     a.scripts,
@@ -51,8 +55,23 @@ exe = EXE(
     debug=False,
     strip=False,
     upx=False,
-    console=True,
+    console=False,
+    version=str(ROOT / "packaging" / "version.txt"),
     icon=str(ROOT / "enforcer" / "static" / "app.ico"),
 )
 
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="Kyluat")
+cli_exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="Kyluat-cli",
+    debug=False,
+    strip=False,
+    upx=False,
+    console=True,
+    version=str(ROOT / "packaging" / "version-cli.txt"),
+    icon=str(ROOT / "enforcer" / "static" / "app.ico"),
+)
+
+coll = COLLECT(exe, cli_exe, a.binaries, a.datas, strip=False, upx=False, name="Kyluat")

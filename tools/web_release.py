@@ -10,7 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [
-    ROOT / "dist" / "Kyluat-windows-x64-v1.zip",
+    ROOT / "dist" / "KYLUAT-Setup-v1.1.exe",
+    ROOT / "dist" / "KYLUAT-windows-x64-v1.1.zip",
     ROOT / "dist" / "cai-nghien-companion-v3.5.apk",
 ]
 # Tên file sẽ công khai trên GitHub Releases (applicationId giữ nguyên để cài đè được).

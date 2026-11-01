@@ -314,12 +314,12 @@ export default function Page() {
                   <span className="ico"><Icon name="desktop" /></span>
                   <div>
                     <h3>Windows 10 và 11 (64-bit)</h3>
-                    <p className="lede" style={{ fontSize: '14px' }}>Bản nén, giải nén rồi chạy <code>Kyluat.exe</code>.</p>
+                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài <code>KYLUAT-Setup-v1.1.exe</code>, không đòi quyền quản trị.</p>
                   </div>
                 </div>
                 <ul>
                   <li>Chặn app trong giờ tập trung và chặn trang web qua DNS.</li>
-                  <li>Không cài đặt, không ghi vào hệ thống.</li>
+                  <li>Cài vào thư mục của riêng bạn, gỡ bằng Add or remove programs.</li>
                   <li>File chưa có chữ ký số, Windows sẽ hỏi bạn một lần.</li>
                 </ul>
                 <a className="btn primary" href="/tai-nguyen">Tải bản Windows</a>
@@ -355,6 +355,20 @@ export default function Page() {
                 <div className="body">
                   <p>Không đi đâu cả. Luật, lịch sử chặn và sổ học tập nằm trong một file SQLite trên máy bạn, xem được ở mục Nâng cao.</p>
                   <p>Máy tính và điện thoại nói chuyện với nhau qua Wi-Fi nội bộ, không có máy chủ trung gian.</p>
+                </div>
+              </details>
+              <details id="faq-virus">
+                <summary>Windows báo file này không an toàn. Có thật sự an toàn không?</summary>
+                <div className="body">
+                  <p>Cảnh báo đó là SmartScreen, vì exe chưa mua chứng chỉ chữ ký số nên Windows không biết ai làm ra nó, cộng thêm việc đóng gói bằng PyInstaller hay bị công cụ diệt virus đoán nhầm. Mã nguồn mở ở <a href="https://github.com/HairBaconGamming/kyluat">github.com/HairBaconGamming/kyluat</a>, và <a href="/an-toan">trang Vì sao an toàn</a> liệt kê từng thứ app đụng vào kèm lệnh để bạn tự kiểm.</p>
+                  <p>Vẫn nên so SHA-256 trước khi chạy, và đừng tắt Windows Defender để app chạy.</p>
+                </div>
+              </details>
+              <details id="faq-go">
+                <summary>Gỡ khỏi máy thì có để lại gì không?</summary>
+                <div className="body">
+                  <p>Bộ gỡ tắt bảo vệ trước (xóa task, khôi phục DNS, bỏ rule tường lửa) rồi mới xóa file. Nếu đang bật chặn web mà không tắt được, nó từ chối gỡ để bạn không mất internet giữa chừng.</p>
+                  <p>Thư mục <code>data\</code> giữ lại sổ học tập và lịch sử chặn cho tới khi bạn tự xóa.</p>
                 </div>
               </details>
               <details id="faq-man-hinh">

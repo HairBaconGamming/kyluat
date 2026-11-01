@@ -5,7 +5,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import winreg
@@ -14,7 +13,7 @@ from datetime import datetime, time
 from pathlib import Path
 
 import psutil
-from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QRectF, QSize, Qt, QTime, QTimer
+from PySide6.QtCore import QBuffer, QByteArray, QElapsedTimer, QIODevice, QRectF, QSize, Qt, QThread, QTime, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
@@ -47,7 +46,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import catalog, net, pairing, phone_api, rules, sessions
+from . import catalog, net, pairing, phone_api, proc, rules, sessions
 from .cli import (
     CLI_HINT,
     CONFIG_PATH,
@@ -282,7 +281,7 @@ def create_shortcut(icon_path: Path, desktop_dir: Path | None = None) -> Path:
         "$s.IconLocation = $env:CAINGHIEN_ICON\n"
         "$s.Save()\n"
     )
-    result = subprocess.run(
+    result = proc.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
         capture_output=True,
         env=env,
@@ -1739,10 +1738,10 @@ def window_titles() -> dict[int, str]:
 def running_apps(covered: set[str]) -> list[dict]:
     titles = window_titles()
     entries: dict[str, dict] = {}
-    for proc in psutil.process_iter(["pid", "name"]):
+    for candidate in psutil.process_iter(["pid", "name"]):
         try:
-            pid = int(proc.info["pid"])
-            name = str(proc.info["name"] or "").lower()
+            pid = int(candidate.info["pid"])
+            name = str(candidate.info["name"] or "").lower()
         except (psutil.Error, AttributeError, TypeError, ValueError):
             continue
         if not _safe_process(name) or name in covered or pid not in titles:
@@ -2372,6 +2371,23 @@ class DisableDialog(QDialog):
         self.counter.setText(f"{len(text)} / {len(PARAGRAPH)} ký tự")
         self.disable_button.setEnabled(text == PARAGRAPH)
 
+    def _wait_until_off(self, seconds: int = 20) -> bool:
+        """Tiến trình nâng quyền không còn cửa sổ riêng để nhìn, nên đọc lại DB và task mà chờ."""
+        timer = QElapsedTimer()
+        timer.start()
+        while True:
+            store = Store(DB_PATH)
+            try:
+                net_enabled = store.get_state(NET_ENABLED_KEY) == "1"
+            finally:
+                store.close()
+            if not net_enabled and not _task_status().startswith("có") and _daemon_pid() is None:
+                return True
+            if timer.elapsed() >= seconds * 1000:
+                return False
+            QApplication.processEvents()
+            QThread.msleep(400)
+
     def perform_off(self) -> None:
         store = Store(DB_PATH)
         try:
@@ -2398,7 +2414,20 @@ class DisableDialog(QDialog):
                     psutil.Process(pid).terminate()
                 except psutil.Error:
                     pass
-            subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME], capture_output=True)
+            proc.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME], capture_output=True)
+        self.final_label.setText("Đang tắt…")
+        self.final_label.setStyleSheet(f"color:{INK_2};font-size:20px;font-weight:600;")
+        if not self._wait_until_off():
+            QMessageBox.warning(
+                self,
+                "Chưa tắt được",
+                "Sau 20 giây máy vẫn còn dấu vết bảo vệ: DNS, task hoặc daemon.\n"
+                "Mở PowerShell Administrator rồi chạy:\n"
+                f"{CLI_HINT} turn-off\n"
+                "Chi tiết nằm trong data\\turnoff.log.",
+            )
+            self.reject()
+            return
         QMessageBox.information(self, "Đã tắt bảo vệ", "Bảo vệ đã được tắt. Bạn có thể bật lại bằng cách chạy app và bật lại.")
         self.accept()
 

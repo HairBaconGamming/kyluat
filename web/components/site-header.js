@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/#cach-hoat-dong", label: "Cách hoạt động" },
   { href: "/#nguyen-tac", label: "Nguyên tắc" },
   { href: "/huong-dan", label: "Hướng dẫn" },
+  { href: "/an-toan", label: "Vì sao an toàn" },
   { href: "/#hoi-dap", label: "Hỏi đáp" },
 ];
 

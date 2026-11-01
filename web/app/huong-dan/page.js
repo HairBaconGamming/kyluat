@@ -24,9 +24,9 @@ export default function Page() {
             <h2>Windows</h2>
 
             <div className="block">
-              <h3>1. Giải nén và chạy</h3>
-              <p>Giải nén thư mục <code>Kyluat</code> vào nơi bạn muốn, ví dụ <code>D:\Kyluat</code>. Mở <code>Kyluat.exe</code>. Không có bước cài đặt, không cần Python.</p>
-              <p>Toàn bộ dữ liệu nằm trong thư mục <code>data\</code> cạnh file exe. Muốn chuyển máy, bạn chép cả thư mục.</p>
+              <h3>1. Chạy bộ cài</h3>
+              <p>Mở <code>KYLUAT-Setup-v1.1.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
+              <p>Không muốn cài gì thì tải bản <code>.zip</code>, giải nén thư mục <code>Kyluat</code> vào nơi bạn muốn rồi mở <code>Kyluat.exe</code>. Ở cách nào, dữ liệu cũng nằm trong <code>data\</code> cạnh file exe, chép cả thư mục là chuyển được máy.</p>
             </div>
 
             <div className="block">
@@ -48,25 +48,25 @@ export default function Page() {
             <div className="block">
               <h3>4. Bật chặn trang web (một lần, cần quyền Administrator)</h3>
               <p>Chặn web hoạt động bằng cách trỏ DNS của máy về chính nó trong giờ tập trung. Mở PowerShell bằng quyền Administrator rồi chạy:</p>
-              <p><code>cd D:\Kyluat</code><br /><code>.\Kyluat.exe net install</code></p>
-              <p>Muốn tắt: <code>.\Kyluat.exe net uninstall</code>. Lệnh này khôi phục đúng DNS bạn đang dùng.</p>
+              <p><code>cd $env:LOCALAPPDATA\Programs\Kyluat</code><br /><code>.\Kyluat-cli.exe net install</code></p>
+              <p>Muốn tắt: <code>.\Kyluat-cli.exe net uninstall</code>. Lệnh này khôi phục đúng DNS bạn đang dùng.</p>
             </div>
 
             <div className="block">
               <h3>5. Kiểm tra xem máy đã vào nền nếp chưa</h3>
-              <p><code>.\Kyluat.exe doctor</code> đọc to mọi thứ: luật đang chạy, daemon còn sống, DNS có khớp, hôm nay chặn được bao nhiêu lần.</p>
-              <p>Nếu bạn đổi Wi-Fi hoặc router làm lại DNS, chạy <code>.\Kyluat.exe net repair</code>.</p>
+              <p><code>.\Kyluat-cli.exe doctor</code> đọc to mọi thứ: luật đang chạy, daemon còn sống, DNS có khớp, hôm nay chặn được bao nhiêu lần.</p>
+              <p>Nếu bạn đổi Wi-Fi hoặc router làm lại DNS, chạy <code>.\Kyluat-cli.exe net repair</code>.</p>
             </div>
 
             <div className="block">
               <h3>6. Gỡ sạch khi không dùng nữa</h3>
-              <p>Trong app: màn <strong>Nâng cao</strong> → <strong>Tắt bảo vệ</strong>, gõ lại đoạn cam kết và chờ 60 giây.</p>
-              <p>Hoặc từ PowerShell Administrator: <code>.\Kyluat.exe turn-off</code>. Lệnh này khôi phục DNS, xóa task tự chạy và dừng tiến trình nền. Xong thì xoá thư mục là sạch.</p>
+              <p>Trong app: màn <strong>Nâng cao</strong> → <strong>Tắt bảo vệ</strong>, gõ lại đoạn cam kết và chờ 60 giây. Hết giờ, app tự kiểm tra lại DNS, task và daemon rồi mới báo đã tắt; nếu chưa tắt được nó nói rõ và đưa lệnh để bạn tự chạy.</p>
+              <p>Rồi mở Add or remove programs, gỡ <strong>Kỷ luật</strong>. Bộ gỡ tự chạy <code>turn-off</code> trước nên DNS được khôi phục, task và rule tường lửa bị xóa; <code>data\</code> vẫn ở lại cho tới khi bạn tự xóa thư mục.</p>
             </div>
 
             <p className="note warn">
               <Icon name="alert" />
-              <span>File exe chưa có chữ ký số. Windows SmartScreen sẽ hiện cảnh báo lần đầu: chọn More info rồi Run anyway, sau khi đã so SHA-256 ở trang tải về.</span>
+              <span>File exe chưa có chữ ký số. Windows SmartScreen sẽ hiện cảnh báo lần đầu: chọn More info rồi Run anyway, sau khi đã so SHA-256 ở trang tải về. Muốn xem app đụng vào gì trên máy, đọc <a href="/an-toan">Vì sao an toàn</a>.</span>
             </p>
           </div>
         </section>
@@ -167,11 +167,11 @@ export default function Page() {
             <div className="grid two">
               <div className="card">
                 <h3>Trang web không bị chặn</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Kiểm tra <code>Kyluat.exe net status</code>. Firefox tắt DoH thủ công trong Settings → Privacy &amp; Security.</p>
+                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Kiểm tra <code>Kyluat-cli.exe net status</code>. Firefox tắt DoH thủ công trong Settings → Privacy &amp; Security.</p>
               </div>
               <div className="card">
                 <h3>Điện thoại không tìm thấy máy tính</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Mở firewall bằng PowerShell Administrator: <code>.\Kyluat.exe phone firewall</code>. Router bật cách ly thiết bị thì không ghép được.</p>
+                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Mở firewall bằng PowerShell Administrator: <code>.\Kyluat-cli.exe phone firewall</code>. Router bật cách ly thiết bị thì không ghép được.</p>
               </div>
               <div className="card">
                 <h3>Màn khoá Android không hiện lên app</h3>
@@ -179,7 +179,7 @@ export default function Page() {
               </div>
               <div className="card">
                 <h3>Mạng bị mất sau khi tắt máy đột ngột</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>DNS còn trỏ về máy bạn. Chạy <code>.\Kyluat.exe net uninstall</code> bằng quyền Administrator là về cũ.</p>
+                <p style={{ margin: '0', color: 'var(--ink-2)' }}>DNS còn trỏ về máy bạn. Chạy <code>.\Kyluat-cli.exe net uninstall</code> bằng quyền Administrator là về cũ.</p>
               </div>
               <div className="card">
                 <h3>Muốn biết hôm nay máy đã chặn gì</h3>

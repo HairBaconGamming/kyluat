@@ -14,7 +14,7 @@ from pathlib import Path
 
 import psutil
 
-from . import net, notify, pairing, phone_api, rules, sessions
+from . import net, notify, pairing, phone_api, proc, rules, sessions
 from .config import Config, ConfigError, load_config, load_plan, weakening_changes
 from .dashboard import serve as serve_dashboard
 from .guard import Guard, acquire_lock, release_lock
@@ -29,7 +29,13 @@ CONFIG_PATH = ROOT / "config.toml"
 DB_PATH = ROOT / "data" / "enforcer.db"
 LOCK_PATH = ROOT / "data" / "enforcer.lock"
 TASK_NAME = "CaiNghienEnforcer"
-CLI_HINT = Path(sys.executable).name if FROZEN else "python -m enforcer"
+CLI_HINT = "Kyluat-cli.exe" if FROZEN else "python -m enforcer"
+GUI_EXE = ROOT / "Kyluat.exe"
+
+
+def _daemon_executable() -> Path:
+    """Daemon phải chạy bằng exe GUI: task đánh thức mỗi phút mà là exe console thì cửa sổ đen nhấp nháy."""
+    return GUI_EXE if FROZEN and GUI_EXE.exists() else Path(sys.executable)
 
 
 def resource_path(relative: str) -> Path:
@@ -512,13 +518,13 @@ def cmd_dashboard(args) -> int:
 
 def _create_task(elevated: bool = False) -> subprocess.CompletedProcess:
     if FROZEN:
-        action = f'"{sys.executable}" run'
+        action = f'"{_daemon_executable()}" run'
     else:
         action = f'"{_pythonw()}" "{ROOT / "run_enforcer.pyw"}"'
     command = ["schtasks", "/Create", "/F", "/TN", TASK_NAME, "/SC", "MINUTE", "/MO", "1", "/TR", action]
     if elevated:
         command += ["/RL", "HIGHEST"]
-    return subprocess.run(command, capture_output=True)
+    return proc.run(command, capture_output=True)
 
 
 def cmd_install(args) -> int:
@@ -536,7 +542,7 @@ def cmd_install(args) -> int:
 
 
 def cmd_uninstall(args) -> int:
-    result = subprocess.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME], capture_output=True)
+    result = proc.run(["schtasks", "/Delete", "/F", "/TN", TASK_NAME], capture_output=True)
     message = (result.stderr or result.stdout).decode("utf-8", "replace").strip()
     print(f"{TASK_NAME}: {'đã xóa' if result.returncode == 0 else message}")
     return 0
@@ -554,24 +560,35 @@ def cmd_turn_off(args) -> int:
     log("")
     log(f"=== turn off {time.strftime('%Y-%m-%d %H:%M:%S')} · {sys.executable} ===")
     print("Đang tắt bảo vệ…")
-    subprocess.run(["schtasks", "/Change", "/TN", TASK_NAME, "/DISABLE"], capture_output=True)
+    proc.run(["schtasks", "/Change", "/TN", TASK_NAME, "/DISABLE"], capture_output=True)
 
-    code = cmd_net_uninstall(args)
     store = Store(DB_PATH)
     try:
-        still_blocking = store.get_state(NET_ENABLED_KEY) == "1"
+        dns_touched = store.get_state(NET_ENABLED_KEY) == "1" or bool(store.get_state(NET_BACKUP_KEY))
     finally:
         store.close()
-    if code != 0 or still_blocking:
-        log(f"ABORT: net uninstall rc={code} still_blocking={still_blocking}; giữ daemon để không mất mạng")
-        subprocess.run(["schtasks", "/Change", "/TN", TASK_NAME, "/ENABLE"], capture_output=True)
-        print("Chưa tắt được: chặn web chưa khôi phục xong, daemon vẫn chạy để mạng không bị đứt.")
-        print(f"Xem chi tiết: {log_path}")
-        return 1
-    log("net uninstall ok")
+
+    if dns_touched:
+        code = cmd_net_uninstall(args)
+        store = Store(DB_PATH)
+        try:
+            still_blocking = store.get_state(NET_ENABLED_KEY) == "1"
+        finally:
+            store.close()
+        if code != 0 or still_blocking:
+            log(f"ABORT: net uninstall rc={code} still_blocking={still_blocking}; giữ daemon để không mất mạng")
+            proc.run(["schtasks", "/Change", "/TN", TASK_NAME, "/ENABLE"], capture_output=True)
+            print("Chưa tắt được: chặn web chưa khôi phục xong, daemon vẫn chạy để mạng không bị đứt.")
+            print("Cần quyền Administrator: mở app rồi bấm Tắt bảo vệ, hoặc chạy lại lệnh này trong PowerShell Admin.")
+            print(f"Xem chi tiết: {log_path}")
+            return 1
+        log("net uninstall ok")
+    else:
+        # Chưa từng đổi DNS thì không có gì để khôi phục, nên khỏi đòi quyền admin.
+        log("chưa bật chặn web: bỏ qua bước khôi phục DNS")
 
     cmd_uninstall(args)
-    subprocess.run(
+    proc.run(
         ["netsh", "advfirewall", "firewall", "delete", "rule", f"name=CaiNghienPhone{phone_api.PHONE_PORT}"],
         capture_output=True,
     )
@@ -784,8 +801,8 @@ def cmd_doctor(args) -> int:
 
 
 def _start_daemon() -> None:
-    command = [sys.executable, "run"] if FROZEN else [str(_pythonw()), str(ROOT / "run_enforcer.pyw")]
-    subprocess.Popen(
+    command = [str(_daemon_executable()), "run"] if FROZEN else [str(_pythonw()), str(ROOT / "run_enforcer.pyw")]
+    proc.popen(
         command,
         cwd=str(ROOT),
         creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
@@ -948,7 +965,7 @@ def _daemon_status() -> str:
 
 
 def _task_status() -> str:
-    result = subprocess.run(["schtasks", "/Query", "/TN", TASK_NAME], capture_output=True)
+    result = proc.run(["schtasks", "/Query", "/TN", TASK_NAME], capture_output=True)
     if result.returncode == 0:
         return f"có (task {TASK_NAME}, mỗi phút)"
     return f"chưa cài (chạy: {CLI_HINT} install)"

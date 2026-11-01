@@ -1,5 +1,5 @@
 import Icon from "@/components/icon";
-import { WINDOWS, ANDROID } from "@/lib/site";
+import { WINDOWS, WINDOWS_ZIP, ANDROID } from "@/lib/site";
 
 export const metadata = {
   title: "Tải về",
@@ -8,7 +8,7 @@ export const metadata = {
   alternates: { canonical: "/tai-nguyen" },
   openGraph: {
     title: "Tải về Kỷ luật cho Windows và Android",
-    description: "Hai file, có dung lượng và SHA-256 để bạn tự kiểm tra.",
+    description: "Ba file, có dung lượng và SHA-256 để bạn tự kiểm tra.",
     url: "/tai-nguyen",
   },
 };
@@ -19,7 +19,7 @@ export default function Page() {
       <section className="hero" style={{ paddingBottom: '40px' }}>
           <div className="wrap" style={{ display: 'block' }}>
             <p className="eyebrow">Tải về</p>
-            <h1>Hai file, có số để kiểm tra</h1>
+            <h1>Ba file, có số để kiểm tra</h1>
             <p className="lede" style={{ marginTop: '12px' }}>File phát hành nằm trên GitHub. Sau khi tải, chạy <code>certutil -hashfile ten_file SHA256</code> rồi so với dãy bên dưới.</p>
           </div>
         </section>
@@ -31,31 +31,41 @@ export default function Page() {
                 <span className="ico"><Icon name="desktop" /></span>
                 <div>
                   <h3>Windows 10 và 11, bản 64-bit</h3>
-                  <p className="lede" style={{ fontSize: '14px' }}>Giải nén thư mục rồi chạy <code>Kyluat.exe</code>. Không cần cài Python.</p>
+                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.1.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
                 </div>
               </div>
-              <div className="file">
-                <span className="name">{WINDOWS.file}</span>
-                <span className="meta">{`${WINDOWS.size} · ${WINDOWS.note}`}</span>
-                <span className="meta">SHA-256</span>
-                <span className="hash">{WINDOWS.sha256}</span>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <div className="file">
+                  <span className="name">{WINDOWS.file}</span>
+                  <span className="meta">{`${WINDOWS.size} · ${WINDOWS.note}`}</span>
+                  <span className="meta">SHA-256</span>
+                  <span className="hash">{WINDOWS.sha256}</span>
+                </div>
+                <div className="file">
+                  <span className="name">{WINDOWS_ZIP.file}</span>
+                  <span className="meta">{`${WINDOWS_ZIP.size} · ${WINDOWS_ZIP.note}`}</span>
+                  <span className="meta">SHA-256</span>
+                  <span className="hash">{WINDOWS_ZIP.sha256}</span>
+                </div>
               </div>
               <div className="grid two">
                 <div className="card">
-                  <h3>Trong thư mục có gì</h3>
+                  <h3>Máy bạn nhận được gì</h3>
                   <ul>
-                    <li><code>Kyluat.exe</code>: mở app và chạy cả lệnh dòng lệnh.</li>
-                    <li><code>config.toml</code>: luật mẫu, bạn sửa trong app là được.</li>
-                    <li><code>data\</code>: tự sinh sau lần chạy đầu, chứa lịch sử trên máy bạn.</li>
+                    <li><code>Kyluat.exe</code> trong <code>%LOCALAPPDATA%\Programs\Kyluat</code>: mở app, không có cửa sổ command prompt chớp lúc khởi động.</li>
+                    <li><code>Kyluat-cli.exe</code>: cùng phần mềm nhưng để gõ lệnh, ví dụ <code>.\Kyluat-cli.exe doctor</code>.</li>
+                    <li><code>config.toml</code>: luật mẫu, bạn sửa trong app là được. Cài đè bản mới không ghi đè luật cũ.</li>
+                    <li><code>data\</code>: lịch sử và sổ tay, chỉ sinh ra khi bạn dùng. Gỡ app vẫn giữ lại.</li>
                   </ul>
                 </div>
                 <div className="card">
                   <h3>Windows sẽ cảnh báo một lần</h3>
-                  <p style={{ margin: '0', color: 'var(--ink-2)', fontSize: '14px' }}>File chưa mua chứng chỉ chữ ký số nên SmartScreen hiện "Unknown publisher". Chọn <strong>More info</strong> rồi <strong>Run anyway</strong>. Nếu bạn thấy lo, hãy so SHA-256 trước.</p>
+                  <p style={{ margin: '0', color: 'var(--ink-2)', fontSize: '14px' }}>File chưa mua chứng chỉ chữ ký số nên SmartScreen hiện "Unknown publisher". Chọn <strong>More info</strong> rồi <strong>Run anyway</strong> sau khi đã so SHA-256 ở trên. Vì sao file này không phải virus thì giải thích từng câu ở <a href="/an-toan">trang an toàn</a>.</p>
                 </div>
               </div>
               <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <a className="btn primary" href={WINDOWS.url}>Tải file .zip</a>
+                <a className="btn primary" href={WINDOWS.url}>Tải bộ cài .exe</a>
+                <a className="btn" href={WINDOWS_ZIP.url}>Tải bản nén .zip</a>
                 <a className="btn" href="/huong-dan#windows">Xem hướng dẫn cài</a>
               </div>
             </div>
@@ -108,11 +118,16 @@ export default function Page() {
             </div>
             <div className="block" style={{ overflowX: 'auto' }}>
               <table>
-                <caption>Bản hiện tại là bản đầu tiên được đóng gói để tải về.</caption>
+                <caption>Bản Windows 1.1 là bản đầu tiên có bộ cài đặt.</caption>
                 <thead>
                   <tr><th scope="col">Bản</th><th scope="col">Ngày</th><th scope="col">Thay đổi</th></tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td className="yes">Windows 1.1</td>
+                    <td>01/11/2026</td>
+                    <td>Bộ cài riêng, gỡ sạch bằng Add or remove programs. Sửa lỗi app chết ngay khi mở (<code>WinError 50</code>), không còn cửa sổ command prompt chớp lúc mở app, tách <code>Kyluat-cli.exe</code> cho lệnh dòng lệnh.</td>
+                  </tr>
                   <tr>
                     <td className="yes">Windows v1</td>
                     <td>01/11/2026</td>

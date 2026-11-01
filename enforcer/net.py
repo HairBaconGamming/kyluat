@@ -15,6 +15,7 @@ from typing import Callable
 
 from dnslib import A, AAAA, QTYPE, RR, DNSRecord
 
+from . import proc
 from .config import Config
 from .store import Store
 
@@ -197,7 +198,7 @@ def is_admin() -> bool:
 
 def _run_ps(script: str) -> str:
     try:
-        result = subprocess.run(
+        result = proc.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
             capture_output=True,
             timeout=20,
@@ -252,7 +253,7 @@ def set_dns(index: int, v4: list[str], v6: list[str]) -> None:
 
 
 def reg_get(key: str, name: str) -> str | None:
-    result = subprocess.run(["reg", "query", rf"HKLM\{key}", "/v", name], capture_output=True)
+    result = proc.run(["reg", "query", rf"HKLM\{key}", "/v", name], capture_output=True)
     if result.returncode != 0:
         return None
     for line in result.stdout.decode("utf-8", "replace").splitlines():
@@ -263,7 +264,7 @@ def reg_get(key: str, name: str) -> str | None:
 
 
 def reg_set(key: str, name: str, value: str) -> None:
-    result = subprocess.run(
+    result = proc.run(
         ["reg", "add", rf"HKLM\{key}", "/v", name, "/t", "REG_SZ", "/d", value, "/f"],
         capture_output=True,
     )
@@ -273,12 +274,12 @@ def reg_set(key: str, name: str, value: str) -> None:
 
 
 def reg_delete(key: str, name: str) -> None:
-    subprocess.run(["reg", "delete", rf"HKLM\{key}", "/v", name, "/f"], capture_output=True)
+    proc.run(["reg", "delete", rf"HKLM\{key}", "/v", name, "/f"], capture_output=True)
 
 
 def flush_dns() -> None:
     try:
-        subprocess.Popen(["ipconfig", "/flushdns"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc.popen(["ipconfig", "/flushdns"])
     except OSError:
         pass
 

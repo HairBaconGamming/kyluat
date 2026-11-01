@@ -4,6 +4,8 @@ import os
 import subprocess
 import threading
 
+from . import proc
+
 TOAST_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
@@ -21,7 +23,7 @@ def toast(title: str, message: str) -> bool:
         return False
     env = dict(os.environ, CAINGHIEN_TITLE=title, CAINGHIEN_MESSAGE=message)
     try:
-        result = subprocess.run(
+        result = proc.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", TOAST_SCRIPT],
             capture_output=True,
             timeout=15,
