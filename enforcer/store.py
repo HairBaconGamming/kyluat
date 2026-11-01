@@ -86,7 +86,7 @@ class Store:
     def blocks_today(self) -> int:
         prefix = datetime.now().date().isoformat()
         row = self.conn.execute(
-            "SELECT COUNT(*) FROM events WHERE kind IN ('block', 'block_web') AND ts LIKE ?",
+            "SELECT COUNT(*) FROM events WHERE kind IN ('block', 'block_web', 'block_adult') AND ts LIKE ?",
             (prefix + "%",),
         ).fetchone()
         return row[0]
@@ -128,14 +128,14 @@ class Store:
     def blocks_by_day(self, since: str) -> dict[str, int]:
         rows = self.conn.execute(
             "SELECT substr(ts, 1, 10), COUNT(*) FROM events "
-            "WHERE kind IN ('block', 'block_web') AND substr(ts, 1, 10) >= ? GROUP BY 1",
+            "WHERE kind IN ('block', 'block_web', 'block_adult') AND substr(ts, 1, 10) >= ? GROUP BY 1",
             (since,),
         ).fetchall()
         return {day: int(count) for day, count in rows}
 
     def top_blocked(self, since: str, limit: int = 3) -> list[tuple[str, int]]:
         rows = self.conn.execute(
-            "SELECT detail FROM events WHERE kind IN ('block', 'block_web') AND substr(ts, 1, 10) >= ?",
+            "SELECT detail FROM events WHERE kind IN ('block', 'block_web', 'block_adult') AND substr(ts, 1, 10) >= ?",
             (since,),
         ).fetchall()
         counts: dict[str, int] = {}

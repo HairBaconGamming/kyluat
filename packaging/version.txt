@@ -18,12 +18,12 @@ VSVersionInfo(
       StringTable('040904b0', [
         StringStruct('CompanyName', 'HairBaconGamming'),
         StringStruct('FileDescription', 'Kyluat - block distractions on Windows'),
-        StringStruct('FileVersion', '1.1'),
+        StringStruct('FileVersion', '1.2'),
         StringStruct('InternalName', 'Kyluat'),
         StringStruct('LegalCopyright', 'Open source: github.com/HairBaconGamming/kyluat'),
         StringStruct('OriginalFilename', 'Kyluat.exe'),
         StringStruct('ProductName', 'Kyluat'),
-        StringStruct('ProductVersion', '1.1')
+        StringStruct('ProductVersion', '1.2')
       ])
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])

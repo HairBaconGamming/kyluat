@@ -30,6 +30,7 @@ def write_rules(path: Path, config: Config) -> None:
     block["kill_browsers"] = config.kill_browsers
     web = _table(doc, "web")
     web["domains"] = list(config.web_domains)
+    web["adult"] = config.adult_block
 
     windows = tomlkit.aot()
     for window in config.windows:

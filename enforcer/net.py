@@ -16,10 +16,14 @@ from typing import Callable
 from dnslib import A, AAAA, QTYPE, RR, DNSRecord
 
 from . import proc
+from .adult_list import ADULT_DOMAINS
 from .config import Config
 from .store import Store
 
 UPSTREAMS = ("1.1.1.1", "8.8.8.8")
+# AdGuard DNS Family: lớn hơn 1.1.1.1 một bước vì nó đã lọc sẵn nội dung người lớn,
+# nên phần việc của danh sách chọn tay chỉ là những nền tảng bị bộ lọc bỏ sót.
+ADULT_UPSTREAMS = ("94.140.14.14", "94.140.14.15")
 SELF_NAME = "enforcer.local"
 DOH_POLICIES = (
     (r"SOFTWARE\Policies\Google\Chrome", "DnsOverHttpsMode"),
@@ -31,6 +35,14 @@ def domain_matches(qname: str, domain: str) -> bool:
     name = qname.rstrip(".").lower()
     base = domain.rstrip(".").lower()
     return name == base or name.endswith("." + base)
+
+
+def adult_blocked(qname: str) -> bool:
+    return any(domain_matches(qname, domain) for domain in ADULT_DOMAINS)
+
+
+def upstreams_for(config: Config) -> tuple[str, ...]:
+    return ADULT_UPSTREAMS if config.adult_block else UPSTREAMS
 
 
 class _DnsProtocol(asyncio.DatagramProtocol):
@@ -71,9 +83,12 @@ class Sinkhole:
         self._logged_at: dict[str, float] = {}
 
     def blocked(self, qname: str) -> bool:
+        config = self.get_config()
+        # 18+ chặn suốt ngày, không chờ phiên focus; danh sách domain vẫn chỉ theo giờ focus.
+        if config.adult_block and adult_blocked(qname):
+            return True
         if not self.get_blocking():
             return False
-        config = self.get_config()
         if not config.web_domains:
             return False
         return any(domain_matches(qname, domain) for domain in config.web_domains)
@@ -96,7 +111,7 @@ class Sinkhole:
             elif request.q.qtype == QTYPE.AAAA:
                 reply.add_answer(RR(request.q.qname, QTYPE.AAAA, rdata=AAAA("::"), ttl=30))
             transport.sendto(reply.pack(), addr)
-            self._log(qname)
+            self._log(qname, adult=self.get_config().adult_block and adult_blocked(qname))
             return
         try:
             response = await self._forward(data)
@@ -105,7 +120,7 @@ class Sinkhole:
         transport.sendto(response, addr)
 
     async def _forward(self, data: bytes) -> bytes:
-        for upstream in UPSTREAMS:
+        for upstream in upstreams_for(self.get_config()):
             try:
                 return await asyncio.wait_for(self._query(upstream, data), timeout=2)
             except (OSError, asyncio.TimeoutError):
@@ -140,13 +155,13 @@ class Sinkhole:
         while True:
             await asyncio.sleep(3600)
 
-    def _log(self, qname: str) -> None:
+    def _log(self, qname: str, adult: bool = False) -> None:
         now = time.monotonic()
         if now - self._logged_at.get(qname, 0.0) < 60:
             return
         self._logged_at[qname] = now
         try:
-            self.store.event("block_web", qname)
+            self.store.event("block_adult" if adult else "block_web", qname)
         except sqlite3.Error:
             pass
 

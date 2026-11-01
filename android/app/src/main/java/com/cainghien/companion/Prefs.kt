@@ -10,6 +10,10 @@ class Prefs(context: Context) {
         get() = store.getBoolean("protection_enabled", true)
         set(value) = store.edit().putBoolean("protection_enabled", value).apply()
 
+    var adultFilterEnabled: Boolean
+        get() = store.getBoolean("adult_filter", false)
+        set(value) = store.edit().putBoolean("adult_filter", value).apply()
+
     var gymPackage: String
         get() = store.getString("gym_package", DEFAULT_GYM) ?: DEFAULT_GYM
         set(value) = store.edit().putString("gym_package", value).apply()

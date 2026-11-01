@@ -132,6 +132,7 @@ object Runtime {
     @Volatile var gymAwarded = false
     @Volatile var lastGymSeconds = 0
     @Volatile var lastGymAwarded = false
+    @Volatile var adultFilter = false
 
     fun resetGym() {
         gymStartElapsed = 0L

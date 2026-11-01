@@ -120,12 +120,12 @@ export default function Page() {
             </div>
             <div className="card">
               <h3>Ra ngoài internet</h3>
-              <p>Chỉ có một đường: khi chặn web đang bật, trình phân giải cục bộ hỏi DNS công cộng <code>1.1.1.1</code> rồi <code>8.8.8.8</code> cho những tên miền không bị chặn. Không có lệnh upload, không có telemetry, không tự cập nhật.</p>
+              <p>Chỉ có một đường: khi chặn web đang bật, trình phân giải cục bộ hỏi DNS công cộng cho những tên miền không bị chặn, mặc định là <code>1.1.1.1</code> rồi <code>8.8.8.8</code>, đổi sang <code>94.140.14.14</code> và <code>94.140.14.15</code> của bộ lọc gia đình AdGuard khi bạn bật luật 18+. Trên Android, bộ lọc 18+ cũng gửi đúng câu hỏi DNS tới hai địa chỉ AdGuard đó. Không có lệnh upload, không có telemetry, không tự cập nhật.</p>
             </div>
           </div>
           <p className="note warn">
             <Icon name="alert" />
-            <span>Vì đường đó tồn tại, bật chặn web đồng nghĩa nhà cung cấp DNS của bạn chuyển từ nhà mạng sang Cloudflare hoặc Google. Tắt chặn web là trả về cũ.</span>
+            <span>Vì đường đó tồn tại, bật chặn web đồng nghĩa nhà cung cấp DNS của bạn chuyển từ nhà mạng sang Cloudflare hoặc Google, và sang AdGuard Family khi luật 18+ bật. Tắt chặn web là trả về cũ.</span>
           </p>
         </div>
       </section>
@@ -161,7 +161,7 @@ export default function Page() {
             <p className="lede">Chạy sau khi cài để xem app đã để lại những gì. Mở PowerShell thường, không cần quyền quản trị.</p>
           </div>
           <pre className="code"><code>{`# 1. Dung lượng và dấu vân tay của bộ cài
-certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.1.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.2.exe" SHA256
 
 # 2. App cài ở đâu, trong đó có những file nào
 Get-ChildItem "$env:LOCALAPPDATA\\Programs\\Kyluat"
@@ -182,6 +182,34 @@ Get-DnsClientServerAddress -AddressFamily IPv4`}</code></pre>
       </section>
 
       <section>
+        <div className="wrap">
+          <div className="head">
+            <p className="eyebrow">Android</p>
+            <h2>Bộ lọc 18+ có dùng VPN, và chỉ làm đúng một việc</h2>
+            <p className="lede">Android không cho app chặn trang web theo kiểu của Windows. Cách duy nhất hợp lệ là một đường hầm chỉ nhận truy vấn DNS. Nó là tuỳ chọn: không gạt công tắc ở tab <strong>Bảo vệ</strong> thì máy không đổi gì.</p>
+          </div>
+          <div className="grid three">
+            <div className="card">
+              <h3>Chỉ đúng truy vấn DNS</h3>
+              <p>Đường hầm chỉ mang gói tin gửi tới một địa chỉ DNS nội bộ giả định. Ảnh, video, tin nhắn và mọi app khác vẫn ra Wi-Fi như cũ, không đi qua ngả nào khác.</p>
+            </div>
+            <div className="card">
+              <h3>Không giữ nội dung</h3>
+              <p>Câu hỏi DNS chỉ đi qua bộ nhớ trong lúc trả lời. App không ghi lịch sử truy vấn, không dựng biểu mẫu, không có máy chủ của tác giả; nơi phân giải nhờ tới là AdGuard Family, một DNS lọc công cộng.</p>
+            </div>
+            <div className="card">
+              <h3>Tự rút khi có vấn đề</h3>
+              <p>Bốn lần hỏi trong nửa phút mà không máy chủ nào trả lời thì đường hầm bị tháo, DNS máy về bình thường và app không tự bật lại. Thà chưa chặn còn hơn mất mạng.</p>
+            </div>
+          </div>
+          <p className="note warn">
+            <Icon name="alert" />
+            <span>Tắt bằng một chạm: nút <strong>Tắt bộ lọc</strong> trên thông báo, công tắc ở tab <strong>Bảo vệ</strong>, hoặc màn <strong>Tắt bảo vệ</strong> trong app. Muốn kiểm từ hệ thống, mở Cài đặt → Mạng và Internet → VPN và tắt Kỷ luật ở đó. Cần Android 8.1 trở lên.</span>
+          </p>
+        </div>
+      </section>
+
+      <section className="alt">
         <div className="wrap">
           <div className="head">
             <p className="eyebrow">Giới hạn thật lòng</p>

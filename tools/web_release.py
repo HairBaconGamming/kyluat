@@ -10,12 +10,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [
-    ROOT / "dist" / "KYLUAT-Setup-v1.1.exe",
-    ROOT / "dist" / "KYLUAT-windows-x64-v1.1.zip",
-    ROOT / "dist" / "cai-nghien-companion-v3.6.apk",
+    ROOT / "dist" / "KYLUAT-Setup-v1.2.exe",
+    ROOT / "dist" / "KYLUAT-windows-x64-v1.2.zip",
+    ROOT / "dist" / "kyluat-android-v3.7.apk",
 ]
-# Tên file sẽ công khai trên GitHub Releases (applicationId giữ nguyên để cài đè được).
-RENAME = {"cai-nghien-companion-v3.6.apk": "kyluat-android-v3.6.apk"}
 
 
 def sha256(path: Path) -> str:
@@ -34,7 +32,7 @@ def main() -> int:
             missing = True
             continue
         size = path.stat().st_size
-        print(f"{RENAME.get(path.name, path.name)}")
+        print(path.name)
         print(f"  dung lượng  {size:,} bytes = {size / 1_000_000:.2f} MB")
         print(f"  sha256      {sha256(path)}")
     return 1 if missing else 0

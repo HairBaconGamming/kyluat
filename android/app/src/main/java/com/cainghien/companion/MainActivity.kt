@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
+import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -70,6 +71,8 @@ class MainActivity : Activity() {
 
     private lateinit var protectCount: UiPill
     private lateinit var protectGroup: UiGroup
+    private lateinit var adultRow: UiRow
+    private lateinit var adultToggle: UiToggle
     private val socialToggles = mutableMapOf<String, UiToggle>()
     private val protectPackages = mutableListOf<String>()
     private var protectSignature = ""
@@ -315,6 +318,25 @@ class MainActivity : Activity() {
         explainer.addView(protectQuotaRow)
         page.addView(explainer)
 
+        page.addView(Ui.section(this, "Nội dung 18+"))
+        val adultGroup = Ui.group(this)
+        adultRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield_alert, Tone.WARN))
+        adultRow.title("Chặn trang người lớn")
+        adultRow.subtitle("Đang kiểm tra…")
+        adultToggle = UiToggle(this)
+        adultToggle.onChange = { checked -> setAdultFilter(checked) }
+        adultRow.trailing(adultToggle, leftMarginDp = 10)
+        adultGroup.addView(adultRow)
+        page.addView(adultGroup)
+        page.addView(
+            Ui.note(
+                this,
+                "Chặn suốt ngày đêm, không cần giờ tập trung. " +
+                    "App nào tự tra DNS riêng thì đi đường khác, ví dụ Chrome bật DoH.",
+                R.drawable.ic_info,
+            )
+        )
+
         page.addView(Ui.section(this, "App bị chặn"))
         protectGroup = Ui.group(this)
         page.addView(protectGroup)
@@ -400,6 +422,44 @@ class MainActivity : Activity() {
     }
 
     private fun signature(): String = prefs.extraPackages.toList().sorted().joinToString(",")
+
+    private fun setAdultFilter(checked: Boolean) {
+        if (!checked) {
+            prefs.adultFilterEnabled = false
+            stopService(Intent(this, AdultDnsVpnService::class.java))
+            refreshAdult()
+            return
+        }
+        val consent = try {
+            VpnService.prepare(this)
+        } catch (error: Exception) {
+            null
+        }
+        if (consent != null) startActivityForResult(consent, ADULT_REQUEST) else startAdultFilter()
+    }
+
+    private fun startAdultFilter() {
+        prefs.adultFilterEnabled = true
+        wakeAdultFilter()
+        refreshAdult()
+    }
+
+    /** Tô đúng trạng thái đường hầm, không tô theo cái người dùng vừa chạm. */
+    private fun refreshAdult() {
+        // setBlocking(false) cần API 27. Dưới 8.1 thì đường hầm chỉ nhận DNS sẽ thành VPN chiếm
+        // toàn bộ traffic, nên ẩn công tắc thay vì để người dùng bấm vào thứ máy không làm được.
+        val supported = Build.VERSION.SDK_INT >= 27
+        adultToggle.visibility = if (supported) View.VISIBLE else View.GONE
+        adultToggle.setChecked(Runtime.adultFilter)
+        adultRow.subtitle(
+            when {
+                !supported -> "Cần Android 8.1 trở lên để lọc DNS mà không mất mạng"
+                Runtime.adultFilter -> "Đang lọc từng truy vấn DNS của máy"
+                prefs.adultFilterEnabled -> "Đang khởi động…"
+                else -> "Tắt · bật để chặn suốt ngày đêm"
+            }
+        )
+    }
 
     private fun buildSettings(): ScrollView {
         val page = Ui.screen(this)
@@ -523,6 +583,7 @@ class MainActivity : Activity() {
 
     private fun refreshAll() {
         quota.resetIfNeeded()
+        refreshAdult()
         val paired = secure.load() != null
         val overlay = Settings.canDrawOverlays(this)
         val accessibility = accessibilityEnabled()
@@ -858,8 +919,28 @@ class MainActivity : Activity() {
             .show()
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == ADULT_REQUEST) {
+            if (resultCode == RESULT_OK) startAdultFilter() else prefs.adultFilterEnabled = false
+            refreshAdult()
+        }
+    }
+
+    /** Hệ thống có thể thu hồi đường hầm khi đổi mạng hoặc hết pin. Mở Kỷ luật là lúc duy nhất
+     *  hợp lý để bật lại; nếu lỗi thật thì service tự ghi tắt nên không thành vòng lặp. */
+    private fun wakeAdultFilter() {
+        if (!prefs.adultFilterEnabled || Runtime.adultFilter || Build.VERSION.SDK_INT < 27) return
+        try {
+            startService(Intent(this, AdultDnsVpnService::class.java))
+        } catch (error: Exception) {
+            prefs.adultFilterEnabled = false
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        wakeAdultFilter()
         refreshAll()
         refreshNetwork()
     }
@@ -868,5 +949,9 @@ class MainActivity : Activity() {
         handler.removeCallbacksAndMessages(null)
         executor.shutdownNow()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val ADULT_REQUEST = 71
     }
 }

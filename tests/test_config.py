@@ -78,6 +78,7 @@ def test_weakening_rules():
         web_domains=("youtube.com",),
         windows=(),
         session_stop_delay_minutes=10,
+        adult_block=True,
     )
     weaker = Config(
         poll_seconds=3,
@@ -87,12 +88,14 @@ def test_weakening_rules():
         web_domains=(),
         windows=(),
         session_stop_delay_minutes=5,
+        adult_block=False,
     )
     reasons = weakening_changes(weaker, base)
     assert any("discord.exe" in reason for reason in reasons)
     assert any("web" in reason for reason in reasons)
     assert any("cooldown" in reason for reason in reasons)
     assert any("chờ dừng phiên" in reason for reason in reasons)
+    assert any("18+" in reason for reason in reasons)
 
 
 def test_strengthening_is_allowed():
@@ -112,8 +115,18 @@ def test_strengthening_is_allowed():
         web_domains=("youtube.com",),
         windows=(),
         session_stop_delay_minutes=30,
+        adult_block=True,
     )
     assert weakening_changes(stricter, base) == []
+
+
+def test_adult_flag_reads_and_roundtrips(tmp_path):
+    valid = CONFIG.replace('"https://bad.example"', '"twitter.com"')
+    path = write(tmp_path, valid.replace("[web]\n", "[web]\nadult = true\n"))
+    config = load_config(path)
+    assert config.adult_block
+    assert Config.from_json(config.to_json()).adult_block
+    assert not load_config(write(tmp_path, valid)).adult_block
 
 
 def test_seed_initial_law_runs_once(tmp_path, monkeypatch):

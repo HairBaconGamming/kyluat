@@ -24,6 +24,11 @@ domains = [
   "youtube.com",
   "youtu.be",
 ]
+# Bật 18+ thì chặn suốt ngày, không chờ giờ focus: 81 domain chọn tay trong
+# enforcer/adult_list.py, và mọi truy vấn còn lại đi qua bộ lọc gia đình của AdGuard
+# (94.140.14.14 / 94.140.14.15) thay vì 1.1.1.1. Vẫn cần net install vì vẫn là DNS.
+# Tắt nó tính là nới lỏng luật: chờ 24 giờ và phải gõ lại đoạn cam kết.
+adult = false
 
 [plan]
 # Mục tiêu hiển thị trên dashboard và review tuần

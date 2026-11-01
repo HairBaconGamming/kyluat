@@ -60,6 +60,7 @@ class Config:
     web_domains: tuple[str, ...]
     windows: tuple[FocusWindow, ...]
     session_stop_delay_minutes: int = 10
+    adult_block: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -70,6 +71,7 @@ class Config:
             "web_domains": list(self.web_domains),
             "windows": [window.to_dict() for window in self.windows],
             "session_stop_delay_minutes": self.session_stop_delay_minutes,
+            "adult_block": self.adult_block,
         }
 
     @classmethod
@@ -82,6 +84,7 @@ class Config:
             web_domains=tuple(str(domain) for domain in data.get("web_domains", [])),
             windows=tuple(FocusWindow.from_dict(item) for item in data.get("windows", [])),
             session_stop_delay_minutes=int(data.get("session_stop_delay_minutes", 10)),
+            adult_block=bool(data.get("adult_block", False)),
         )
 
     def to_json(self) -> str:
@@ -168,6 +171,7 @@ def load_config(path: Path) -> Config:
         web_domains=tuple(domains),
         windows=tuple(windows),
         session_stop_delay_minutes=session_delay,
+        adult_block=bool(web.get("adult", False)),
     )
 
 
@@ -186,6 +190,8 @@ def weakening_changes(new: Config, old: Config) -> list[str]:
         reasons.append(f"giảm cooldown: {old.cooldown_hours:g}h → {new.cooldown_hours:g}h")
     if old.kill_browsers and not new.kill_browsers:
         reasons.append("tắt chặn trình duyệt")
+    if old.adult_block and not new.adult_block:
+        reasons.append("tắt chặn nội dung 18+")
     if new.session_stop_delay_minutes < old.session_stop_delay_minutes:
         reasons.append(
             f"giảm chờ dừng phiên: {old.session_stop_delay_minutes} → {new.session_stop_delay_minutes} phút"

@@ -22,12 +22,14 @@ def test_write_rules_roundtrip(tmp_path):
         web_domains=("youtube.com",),
         windows=(FocusWindow((0, 1), time(9, 0), time(11, 0), "Học"),),
         session_stop_delay_minutes=10,
+        adult_block=True,
     )
     config_writer.write_rules(path, config)
     loaded = load_config(path)
     assert loaded.processes == config.processes
     assert loaded.web_domains == config.web_domains
     assert loaded.windows == config.windows
+    assert loaded.adult_block
     assert "# giữ comment" in path.read_text(encoding="utf-8")
 
 

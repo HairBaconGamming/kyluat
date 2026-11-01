@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import catalog, net, pairing, phone_api, proc, rules, sessions
+from .adult_list import ADULT_DOMAINS
 from .cli import (
     CLI_HINT,
     CONFIG_PATH,
@@ -944,6 +945,22 @@ class MainWindow(QMainWindow):
 
         left = QVBoxLayout()
         left.setSpacing(9)
+        left.addWidget(_section("Nội dung 18+"))
+        adult_group = Group()
+        self.adult_switch = Switch()
+        self.adult_switch.setAccessibleName("Chặn nội dung 18+")
+        self.adult_switch.toggled.connect(self.toggle_adult)
+        adult_row = Row("Chặn trang người lớn", "Đang kiểm tra…", _tile(icon="alert", tone="accent"))
+        adult_row.add(self.adult_switch)
+        self.adult_status = adult_row.subtitle
+        adult_group.add(adult_row)
+        left.addWidget(adult_group)
+        left.addWidget(
+            _note(
+                "Luật này chạy cả ngày. Trang bạn tự thêm ở mục Trang web chỉ bị chặn trong giờ tập trung.",
+                "info",
+            )
+        )
         left.addWidget(_section("Ứng dụng"))
         self.apps_group = Group()
         left.addWidget(self.apps_group)
@@ -1326,12 +1343,14 @@ class MainWindow(QMainWindow):
         try:
             approved = rules.approved_config(store)
             pending = store.get_state(PENDING_KEY)
+            net_enabled = store.get_state(NET_ENABLED_KEY) == "1"
             apps = list(catalog.APP_CATALOG) + self.custom_entries("app", store)
             sites = list(catalog.WEB_CATALOG) + self.custom_entries("web", store)
         finally:
             store.close()
         self.protect_apps = apps
         self.protect_sites = sites
+        self.sync_adult(approved, net_enabled)
         if not approved:
             self.protect_note.body.setText(f"Chưa có luật. Hãy chạy {CLI_HINT} apply trước.")
             self.protect_note.show()
@@ -1356,10 +1375,11 @@ class MainWindow(QMainWindow):
             switch.setChecked(active)
             switch.blockSignals(False)
             blocked_sites += 1 if active else 0
-        self.protect_pill.set_state(
-            f"{blocked_apps} app · {blocked_sites} web đang chặn",
-            "accent" if blocked_apps or blocked_sites else "neutral",
-        )
+        anything = bool(blocked_apps or blocked_sites or approved.adult_block)
+        parts = [f"{blocked_apps} app", f"{blocked_sites} web"]
+        if approved.adult_block:
+            parts.append("18+")
+        self.protect_pill.set_state(" · ".join(parts) + " đang chặn", "accent" if anything else "neutral")
 
         self.schedule_group.reset()
         for window in approved.windows:
@@ -1519,6 +1539,46 @@ class MainWindow(QMainWindow):
 
     def toggle_web(self, entry: dict, checked: bool) -> None:
         self._toggle_rule(web=entry, enabled=checked)
+
+    def sync_adult(self, approved: Config | None, net_enabled: bool) -> None:
+        active = bool(approved and approved.adult_block)
+        self.adult_switch.blockSignals(True)
+        self.adult_switch.setChecked(active)
+        self.adult_switch.blockSignals(False)
+        if not active:
+            self.adult_status.setText(f"{len(ADULT_DOMAINS)} tên miền · đang tắt")
+        elif not net_enabled:
+            self.adult_status.setText("Đã bật luật · máy chưa bật chặn web nên chưa có tác dụng")
+        else:
+            self.adult_status.setText(f"{len(ADULT_DOMAINS)} tên miền · chạy suốt ngày đêm")
+
+    def toggle_adult(self, checked: bool) -> None:
+        store = self._store()
+        try:
+            approved = rules.approved_config(store)
+            if not approved:
+                QMessageBox.warning(self, "Chưa có luật", f"Hãy chạy {CLI_HINT} apply trước.")
+                return
+            candidate = replace(approved, adult_block=checked)
+            write_rules(CONFIG_PATH, candidate)
+            result = rules.apply_candidate(store, candidate)
+            net_enabled = store.get_state(NET_ENABLED_KEY) == "1"
+        finally:
+            store.close()
+        if checked and net_enabled:
+            net.flush_dns()
+        self.refresh_protect()
+        if result.state == "queued":
+            self.protect_note.body.setText(
+                "Tắt chặn 18+ là nới lỏng luật nên phải chờ 24 giờ. Trong lúc chờ, luật cũ vẫn thi hành."
+            )
+            self.protect_note.show()
+        elif checked and not net_enabled:
+            self.protect_note.body.setText(
+                "Luật 18+ đã ghi, nhưng máy chưa bật chặn web. Mở PowerShell Administrator rồi chạy "
+                f"{CLI_HINT} net install."
+            )
+            self.protect_note.show()
 
     def _toggle_rule(self, app: dict | None = None, web: dict | None = None, enabled: bool = True) -> None:
         store = self._store()

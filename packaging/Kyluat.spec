@@ -11,6 +11,7 @@ a = Analysis(
     binaries=[],
     datas=[(str(ROOT / "enforcer" / "static"), "static")],
     hiddenimports=[
+        "enforcer.adult_list",
         "enforcer.catalog",
         "enforcer.cli",
         "enforcer.config",

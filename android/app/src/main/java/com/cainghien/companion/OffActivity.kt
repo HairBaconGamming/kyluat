@@ -1,6 +1,7 @@
 package com.cainghien.companion
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -219,6 +220,8 @@ class OffActivity : Activity() {
         if (finished) return
         finished = true
         prefs.protectionEnabled = false
+        prefs.adultFilterEnabled = false
+        stopService(Intent(this, AdultDnsVpnService::class.java))
         QuotaManager(prefs).stopBreak()
         Toast.makeText(this, "Đã tắt bảo vệ. Bạn có thể bật lại trong Cài đặt.", Toast.LENGTH_LONG).show()
         setResult(RESULT_OK)

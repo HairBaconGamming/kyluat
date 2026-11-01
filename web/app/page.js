@@ -73,6 +73,7 @@ export default function Page() {
                   <ul>
                     <li>App trên máy tính và trên điện thoại.</li>
                     <li>Trang web theo tên miền, tính cả các trang con.</li>
+                    <li>81 trang người lớn có sẵn, chặn cả ngày lẫn đêm trên cả hai máy.</li>
                   </ul>
                 </div>
                 <figure className="shot step-media">
@@ -146,7 +147,7 @@ export default function Page() {
                 <span className="ico"><Icon name="chart" /></span>
                 <div>
                   <h3>Không can thiệp hệ thống</h3>
-                  <p>Điện thoại chỉ phủ màn khoá lên app bạn chọn, không đổi DNS và không đổi chính sách hệ thống. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở.</p>
+                  <p>Điện thoại phủ màn khoá lên app bạn chọn, không đọc nội dung màn hình, không đổi chính sách hệ thống. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở. Bộ lọc 18+ là đường hầm DNS tự chọn, tắt một chạm là máy về như cũ.</p>
                 </div>
               </div>
             </div>
@@ -293,6 +294,13 @@ export default function Page() {
                   <p>Một mức quỹ duy nhất dùng cho cả nhóm app đã chọn, không phải mỗi app một tiếng. Mặc định 60 phút, chỉnh được 15 đến 120 phút.</p>
                 </div>
               </div>
+              <div className="card principle">
+                <span className="ico"><Icon name="shield" /></span>
+                <div>
+                  <h3>Nội dung 18+ chặn riêng, suốt ngày đêm</h3>
+                  <p>Công tắc <strong>Chặn trang người lớn</strong> ở tab Bảo vệ mở một đường hầm chỉ đọc DNS: tên trong danh sách 81 tên miền bị trả lời là không tồn tại, trang khác đi qua bộ lọc gia đình AdGuard. Không cần phiên tập trung, không ghi lại truy vấn, và tắt được bằng một chạm.</p>
+                </div>
+              </div>
             </div>
             <p className="note warn" style={{ marginTop: '16px' }}>
               <Icon name="alert" />
@@ -314,11 +322,11 @@ export default function Page() {
                   <span className="ico"><Icon name="desktop" /></span>
                   <div>
                     <h3>Windows 10 và 11 (64-bit)</h3>
-                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài <code>KYLUAT-Setup-v1.1.exe</code>, không đòi quyền quản trị.</p>
+                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài <code>KYLUAT-Setup-v1.2.exe</code>, không đòi quyền quản trị.</p>
                   </div>
                 </div>
                 <ul>
-                  <li>Chặn app trong giờ tập trung và chặn trang web qua DNS.</li>
+                  <li>Chặn app trong giờ tập trung, chặn trang web theo tên miền, và chặn 81 trang người lớn suốt ngày đêm.</li>
                   <li>Cài vào thư mục của riêng bạn, gỡ bằng Add or remove programs.</li>
                   <li>File chưa có chữ ký số, Windows sẽ hỏi bạn một lần.</li>
                 </ul>
@@ -334,8 +342,8 @@ export default function Page() {
                 </div>
                 <ul>
                   <li>Quỹ mạng xã hội mỗi ngày, mặc định 60 phút và đổi được, cùng màn khoá trong phiên.</li>
-                  <li>Không chặn trang web trên điện thoại, phần đó thuộc về máy tính.</li>
-                  <li>Bản debug cá nhân, Play Protect có thể cảnh báo một lần.</li>
+                  <li>Bật thêm bộ lọc 18+ thì máy cần Android 8.1 trở lên; trang web tuỳ ý vẫn thuộc về bản Windows.</li>
+                  <li>File ký bằng key phát hành riêng, không lên CH Play nên máy vẫn hỏi bạn một lần.</li>
                 </ul>
                 <a className="btn primary" href="/tai-nguyen#android">Tải bản Android</a>
               </div>
@@ -417,7 +425,21 @@ export default function Page() {
                 <summary>Chặn trang web hoạt động tới đâu?</summary>
                 <div className="body">
                   <p>Trên Windows, máy tính chặn theo tên miền trong giờ tập trung, tính cả các trang con.</p>
-                  <p>Trên điện thoại thì không. Bản Android chỉ chặn ứng dụng.</p>
+                  <p>Trên Android chỉ có bộ lọc 18+ chạy suốt ngày đêm. Muốn chặn một trang tuỳ ý thì vẫn phải dùng máy tính.</p>
+                </div>
+              </details>
+              <details id="faq-18">
+                <summary>Bộ lọc 18+ chặn những gì và chặn kiểu gì?</summary>
+                <div className="body">
+                  <p>Một danh sách 81 tên miền dùng chung cho cả hai máy, chặn suốt ngày đêm, không liên quan giờ tập trung. Trên Windows nó đi qua trình phân giải cục bộ; trên Android nó đi qua một đường hầm chỉ đọc DNS.</p>
+                  <p>Tên bị chặn nhận trả lời "không tồn tại", còn mọi tên khác được hỏi sang bộ lọc gia đình AdGuard, nên lớp lọc nằm luôn ở máy chủ phân giải. Tắt trên Windows phải chờ 24 giờ vì đó là nới lỏng luật; tắt trên Android có hiệu lực ngay.</p>
+                </div>
+              </details>
+              <details id="faq-vpn-android">
+                <summary>Bật bộ lọc 18+ trên Android có làm mất mạng không?</summary>
+                <div className="body">
+                  <p>Đường hầm chỉ mang gói tin DNS gửi tới một địa chỉ nội bộ giả định, nên các kết nối khác vẫn ra Wi-Fi như cũ. Hai máy chủ phân giải cùng im lặng là app tự tháo đường hầm và máy trở về DNS bình thường; thiết kế là fail-open vì mất mạng nặng hơn chưa chặn.</p>
+                  <p>Cần Android 8.1 trở lên; máy Android 8.0 thì tab Bảo vệ không hiện công tắc này. App không tự bật lại sau khi lỗi, và bạn tắt bằng một chạm. Đây vẫn là tính năng mới, chưa được kiểm chứng trên mọi loại máy.</p>
                 </div>
               </details>
               <details id="faq-gym">

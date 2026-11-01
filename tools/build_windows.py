@@ -57,10 +57,12 @@ def sha256(path: Path) -> str:
 
 def report(label: str, path: Path) -> None:
     size = path.stat().st_size
+    megabytes = f"{size / 1_000_000:.2f}".replace(".", ",")
+    bytes_label = f"{size:,}".replace(",", ".")
     print(f"\n{label}")
     print(f"  file        {path.name}")
     print(f"  dung lượng  {size:,} bytes")
-    print(f"  site.js     size: \"{size / 1_000_000:.2f} MB\" · bytes: \"{size:,}\" · sha256: \"{sha256(path)}\"")
+    print(f"  site.js     size: \"{megabytes} MB\" · bytes: \"{bytes_label}\" · sha256: \"{sha256(path)}\"")
 
 
 def build_exe() -> None:

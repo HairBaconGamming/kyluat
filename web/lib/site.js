@@ -15,34 +15,34 @@ export const SITE_URL = base.replace(/\/+$/, "");
 
 export const TITLE = "Kỷ luật — máy chặn xao nhãng cho Windows và Android";
 export const DESCRIPTION =
-  "Kỷ luật chặn app và trang web bạn tự chọn trong giờ tập trung. Chạy trên máy của bạn, không tài khoản, không máy chủ. Nới lỏng luật phải chờ 24 giờ.";
+  "Kỷ luật chặn app và trang web bạn tự chọn trong giờ tập trung, kèm bộ lọc nội dung 18+ chạy suốt ngày đêm. Chạy trên máy của bạn, không tài khoản, không máy chủ. Nới lỏng luật phải chờ 24 giờ.";
 
 const RELEASE = "https://github.com/HairBaconGamming/kyluat/releases/download/v1.0";
 
 // Bộ cài là bản khuyên dùng; bản nén để dành cho máy không muốn cài hoặc cần chép tay.
 export const WINDOWS = {
-  file: "KYLUAT-Setup-v1.1.exe",
-  url: `${RELEASE}/KYLUAT-Setup-v1.1.exe`,
+  file: "KYLUAT-Setup-v1.2.exe",
+  url: `${RELEASE}/KYLUAT-Setup-v1.2.exe`,
   size: "38,94 MB",
-  note: "bản 1.1, có installer",
-  bytes: "38.938.046",
-  sha256: "49a3976d0c4e9c4f9be012807ba8083bdc57f782fe78a139923fd31c4c7f504f",
+  note: "bản 1.2, có installer",
+  bytes: "38.936.578",
+  sha256: "0757a235d22d3cb057deb43be91625e54eb68bcdf9b32958dfa330a864464e9f",
 };
 
 export const WINDOWS_ZIP = {
-  file: "KYLUAT-windows-x64-v1.1.zip",
-  url: `${RELEASE}/KYLUAT-windows-x64-v1.1.zip`,
-  size: "58,56 MB",
-  note: "bản 1.1, không cần cài",
-  bytes: "58.560.153",
-  sha256: "3fe229858264dcf23ffb3cd7792ee798cad7388ff118efc21a0f25ca8e60a9f2",
+  file: "KYLUAT-windows-x64-v1.2.zip",
+  url: `${RELEASE}/KYLUAT-windows-x64-v1.2.zip`,
+  size: "58,57 MB",
+  note: "bản 1.2, không cần cài",
+  bytes: "58.571.229",
+  sha256: "e1c9126efbf8c2b6d006929b415d3fb0e0bf7b92a7a55c32e0a311f0434aec0f",
 };
 
 export const ANDROID = {
-  file: "kyluat-android-v3.6.apk",
-  url: `${RELEASE}/kyluat-android-v3.6.apk`,
-  size: "2,90 MB",
-  note: "phiên bản 3.6 (số 11)",
-  bytes: "2.896.705",
-  sha256: "5ffacd53e330933d29156daf3e570ee7b3e7d7404c8142c3c4d34b9b4393c5f7",
+  file: "kyluat-android-v3.7.apk",
+  url: `${RELEASE}/kyluat-android-v3.7.apk`,
+  size: "2,91 MB",
+  note: "phiên bản 3.7 (số 12)",
+  bytes: "2.905.117",
+  sha256: "947d963b18c09def4e8747ba1c6b40e3665f154918075a289418481171a11b86",
 };

@@ -31,7 +31,7 @@ export default function Page() {
                 <span className="ico"><Icon name="desktop" /></span>
                 <div>
                   <h3>Windows 10 và 11, bản 64-bit</h3>
-                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.1.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
+                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.2.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '10px' }}>
@@ -94,12 +94,13 @@ export default function Page() {
                   <ul>
                     <li>Mở file vừa tải, cho phép "cài từ nguồn không xác định" nếu máy hỏi.</li>
                     <li>Bật Quyền Trợ năng cho Kỷ luật trong phần Cài đặt điện thoại.</li>
+                    <li>Muốn lọc nội dung 18+ thì gạt thêm <strong>Chặn trang người lớn</strong> ở tab <strong>Bảo vệ</strong>; mục này cần Android 8.1 trở lên.</li>
                     <li>Đã cài bản cũ thì cài đè được, dữ liệu giữ nguyên.</li>
                   </ul>
                 </div>
                 <div className="card">
-                  <h3>Play Protect có thể chặn</h3>
-                  <p style={{ margin: '0', color: 'var(--ink-2)', fontSize: '14px' }}>Đây là bản debug dùng cá nhân, chưa ký release. Nếu máy báo "app không an toàn", chọn cài tiếp sau khi đã so SHA-256 ở trên.</p>
+                  <h3>Play Protect có thể hỏi bạn một lần</h3>
+                  <p style={{ margin: '0', color: 'var(--ink-2)', fontSize: '14px' }}>File được ký bằng key phát hành riêng, không phải chữ ký debug, nhưng app không lên CH Play nên Google vẫn chưa nhận ra người gửi. Nếu máy báo "ứng dụng chưa được xác minh", so SHA-256 ở trên rồi chọn cài tiếp.</p>
                 </div>
               </div>
               <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -123,6 +124,16 @@ export default function Page() {
                   <tr><th scope="col">Bản</th><th scope="col">Ngày</th><th scope="col">Thay đổi</th></tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td className="yes">Windows 1.2</td>
+                    <td>02/11/2026</td>
+                    <td>Luật chặn nội dung 18+ chạy suốt ngày đêm: 81 tên miền có sẵn, công tắc ở màn <strong>Bảo vệ</strong>, thêm lệnh <code>Kyluat-cli.exe adult on|off|status</code>.</td>
+                  </tr>
+                  <tr>
+                    <td className="yes">Android 3.7</td>
+                    <td>02/11/2026</td>
+                    <td>Cùng danh sách 18+ đó, lọc qua một đường hầm chỉ mang truy vấn DNS. Cần Android 8.1 trở lên và tự rút khi không gọi được máy chủ phân giải.</td>
+                  </tr>
                   <tr>
                     <td className="yes">Windows 1.1</td>
                     <td>01/11/2026</td>

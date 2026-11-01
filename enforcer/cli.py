@@ -10,12 +10,15 @@ import threading
 import time
 import webbrowser
 from datetime import date, datetime, timedelta
+from dataclasses import replace
 from pathlib import Path
 
 import psutil
 
 from . import net, notify, pairing, phone_api, proc, rules, sessions
+from .adult_list import ADULT_DOMAINS
 from .config import Config, ConfigError, load_config, load_plan, weakening_changes
+from .config_writer import write_rules
 from .dashboard import serve as serve_dashboard
 from .guard import Guard, acquire_lock, release_lock
 from .habits import WEEKDAY_VI, day_label, summary as habit_summary
@@ -150,6 +153,7 @@ def cmd_status(args) -> int:
     )
     net_enabled = store.get_state(NET_ENABLED_KEY) == "1"
     print(f"Chặn web    : {'bật' if net_enabled else 'tắt'}")
+    print(f"Chặn 18+    : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS)} tên miền")
     print(f"Daemon      : {_daemon_status()}")
     print(f"Tự chạy     : {_task_status()}")
     print(f"Hôm nay     : {store.blocks_today()} lần chặn")
@@ -724,8 +728,10 @@ def cmd_net_status(args) -> int:
     store = Store(DB_PATH)
     enabled = store.get_state(NET_ENABLED_KEY) == "1"
     approved_json = store.get_state(APPROVED_KEY)
-    domains = len(Config.from_json(approved_json).web_domains) if approved_json else 0
+    approved = Config.from_json(approved_json) if approved_json else None
+    domains = len(approved.web_domains) if approved else 0
     print(f"Trạng thái  : {'bật' if enabled else 'tắt'} · {domains} domain")
+    print(f"18+         : {'bật, chặn suốt ngày, upstream AdGuard Family' if approved and approved.adult_block else 'tắt'}")
     print(f"Quyền admin : {'có' if net.is_admin() else 'không'}")
     try:
         index = net.active_interface_index()
@@ -750,6 +756,49 @@ def cmd_net_status(args) -> int:
         browser = "Chrome" if "Chrome" in key else "Edge"
         value = net.reg_get(key, name)
         print(f"DoH {browser:<8}: {value if value is not None else 'không đặt'}")
+    return 0
+
+
+def cmd_adult(args) -> int:
+    action = getattr(args, "adult_command", "status")
+    store = Store(DB_PATH)
+    try:
+        approved = rules.approved_config(store)
+        net_enabled = store.get_state(NET_ENABLED_KEY) == "1"
+        if action == "status":
+            if approved is None:
+                print("Chưa có luật, chưa bật 18+.")
+                return 1
+            print(f"Chặn 18+  : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS)} tên miền chọn tay")
+            print(f"Upstream  : {'94.140.14.14 (AdGuard Family)' if approved.adult_block else '1.1.1.1 / 8.8.8.8'}")
+            print(f"Chặn web  : {'bật, DNS đã trỏ về máy này' if net_enabled else 'tắt, chưa có gì đi qua sinkhole'}")
+            return 0
+        enable = action == "on"
+        if approved is None:
+            print(f"Chưa có luật. Chạy: {CLI_HINT} apply")
+            return 1
+        if approved.adult_block == enable:
+            print(f"Chặn 18+ đang {'bật' if enable else 'tắt'}, không đổi gì.")
+            return 0
+        candidate = replace(approved, adult_block=enable)
+        write_rules(CONFIG_PATH, candidate)
+        result = rules.apply_candidate(store, candidate)
+    finally:
+        store.close()
+
+    if result.state == "queued":
+        print(f"Đã xin tắt chặn 18+ nhưng tắt là nới lỏng luật, nên phải chờ tới "
+              f"{result.effective_at:%H:%M ngày %d/%m}. Trong lúc chờ, luật cũ vẫn thi hành.")
+        return 0
+    if not enable:
+        print("Đã tắt chặn nội dung 18+. Trình duyệt có thể còn giữ trang cũ trong cache.")
+        return 0
+    print(f"Đã bật chặn nội dung 18+ ({len(ADULT_DOMAINS)} tên miền) và chuyển DNS sang bộ lọc gia đình AdGuard.")
+    if not net_enabled:
+        print(f"  Chặn web chưa bật nên chưa có truy vấn nào đi qua máy chặn. Chạy: {CLI_HINT} net install")
+    else:
+        net.flush_dns()
+        print("  Đã flush DNS máy. Khởi động lại trình duyệt. Kiểm tra: " f"{CLI_HINT} adult status")
     return 0
 
 
@@ -779,6 +828,7 @@ def cmd_doctor(args) -> int:
     print(f"Tự chạy     : {_task_status()}")
     print(f"Daemon      : {daemon}")
     print(f"Chặn web    : {'bật' if net_enabled else 'tắt'}")
+    print(f"Chặn 18+    : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS)} tên miền")
     if net_enabled:
         wiring = net.current_wiring()
         if wiring is not None:
@@ -1053,6 +1103,11 @@ def main(argv: list[str] | None = None) -> int:
     net_sub.add_parser("uninstall", help="khôi phục DNS và tắt chặn web").set_defaults(func=cmd_net_uninstall)
     net_sub.add_parser("status", help="kiểm tra DNS, sinkhole, DoH").set_defaults(func=cmd_net_status)
     net_sub.add_parser("repair", help="trỏ lại DNS sau khi đổi mạng (cần admin)").set_defaults(func=cmd_net_repair)
+    adult_parser = sub.add_parser("adult", help="chặn nội dung 18+ suốt ngày, không chờ giờ focus")
+    adult_sub = adult_parser.add_subparsers(dest="adult_command", required=True)
+    adult_sub.add_parser("on", help="bật chặn 18+").set_defaults(func=cmd_adult)
+    adult_sub.add_parser("off", help="tắt chặn 18+ (chờ 24 giờ)").set_defaults(func=cmd_adult)
+    adult_sub.add_parser("status", help="xem trạng thái và upstream đang dùng").set_defaults(func=cmd_adult)
     install_parser = sub.add_parser("install", help="tạo Scheduled Task: tự chạy + watchdog mỗi phút")
     install_parser.add_argument("--elevated", action="store_true", help="chạy daemon bằng quyền admin")
     install_parser.set_defaults(func=cmd_install)

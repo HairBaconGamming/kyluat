@@ -25,8 +25,8 @@ android {
         applicationId = "com.cainghien.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "3.6"
+        versionCode = 12
+        versionName = "3.7"
     }
 
     signingConfigs {
@@ -70,5 +70,6 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    testImplementation("junit:junit:4.13.2")
 }
 

@@ -5,7 +5,7 @@ export const metadata = {
   description:
     "Cài Kỷ luật trên Windows và Android từng bước, kèm lệnh kiểm tra và cách gỡ sạch.",
   alternates: { canonical: "/huong-dan" },
-  openGraph: { title: "Hướng dẫn cài Kỷ luật", description: "Sáu bước cho Windows, tám bước cho Android.", url: "/huong-dan" },
+  openGraph: { title: "Hướng dẫn cài Kỷ luật", description: "Sáu bước cho Windows, chín bước cho Android.", url: "/huong-dan" },
 };
 
 export default function Page() {
@@ -25,7 +25,7 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Chạy bộ cài</h3>
-              <p>Mở <code>KYLUAT-Setup-v1.1.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
+              <p>Mở <code>KYLUAT-Setup-v1.2.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
               <p>Không muốn cài gì thì tải bản <code>.zip</code>, giải nén thư mục <code>Kyluat</code> vào nơi bạn muốn rồi mở <code>Kyluat.exe</code>. Ở cách nào, dữ liệu cũng nằm trong <code>data\</code> cạnh file exe, chép cả thư mục là chuyển được máy.</p>
             </div>
 
@@ -33,6 +33,7 @@ export default function Page() {
               <h3>2. Khai ra thứ làm bạn xao nhãng</h3>
               <p>Vào màn <strong>Bảo vệ</strong>. Gạt công tắc với app có sẵn, hoặc chọn <strong>Thêm app khác</strong> để lấy đúng app đang cài trên máy.</p>
               <p>Cùng màn hình đó có mục <strong>Trang web</strong> cho tên miền. Thêm tên miền là chặn luôn các trang con.</p>
+              <p>Ngay đầu màn là khối <strong>Nội dung 18+</strong>. Gạt <strong>Chặn trang người lớn</strong> là chặn 81 tên miền có sẵn suốt ngày đêm, không chờ giờ tập trung. Luật này cần bật chặn web ở bước 4 thì mới có tác dụng.</p>
               <figure className="shot" style={{ marginTop: '14px' }}>
                 <img src="/assets/img/desktop-them-app.png" alt="Hộp thoại Thêm app với danh sách ứng dụng đang cài trên máy, có ô tìm kiếm" width="580" height="620" loading="lazy" />
                 <figcaption>Hộp thoại Thêm app: chọn từ danh sách cài thật, không có gợi ý tự động.</figcaption>
@@ -47,9 +48,10 @@ export default function Page() {
 
             <div className="block">
               <h3>4. Bật chặn trang web (một lần, cần quyền Administrator)</h3>
-              <p>Chặn web hoạt động bằng cách trỏ DNS của máy về chính nó trong giờ tập trung. Mở PowerShell bằng quyền Administrator rồi chạy:</p>
+              <p>Chặn web hoạt động bằng cách trỏ DNS của máy về chính nó. Danh sách trang bạn tự thêm chỉ bị chặn trong giờ tập trung, còn luật 18+ chạy cả ngày. Mở PowerShell bằng quyền Administrator rồi chạy:</p>
               <p><code>cd $env:LOCALAPPDATA\Programs\Kyluat</code><br /><code>.\Kyluat-cli.exe net install</code></p>
               <p>Muốn tắt: <code>.\Kyluat-cli.exe net uninstall</code>. Lệnh này khôi phục đúng DNS bạn đang dùng.</p>
+              <p>Đang bật 18+ thì máy hỏi bộ lọc gia đình AdGuard (<code>94.140.14.14</code>) thay vì Cloudflare; <code>.\Kyluat-cli.exe adult status</code> đọc rõ đang dùng DNS nào.</p>
             </div>
 
             <div className="block">
@@ -74,11 +76,11 @@ export default function Page() {
         <section id="android">
           <div className="wrap prose">
             <h2>Android</h2>
-            <p>Bản Android tự giữ luật trên chính cái máy bạn cầm, không cần máy tính bật suốt. Tám bước dưới đây là toàn bộ những gì phải làm.</p>
+            <p>Bản Android tự giữ luật trên chính cái máy bạn cầm, không cần máy tính bật suốt. Chín bước dưới đây là toàn bộ những gì phải làm.</p>
 
             <div className="block">
               <h3>1. Cài file APK</h3>
-              <p>Tải <code>kyluat-android-v3.6.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Tải <code>kyluat-android-v3.7.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
               <p>Android 8.0 trở lên. Không lên CH Play.</p>
               <p>File phát hành trên GitHub nên Google không nhận ra người gửi và hiện cảnh báo <strong>Ứng dụng chưa được xác minh</strong>; trên vài máy phải bấm <strong>Chi tiết khác</strong> rồi mới thấy <strong>Vẫn cài</strong>. Trước khi bấm, so dãy SHA-256 ở trang <a href="/tai-nguyen">Tải về</a> với file vừa tải để chắc nó không bị sửa giữa đường.</p>
               <p>Bản 3.6 trở lên cài đè nhau bình thường. Máy đang cài bản 3.5 thì gỡ bản đó trước, vì hai bản ký bằng hai key khác nhau.</p>
@@ -102,7 +104,15 @@ export default function Page() {
             </div>
 
             <div className="block">
-              <h3>4. Hiểu quy tắc quỹ mạng xã hội</h3>
+              <h3>4. Bật bộ lọc nội dung 18+ (tuỳ chọn)</h3>
+              <p>Ở tab <strong>Bảo vệ</strong>, gạt <strong>Chặn trang người lớn</strong>. Android hỏi duyệt quyền VPN một lần: đây là đường hầm chỉ mang truy vấn DNS, không phải VPN đi web.</p>
+              <p>Tên nào khớp danh sách 81 tên miền bị trả lời là không tồn tại; trang còn lại đi hỏi bộ lọc gia đình AdGuard. Luật chạy suốt ngày đêm, không cần phiên tập trung.</p>
+              <p>Cần Android 8.1 trở lên. Máy Android 8.0 không hiện công tắc này, vì mở đường hầm an toàn kiểu đó cần bản mới hơn.</p>
+              <p>Bộ lọc tự rút nếu không gọi được máy chủ DNS và không tự bật lại sau khi lỗi. Thông báo đang chạy có nút <strong>Tắt bộ lọc</strong>; tắt bảo vệ trong app cũng tháo đường hầm. Trang trong app tự tra DNS riêng, ví dụ Chrome bật DoH, thì đi vòng qua bộ lọc.</p>
+            </div>
+
+            <div className="block">
+              <h3>5. Hiểu quy tắc quỹ mạng xã hội</h3>
               <p>App trong danh sách bị khoá theo mặc định. Muốn dùng, bạn mở Kỷ luật và bấm <strong>Nghỉ có kiểm soát</strong>, chọn 10, 15 hoặc 30 phút. Chỉ trong khoảng nghỉ đó thời gian lướt mới trừ vào quỹ.</p>
               <p>Quỹ là dùng chung cho cả nhóm app đã chọn, không phải mỗi app một tiếng, mặc định 60 phút và làm mới lúc 0:00 theo ngày trên máy. Hết giờ nghỉ là khoá lại, còn nghỉ thì bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</p>
               <p>Đổi mức quỹ ở <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>: chọn từ 15 đến 120 phút, gõ lại đúng đoạn cam kết rồi chờ 30 giây. Giảm mức có hiệu lực ngay, tăng mức phải chờ đến 0:00 hôm sau.</p>
@@ -118,7 +128,7 @@ export default function Page() {
             </div>
 
             <div className="block">
-              <h3>5. Màn khoá nói cho bạn biết vì sao bị chặn</h3>
+              <h3>6. Màn khoá nói cho bạn biết vì sao bị chặn</h3>
               <p>Lớp phủ hiện ngay trên mặt app với tiêu đề và lý do: app đang trong danh sách chặn, phiên focus đang chạy, hay đã dùng hết quỹ hôm nay. Trường hợp hết quỹ ghi luôn còn bao lâu tới 0:00.</p>
               <p>Hai nút luôn có ở trạng thái thường: <strong>Quay lại Kỷ luật</strong> và <strong>Dùng app khác</strong> để về màn hình chính. Màn khoá không giữ bạn ở lại.</p>
               <figure className="shot phone-shot inline-phone">
@@ -128,23 +138,23 @@ export default function Page() {
             </div>
 
             <div className="block">
-              <h3>6. Buổi tập gym</h3>
+              <h3>7. Buổi tập gym</h3>
               <p>Ở tab <strong>Hôm nay</strong>, chọn app tập của bạn rồi bấm bắt đầu. Giữ app đó trên màn hình đủ 10 phút liên tục thì được tính một buổi.</p>
               <p>Rời app hoặc tắt màn hình là đếm lại từ đầu. Trong lúc tập, một đồng hồ nhỏ chạy ở giữa mép trên màn hình và có thông báo ở thanh trạng thái.</p>
               <p>Buổi tập được ghi sang máy tính khi hai máy đang ghép nối và cùng có mạng.</p>
             </div>
 
             <div className="block">
-              <h3>7. Ghép với máy tính (tuỳ chọn)</h3>
+              <h3>8. Ghép với máy tính (tuỳ chọn)</h3>
               <p>Trên máy tính, mở <strong>Cài đặt</strong> → <strong>Tạo mã kết nối</strong>. Hai máy phải dùng chung một mạng Wi-Fi.</p>
               <p>Trên điện thoại, quét mã QR hoặc nhập 6 số. Mã hết hạn sau 5 phút và sai 5 lần thì phải lấy mã mới.</p>
               <p>Sau khi ghép, điện thoại hiện lịch học và lịch tập của máy tính, bấm bắt đầu phiên focus 25, 45 hoặc 60 phút từ điện thoại, và mục tiêu tuần hiển thị chung ở cả hai bên.</p>
-              <p>Không ghép thì mọi thứ ở bước 3 đến bước 6 vẫn chạy đầy đủ.</p>
+              <p>Không ghép thì mọi thứ ở bước 3 đến bước 7 vẫn chạy đầy đủ.</p>
             </div>
 
             <div className="block">
-              <h3>8. Tắt bảo vệ trên điện thoại</h3>
-              <p>Trong app, màn <strong>Cài đặt</strong> → <strong>An toàn</strong> có lối tắt bảo vệ. Tắt theo cách này là ba bước: đọc cảnh báo 60 giây, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 60 giây. Bật lại thì một chạm, không chờ gì.</p>
+              <h3>9. Tắt bảo vệ trên điện thoại</h3>
+              <p>Trong app, màn <strong>Cài đặt</strong> → <strong>An toàn</strong> có lối tắt bảo vệ. Tắt theo cách này là ba bước: đọc cảnh báo 60 giây, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 60 giây. Đường hầm lọc 18+ cũng bị tháo trong một lần đó. Bật lại thì một chạm, không chờ gì.</p>
               <p>Không có thời gian chờ 24 giờ trên điện thoại, và cũng không cần máy tính. Nhanh nhất là thu hồi quyền Trợ năng trong Cài đặt của máy: màn khoá biến mất lập tức.</p>
               <figure className="shot phone-shot inline-phone">
                 <img src="/assets/img/android-cai-dat.png" alt="Màn Cài đặt trên điện thoại: mục Kết nối, Quyền, Mục tiêu và An toàn với dòng Tắt bảo vệ chữ đỏ" width="1080" height="2544" loading="lazy" />
@@ -154,7 +164,7 @@ export default function Page() {
 
             <p className="note">
               <Icon name="info" />
-              <span>Điện thoại không chặn trang web. Muốn chặn web thì dùng bản Windows.</span>
+              <span>Điện thoại chỉ lọc được nội dung 18+ qua DNS. Muốn chặn một trang web tuỳ ý thì vẫn phải dùng bản Windows.</span>
             </p>
             <p className="note warn">
               <Icon name="alert" />
@@ -180,6 +190,10 @@ export default function Page() {
                 <p style={{ margin: '0', color: 'var(--ink-2)' }}>Kiểm tra hai quyền ở màn <strong>Cài đặt</strong> → <strong>Quyền</strong>, rồi mở tab <strong>Bảo vệ</strong> xác nhận app đó đã được gạt công tắc. Thiếu một trong hai thì không có màn khoá.</p>
               </div>
               <div className="card">
+                <h3>Bộ lọc 18+ trên Android chưa chặn được</h3>
+                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Tab <strong>Bảo vệ</strong> phải ghi <strong>Đang lọc từng truy vấn DNS của máy</strong>. Máy dưới Android 8.1 không hiện công tắc này. Công tắc tự tắt nghĩa là không mở được đường hầm hoặc không gọi được máy chủ phân giải, lý do nằm trong thông báo. App tự tra DNS riêng, ví dụ Chrome bật DoH, thì đi vòng qua bộ lọc.</p>
+              </div>
+              <div className="card">
                 <h3>Mạng bị mất sau khi tắt máy đột ngột</h3>
                 <p style={{ margin: '0', color: 'var(--ink-2)' }}>DNS còn trỏ về máy bạn. Chạy <code>.\Kyluat-cli.exe net uninstall</code> bằng quyền Administrator là về cũ.</p>
               </div>
@@ -202,6 +216,8 @@ export default function Page() {
               <li>Không có bản iOS, không có đồng bộ đám mây.</li>
               <li>Không có trí tuệ nhân tạo nào đoán app gây nghiện cho bạn.</li>
               <li>Dữ liệu không được mã hoá, ai mở được máy bạn thì đọc được lịch sử.</li>
+              <li>Chặn theo tên miền nên phụ thuộc DNS: trình duyệt bật DoH hay app tự tra máy chủ phân giải riêng đều đi vòng qua được.</li>
+              <li>Bộ lọc 18+ trên Android cần Android 8.1 trở lên.</li>
               <li>Không có gì là không thể vượt qua. Người quyết định gỡ vẫn là bạn.</li>
             </ul>
             <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px' }}>
