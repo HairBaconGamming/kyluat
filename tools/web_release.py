@@ -11,10 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [
     ROOT / "dist" / "Kyluat-windows-x64-v1.zip",
-    ROOT / "dist" / "cai-nghien-companion-v3.4.apk",
+    ROOT / "dist" / "cai-nghien-companion-v3.5.apk",
 ]
 # Tên file sẽ công khai trên GitHub Releases (applicationId giữ nguyên để cài đè được).
-RENAME = {"cai-nghien-companion-v3.4.apk": "kyluat-android-v3.4.apk"}
+RENAME = {"cai-nghien-companion-v3.5.apk": "kyluat-android-v3.5.apk"}
 
 
 def sha256(path: Path) -> str:

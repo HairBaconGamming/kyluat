@@ -1005,3 +1005,30 @@ class UiCodeInput(
         onCode(code())
     }
 }
+
+@SuppressLint("AppCompatCustomView")
+class NoPasteEdit(context: Context, hint: String = "Gõ lại đoạn cam kết ở trên…") : EditText(context) {
+    init {
+        this.hint = hint
+        textSize = 13f
+        setTextColor(Ui.TEXT)
+        setHintTextColor(Ui.TEXT_3)
+        gravity = Gravity.TOP
+        minLines = 4
+        setLineSpacing(0f, 1.3f)
+        background = Ui.rounded(Ui.SURFACE, 11, context).apply {
+            setStroke(Ui.dp(context, 1), Color.parseColor("#DFE4E7"))
+        }
+        setPadding(Ui.dp(context, 12), Ui.dp(context, 11), Ui.dp(context, 12), Ui.dp(context, 11))
+        isLongClickable = false
+        setTextIsSelectable(false)
+        typeface = Typeface.DEFAULT
+    }
+
+    override fun onTextContextMenuItem(id: Int): Boolean {
+        if (id == android.R.id.paste || id == android.R.id.pasteAsPlainText) {
+            return false
+        }
+        return super.onTextContextMenuItem(id)
+    }
+}

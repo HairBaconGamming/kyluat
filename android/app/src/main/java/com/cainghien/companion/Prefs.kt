@@ -30,6 +30,14 @@ class Prefs(context: Context) {
         get() = store.getInt("quota_used_seconds", 0)
         set(value) = store.edit().putInt("quota_used_seconds", value).apply()
 
+    var quotaMinutes: Int
+        get() = store.getInt("quota_minutes", DEFAULT_QUOTA_MINUTES)
+        set(value) = store.edit().putInt("quota_minutes", value).apply()
+
+    var quotaPendingMinutes: Int
+        get() = store.getInt("quota_pending_minutes", 0)
+        set(value) = store.edit().putInt("quota_pending_minutes", value).apply()
+
     var breakUntilMs: Long
         get() = store.getLong("break_until_ms", 0L)
         set(value) = store.edit().putLong("break_until_ms", value).apply()
@@ -64,6 +72,7 @@ class Prefs(context: Context) {
 
     companion object {
         const val DEFAULT_GYM = "com.google.android.apps.fitness"
+        const val DEFAULT_QUOTA_MINUTES = 60
         val DEFAULT_SOCIAL = setOf(
             "com.zhiliaoapp.musically",
             "com.google.android.youtube",

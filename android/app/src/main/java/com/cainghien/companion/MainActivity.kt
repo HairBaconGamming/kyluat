@@ -59,12 +59,14 @@ class MainActivity : Activity() {
     private lateinit var cancelButton: UiButton
     private lateinit var quotaRing: RingStack
     private lateinit var quotaSub: TextView
+    private lateinit var quotaPending: TextView
     private lateinit var breakButton: UiButton
     private lateinit var studyTile: UiStat
     private lateinit var gymTile: UiStat
     private lateinit var streakTile: UiStat
     private lateinit var gymRow: UiRow
     private lateinit var blockRow: UiRow
+    private lateinit var protectQuotaRow: UiRow
 
     private lateinit var protectCount: UiPill
     private lateinit var protectGroup: UiGroup
@@ -79,6 +81,7 @@ class MainActivity : Activity() {
     private lateinit var accessibilityRow: UiRow
     private lateinit var notificationRow: UiRow
     private lateinit var gymSettingRow: UiRow
+    private lateinit var quotaSettingRow: UiRow
     private lateinit var protectionRow: UiRow
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -241,6 +244,10 @@ class MainActivity : Activity() {
         quotaSub = Ui.label(this, "", 12f, Ui.TEXT_3)
         quotaSub.setPadding(0, Ui.dp(this, 2), 0, 0)
         quotaText.addView(quotaSub)
+        quotaPending = Ui.label(this, "", 11.5f, Ui.WARN, true)
+        quotaPending.setPadding(0, Ui.dp(this, 4), 0, 0)
+        quotaPending.visibility = View.GONE
+        quotaText.addView(quotaPending)
         breakButton = Ui.button(this, "Nghỉ có kiểm soát", Variant.GHOST)
         breakButton.setOnClickListener { onBreak() }
         quotaText.addView(breakButton, LinearLayout.LayoutParams(
@@ -302,10 +309,10 @@ class MainActivity : Activity() {
         page.addView(head)
 
         val explainer = Ui.group(this)
-        val explainRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield_check, Tone.ACCENT))
-        explainRow.title("Bật là bị chặn, trừ lúc nghỉ")
-        explainRow.subtitle("Mở tạm thời bằng quỹ 60 phút mỗi ngày")
-        explainer.addView(explainRow)
+        protectQuotaRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield_check, Tone.ACCENT))
+        protectQuotaRow.title("Bật là bị chặn, trừ lúc nghỉ")
+        protectQuotaRow.subtitle("Mở tạm thời bằng quỹ mạng xã hội mỗi ngày")
+        explainer.addView(protectQuotaRow)
         page.addView(explainer)
 
         page.addView(Ui.section(this, "App bị chặn"))
@@ -456,6 +463,13 @@ class MainActivity : Activity() {
 
         page.addView(Ui.section(this, "Mục tiêu"))
         val goals = Ui.group(this)
+        quotaSettingRow = Ui.row(this, Ui.tile(this, R.drawable.ic_clock, Tone.ACCENT))
+        quotaSettingRow.title("Quỹ mạng xã hội")
+        quotaSettingRow.subtitle("${quota.limitMinutes} phút mỗi ngày")
+        quotaSettingRow.status("Đổi", Ui.TEXT_3)
+        quotaSettingRow.trailing(Ui.chevron(this))
+        quotaSettingRow.makeClickable { startActivity(Intent(this, QuotaActivity::class.java)) }
+        goals.addView(quotaSettingRow)
         gymSettingRow = Ui.row(this, Ui.tile(this, R.drawable.ic_dumbbell, Tone.NEUTRAL))
         gymSettingRow.title("App tập gym")
         gymSettingRow.subtitle(Apps.label(this, prefs.gymPackage))
@@ -561,7 +575,7 @@ class MainActivity : Activity() {
 
         quotaRing.value.text = "${(remaining + 59) / 60}"
         quotaRing.caption.text = "phút còn"
-        quotaRing.setProgress(remaining.toFloat() / QuotaManager.DAILY_LIMIT_SECONDS)
+        quotaRing.setProgress(remaining.toFloat() / quota.limitSeconds)
         quotaRing.setArcColor(
             when {
                 remaining <= 0 -> Ui.DANGER
@@ -569,7 +583,11 @@ class MainActivity : Activity() {
                 else -> Ui.ACCENT
             }
         )
-        quotaSub.text = "Đã dùng ${quota.usedSeconds() / 60} / ${QuotaManager.DAILY_LIMIT_SECONDS / 60} phút · làm mới 0:00"
+        quotaSub.text = "Đã dùng ${quota.usedSeconds() / 60} / ${quota.limitMinutes} phút · làm mới 0:00"
+        val pending = quota.pendingMinutes
+        val hasPending = pending > 0 && pending != quota.limitMinutes
+        quotaPending.text = if (hasPending) "Đã hẹn $pending phút từ 0:00 hôm sau" else ""
+        quotaPending.visibility = if (hasPending) View.VISIBLE else View.GONE
         breakButton.text = if (quota.isBreakActive()) {
             "Kết thúc nghỉ · còn ${(quota.breakRemainingSeconds() + 59) / 60} phút"
         } else {
@@ -637,6 +655,11 @@ class MainActivity : Activity() {
         accessibilityRow.status(if (accessibility) "Đã bật" else "Bật", if (accessibility) Ui.ACCENT else Ui.DANGER)
         notificationRow.status(if (notifications) "Đã bật" else "Tắt", if (notifications) Ui.ACCENT else Ui.TEXT_3)
         gymSettingRow.subtitle(Apps.label(this, prefs.gymPackage))
+        quotaSettingRow.subtitle(
+            if (hasPending) "$pending phút có hiệu lực từ 0:00 hôm sau"
+            else "${quota.limitMinutes} phút mỗi ngày · chỉnh được"
+        )
+        protectQuotaRow.subtitle("Mở tạm thời bằng quỹ ${quota.limitMinutes} phút mỗi ngày")
 
         if (protectionOn) {
             protectionRow.title("Tắt bảo vệ")

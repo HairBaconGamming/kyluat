@@ -78,7 +78,7 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Cài file APK</h3>
-              <p>Tải <code>kyluat-android-v3.4.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Tải <code>kyluat-android-v3.5.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
               <p>Android 8.0 trở lên. Không lên CH Play.</p>
             </div>
 
@@ -93,19 +93,36 @@ export default function Page() {
               <p>Ở tab <strong>Bảo vệ</strong>, app đang cài trên máy hiện ra để bạn gạt công tắc. Không có danh sách tự động, không có gợi ý app nào "nên chặn".</p>
               <p>Bấm <strong>Thêm app khác</strong> nếu app bạn cần không nằm trong danh sách đang hiện.</p>
               <p>Có những thứ app loại trừ cứng và bạn không chọn được: quay số, tin nhắn, Cài đặt và màn hình chính. App ngoài danh sách luôn mở bình thường.</p>
+              <figure className="shot phone-shot inline-phone">
+                <img src="/assets/img/android-bao-ve.png" alt="Tab Bảo vệ trên điện thoại: mỗi ứng dụng một dòng kèm công tắc" width="1080" height="2548" loading="lazy" />
+                <figcaption>Tab Bảo vệ: một dòng một app, gạt là chặn.</figcaption>
+              </figure>
             </div>
 
             <div className="block">
-              <h3>4. Hiểu quy tắc quỹ 60 phút</h3>
+              <h3>4. Hiểu quy tắc quỹ mạng xã hội</h3>
               <p>App trong danh sách bị khoá theo mặc định. Muốn dùng, bạn mở Kỷ luật và bấm <strong>Nghỉ có kiểm soát</strong>, chọn 10, 15 hoặc 30 phút. Chỉ trong khoảng nghỉ đó thời gian lướt mới trừ vào quỹ.</p>
-              <p>Quỹ 60 phút là dùng chung cho cả nhóm app đã chọn, không phải mỗi app một tiếng. Quỹ làm mới lúc 0:00 theo ngày trên máy. Hết giờ nghỉ là khoá lại, còn nghỉ thì bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</p>
+              <p>Quỹ là dùng chung cho cả nhóm app đã chọn, không phải mỗi app một tiếng, mặc định 60 phút và làm mới lúc 0:00 theo ngày trên máy. Hết giờ nghỉ là khoá lại, còn nghỉ thì bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</p>
+              <p>Đổi mức quỹ ở <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>: chọn từ 15 đến 120 phút, gõ lại đúng đoạn cam kết rồi chờ 30 giây. Giảm mức có hiệu lực ngay, tăng mức phải chờ đến 0:00 hôm sau.</p>
+              <figure className="shot phone-shot inline-phone">
+                <img src="/assets/img/android-doi-quy.png" alt="Bước chọn mức quỹ: các mức 15 đến 120 phút, đang chọn 90, kèm dòng giải thích tăng quỹ có hiệu lực từ 0:00 hôm sau" width="1080" height="2157" loading="lazy" />
+                <figcaption>Bước 1 của ba bước đổi mức quỹ.</figcaption>
+              </figure>
               <p>Đang có phiên focus chạy thì không xin nghỉ được. Muốn lướt trong lúc focus, bạn phải dừng phiên trước, và dừng giữa chừng thì vẫn còn chờ theo đúng cơ chế đã cam kết.</p>
+              <figure className="shot phone-shot inline-phone">
+                <img src="/assets/img/android-hom-nay.png" alt="Tab Hôm nay trên điện thoại: vòng quỹ mạng xã hội 42 phút còn lại và nút Kết thúc nghỉ" width="1080" height="2608" loading="lazy" />
+                <figcaption>Tab Hôm nay: vòng quỹ và nút kết thúc nghỉ đang chạy.</figcaption>
+              </figure>
             </div>
 
             <div className="block">
               <h3>5. Màn khoá nói cho bạn biết vì sao bị chặn</h3>
-              <p>Lớp phủ hiện ngay trên mặt app với tiêu đề và lý do: app đang trong danh sách chặn, phiên focus đang chạy, hay đã dùng hết 60 phút hôm nay. Trường hợp hết quỹ ghi luôn còn bao lâu tới 0:00.</p>
+              <p>Lớp phủ hiện ngay trên mặt app với tiêu đề và lý do: app đang trong danh sách chặn, phiên focus đang chạy, hay đã dùng hết quỹ hôm nay. Trường hợp hết quỹ ghi luôn còn bao lâu tới 0:00.</p>
               <p>Hai nút luôn có ở trạng thái thường: <strong>Quay lại Kỷ luật</strong> và <strong>Dùng app khác</strong> để về màn hình chính. Màn khoá không giữ bạn ở lại.</p>
+              <figure className="shot phone-shot inline-phone">
+                <img src="/assets/img/android-man-khoa.png" alt="Lớp phủ màn khoá màu đậm với hai nút Quay lại Kỷ luật và Dùng app khác" width="1080" height="2400" loading="lazy" />
+                <figcaption>Màn khoá thật, vẽ bằng chính app Kỷ luật.</figcaption>
+              </figure>
             </div>
 
             <div className="block">
@@ -127,11 +144,19 @@ export default function Page() {
               <h3>8. Tắt bảo vệ trên điện thoại</h3>
               <p>Trong app, màn <strong>Cài đặt</strong> → <strong>An toàn</strong> có lối tắt bảo vệ. Tắt theo cách này là ba bước: đọc cảnh báo 60 giây, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 60 giây. Bật lại thì một chạm, không chờ gì.</p>
               <p>Không có thời gian chờ 24 giờ trên điện thoại, và cũng không cần máy tính. Nhanh nhất là thu hồi quyền Trợ năng trong Cài đặt của máy: màn khoá biến mất lập tức.</p>
+              <figure className="shot phone-shot inline-phone">
+                <img src="/assets/img/android-cai-dat.png" alt="Màn Cài đặt trên điện thoại: mục Kết nối, Quyền, Mục tiêu và An toàn với dòng Tắt bảo vệ chữ đỏ" width="1080" height="2544" loading="lazy" />
+                <figcaption>Màn Cài đặt: mục An toàn ở cuối trang là lối tắt tắt bảo vệ.</figcaption>
+              </figure>
             </div>
 
             <p className="note">
               <Icon name="info" />
               <span>Điện thoại không chặn trang web. Muốn chặn web thì dùng bản Windows.</span>
+            </p>
+            <p className="note warn">
+              <Icon name="alert" />
+              <span>Năm ảnh điện thoại trong phần này dựng lại bằng code từ đúng màu, chữ và số đo trong mã giao diện, không phải ảnh chụp từ máy thật.</span>
             </p>
           </div>
         </section>

@@ -10,7 +10,8 @@ Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình n
 
 | Việc | Bản này |
 | --- | --- |
-| Quỹ mạng xã hội mỗi ngày trên Android | 60 phút, làm mới lúc 0 giờ, không có nút gia hạn |
+| Quỹ mạng xã hội mỗi ngày trên Android | mặc định 60 phút, làm mới lúc 0 giờ, không có nút gia hạn trong ngày |
+| Đổi mức quỹ trên Android | 15–120 phút, gõ lại đoạn cam kết và chờ 30 giây; giảm có hiệu lực ngay, tăng chờ đến 0 giờ hôm sau |
 | Xin dừng một phiên tập trung giữa chừng | phải chờ 10 phút |
 | Nới lỏng luật (bỏ chặn, giảm giờ, giảm cooldown) | có hiệu lực sau 24 giờ |
 | Thêm ràng buộc mới | có hiệu lực ngay |
@@ -24,7 +25,7 @@ Danh sách app bị chặn không tự sinh ra. Máy không tự đoán cái nà
 Bản v1.0 có hai file:
 
 - `Kyluat-windows-x64-v1.zip` cho Windows 10 và 11 bản 64-bit. Giải nén thư mục rồi mở `Kyluat.exe`. Không cần cài Python.
-- `kyluat-android-v3.4.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play.
+- `kyluat-android-v3.5.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release.
 
@@ -99,7 +100,7 @@ cd android
 ./gradlew :app:assembleDebug
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 9 tương ứng `versionName` 3.4. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 10 tương ứng `versionName` 3.5. APK build ra nằm ở `android/app/build/` và không được commit.
 
 ### Trang web
 

@@ -240,8 +240,8 @@ class FocusAccessibilityService : AccessibilityService() {
             )
             quota.isExhausted() -> showOverlay(
                 "Hết quỹ hôm nay",
-                "60 phút mạng xã hội đã dùng xong",
-                "Bạn đã cam kết chỉ lướt 1 tiếng mỗi ngày. Quỹ làm mới lúc 0:00 — còn ${resetLabel()}.",
+                "${quota.limitMinutes} phút mạng xã hội đã dùng xong",
+                "Bạn đã tự chốt mức ${quota.limitMinutes} phút mỗi ngày. Quỹ làm mới lúc 0:00 — còn ${resetLabel()}.",
                 false,
             )
             quota.isBreakActive() -> removeOverlay()

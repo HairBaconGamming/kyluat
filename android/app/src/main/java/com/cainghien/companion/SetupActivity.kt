@@ -273,7 +273,7 @@ class SetupActivity : Activity() {
         val sub = Ui.label(
             this,
             if (prefs.protectionEnabled) {
-                "Quỹ 60 phút và phiên focus đã hoạt động trên điện thoại này."
+                "Quỹ ${QuotaManager(prefs).limitMinutes} phút và phiên focus đã hoạt động trên điện thoại này."
             } else {
                 "Bảo vệ đang tắt. Bật lại trong Cài đặt khi bạn sẵn sàng."
             },

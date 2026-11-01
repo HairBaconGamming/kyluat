@@ -66,6 +66,11 @@
             android:name=".OffActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".QuotaActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name=".FocusAccessibilityService"
             android:exported="false"

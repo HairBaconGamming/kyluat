@@ -470,73 +470,36 @@ section.alt .card {
 
 .gallery {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
-/* ---------- phone mock ---------- */
-
-.phone {
-  width: 268px;
-  margin: 0 auto;
-  padding: 14px 12px 18px;
-  border: 1px solid var(--line);
-  border-radius: 30px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+.gallery.phones {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.phone .screen {
-  padding: 12px;
-  border-radius: 20px;
+.shot.phone-shot {
   background: var(--surface-2);
-  border: 1px solid var(--line-soft);
 }
 
-.phone .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  font-size: 11px;
-  color: var(--ink-3);
+.shot.phone-shot img {
+  box-sizing: border-box;
+  padding: 14px 10px;
 }
 
-.phone .ring {
-  display: grid;
-  place-items: center;
-  margin: 0 auto 10px;
+.shot.phone-shot figcaption {
+  background: var(--surface);
 }
 
-.phone .bar-track {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
+.step-media.phone-shot {
+  max-width: 290px;
+  margin: 0 auto;
 }
 
-.phone .bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-.phone .line {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--ink-2);
-}
-
-.phone .chip {
-  padding: 2px 8px;
-  border: 1px solid var(--accent-line);
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-2);
-  font-size: 11px;
-  font-weight: 600;
+.inline-phone {
+  max-width: 300px;
+  margin: 14px auto 0;
 }
 
 /* ---------- downloads ---------- */
@@ -857,6 +820,10 @@ footer p {
   .grid.three,
   .gallery {
     grid-template-columns: 1fr;
+  }
+
+  .gallery.phones {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   h1 {

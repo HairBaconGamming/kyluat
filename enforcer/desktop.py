@@ -2266,7 +2266,7 @@ class DisableDialog(QDialog):
         card_layout.setSpacing(6)
         for text in (
             "Không còn cảnh báo khi mở app gây xao nhãng.",
-            "Quỹ 60 phút mạng xã hội bị hủy.",
+            "Quỹ mạng xã hội hôm nay của điện thoại bị hủy.",
             "Bạn có thể bật lại bất cứ lúc nào, nhưng chuỗi ngày có thể bị gián đoạn.",
         ):
             card_layout.addWidget(_label("•  " + text, "body"))

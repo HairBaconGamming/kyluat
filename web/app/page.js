@@ -157,7 +157,7 @@ export default function Page() {
           <div className="wrap">
             <div className="head">
               <p className="eyebrow">Giao diện</p>
-              <h2>Bốn màn hình, không màn nào cần đọc sách hướng dẫn</h2>
+              <h2>Bốn màn hình mỗi thiết bị, không màn nào cần đọc sách hướng dẫn</h2>
               <p className="lede">Toàn bộ ảnh dưới đây dùng dữ liệu giả.</p>
             </div>
             <div className="gallery">
@@ -178,7 +178,30 @@ export default function Page() {
                 <figcaption>Hộp thoại Tắt bảo vệ</figcaption>
               </figure>
             </div>
+            <h3 style={{ margin: '32px 0 14px', fontSize: '17px' }}>Trên điện thoại</h3>
+            <div className="gallery phones">
+              <figure className="shot phone-shot">
+                <img src="/assets/img/android-hom-nay.png" alt="Màn Hôm nay trên điện thoại: đồng hồ phiên tập trung, vòng quỹ mạng xã hội còn 42 phút và ba ô số liệu" width="1080" height="2608" loading="lazy" />
+                <figcaption>Hôm nay</figcaption>
+              </figure>
+              <figure className="shot phone-shot">
+                <img src="/assets/img/android-bao-ve.png" alt="Màn Bảo vệ trên điện thoại: danh sách ứng dụng kèm công tắc chặn từng cái một" width="1080" height="2548" loading="lazy" />
+                <figcaption>Bảo vệ</figcaption>
+              </figure>
+              <figure className="shot phone-shot">
+                <img src="/assets/img/android-cai-dat.png" alt="Màn Cài đặt trên điện thoại: trạng thái kết nối máy tính, ba quyền đang bật và nút tắt bảo vệ" width="1080" height="2544" loading="lazy" />
+                <figcaption>Cài đặt</figcaption>
+              </figure>
+              <figure className="shot phone-shot">
+                <img src="/assets/img/android-het-quy.png" alt="Lớp phủ màn khoá khi đã hết quỹ: chỉ còn tiêu đề và thời gian tới 0:00, không có nút mở ứng dụng" width="1080" height="2400" loading="lazy" />
+                <figcaption>Màn khoá lúc hết quỹ</figcaption>
+              </figure>
+            </div>
             <p className="note" style={{ marginTop: '16px' }}>
+              <Icon name="info" />
+              <span>Ảnh điện thoại dựng lại bằng code từ đúng màu, chữ và số đo trong mã giao diện, không phải ảnh chụp thiết bị, và icon ứng dụng để dạng ô trung tính.</span>
+            </p>
+            <p className="note" style={{ marginTop: '10px' }}>
               <Icon name="info" />
               <span>Phần kỹ thuật nằm riêng ở màn Nâng cao. Bạn không cần mở nó vẫn dùng được.</span>
             </p>
@@ -189,8 +212,8 @@ export default function Page() {
           <div className="wrap">
             <div className="head">
               <p className="eyebrow">Cách hoạt động · Android</p>
-              <h2>Trên điện thoại: app bị khoá sẵn, quỹ 60 phút phải chủ động xin dùng</h2>
-              <p className="lede">60 phút không phải vé lướt miễn phí. Đó là hạn mức của cả ngày, và nó chỉ trừ dần khi bạn mở một phiên nghỉ có kiểm soát.</p>
+              <h2>Trên điện thoại: app bị khoá sẵn, quỹ mạng xã hội phải chủ động xin dùng</h2>
+              <p className="lede">Mặc định là 60 phút cho cả ngày, và nó chỉ trừ dần khi bạn mở một phiên nghỉ có kiểm soát. Đổi mức cũng được, nhưng phải gõ lại đoạn cam kết.</p>
             </div>
             <div className="steps">
               <div className="step">
@@ -203,23 +226,10 @@ export default function Page() {
                     <li>Quay số, Tin nhắn, Cài đặt và màn hình chính bị loại trừ ngay trong mã, bạn không chọn được.</li>
                   </ul>
                 </div>
-                <div className="phone step-media" aria-hidden="true">
-                  <div className="screen">
-                    <div className="row"><span>Hôm nay</span><span className="chip">Nghỉ 10 phút · còn 3 phút</span></div>
-                    <svg className="ring" width="150" height="150" viewBox="0 0 150 150">
-                      <circle cx="75" cy="75" r="62" fill="none" stroke="#e8ebed" strokeWidth="12"></circle>
-                      <circle cx="75" cy="75" r="62" fill="none" stroke="#2f6f5e" strokeWidth="12" strokeLinecap="round" strokeDasharray="389.6" strokeDashoffset="272.7" transform="rotate(-90 75 75)"></circle>
-                      <text x="75" y="70" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="30" fontWeight="650" fill="#10151a">18</text>
-                      <text x="75" y="92" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="13" fill="#5c666f">/ 60 phút</text>
-                    </svg>
-                    <div className="line"><span>Quỹ hôm nay</span><span>còn 42 phút</span></div>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: '30%' }}></div></div>
-                    <div className="line"><span>Phiên nghỉ đang mở</span><span>còn 3 phút</span></div>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: '70%' }}></div></div>
-                    <div className="line"><span>Buổi tập gym</span><span>08:40 / 10:00</span></div>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: '87%' }}></div></div>
-                  </div>
-                </div>
+                <figure className="shot phone-shot step-media">
+                  <img src="/assets/img/android-bao-ve.png" alt="Màn Bảo vệ trên điện thoại với danh sách ứng dụng và công tắc chặn từng cái" width="1080" height="2548" loading="lazy" />
+                  <figcaption>Tab Bảo vệ: gạt công tắc là chặn đúng app đó.</figcaption>
+                </figure>
               </div>
               <div className="step">
                 <div>
@@ -232,13 +242,10 @@ export default function Page() {
                     <li>Nghỉ sớm cũng được: bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</li>
                   </ul>
                 </div>
-                <div className="card principle step-media">
-                  <span className="ico"><Icon name="clock" /></span>
-                  <div>
-                    <h3>Quỹ dùng chung, không chia theo app</h3>
-                    <p>60 phút là cho cả nhóm app bạn đã chọn, không phải mỗi app một tiếng. Hết quỹ, màn khoá hiện luôn còn bao lâu tới 0:00.</p>
-                  </div>
-                </div>
+                <figure className="shot phone-shot step-media">
+                  <img src="/assets/img/android-hom-nay.png" alt="Màn Hôm nay trên điện thoại: vòng quỹ còn 42 phút và nút Kết thúc nghỉ đang chạy" width="1080" height="2608" loading="lazy" />
+                  <figcaption>Quỹ mạng xã hội và phiên nghỉ nhìn thấy ngay ở tab Hôm nay.</figcaption>
+                </figure>
               </div>
               <div className="step">
                 <div>
@@ -251,13 +258,10 @@ export default function Page() {
                     <li>Đang nghỉ có kiểm soát: không có màn khoá.</li>
                   </ul>
                 </div>
-                <div className="card principle step-media">
-                  <span className="ico"><Icon name="shield" /></span>
-                  <div>
-                    <h3>Trợ năng chỉ nhìn tên app</h3>
-                    <p>Quyền Trợ năng khai báo ở mức thấp nhất: chỉ sự đổi cửa sổ phía trước, tuỳ chọn đọc nội dung màn hình bị tắt trong file khai báo.</p>
-                  </div>
-                </div>
+                <figure className="shot phone-shot step-media">
+                  <img src="/assets/img/android-man-khoa.png" alt="Lớp phủ màn khoá màu đậm với tiêu đề APP NÀY ĐANG TRONG DANH SÁCH CHẶN và hai nút Quay lại Kỷ luật, Dùng app khác" width="1080" height="2400" loading="lazy" />
+                  <figcaption>Màn khoá khi bạn mở app đang bị chặn.</figcaption>
+                </figure>
               </div>
             </div>
             <div className="grid two" style={{ marginTop: '40px' }}>
@@ -282,10 +286,17 @@ export default function Page() {
                   <p>Giữ app tập trên màn hình đủ 10 phút liên tục mới được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, có đồng hồ chạy ở thanh trạng thái.</p>
                 </div>
               </div>
+              <div className="card principle">
+                <span className="ico"><Icon name="clock" /></span>
+                <div>
+                  <h3>Quỹ dùng chung, và bạn đổi được mức</h3>
+                  <p>Một mức quỹ duy nhất dùng cho cả nhóm app đã chọn, không phải mỗi app một tiếng. Mặc định 60 phút, chỉnh được 15 đến 120 phút.</p>
+                </div>
+              </div>
             </div>
             <p className="note warn" style={{ marginTop: '16px' }}>
               <Icon name="alert" />
-              <span>Hình điện thoại ở trên là minh hoạ cấu trúc màn hình, không phải ảnh chụp từ máy thật.</span>
+              <span>Ảnh điện thoại dựng lại bằng code từ màu, chữ và số đo trong mã giao diện, không phải ảnh chụp từ máy thật.</span>
             </p>
           </div>
         </section>
@@ -322,7 +333,7 @@ export default function Page() {
                   </div>
                 </div>
                 <ul>
-                  <li>Quỹ mạng xã hội 60 phút mỗi ngày và màn khoá trong phiên.</li>
+                  <li>Quỹ mạng xã hội mỗi ngày, mặc định 60 phút và đổi được, cùng màn khoá trong phiên.</li>
                   <li>Không chặn trang web trên điện thoại, phần đó thuộc về máy tính.</li>
                   <li>Bản debug cá nhân, Play Protect có thể cảnh báo một lần.</li>
                 </ul>
@@ -354,10 +365,17 @@ export default function Page() {
                 </div>
               </details>
               <details id="faq-quy">
-                <summary>Quỹ 60 phút trên điện thoại tiêu thế nào?</summary>
+                <summary>Quỹ mạng xã hội trên điện thoại tiêu thế nào?</summary>
                 <div className="body">
-                  <p>Mặc định là khoá. Bạn mở Kỷ luật rồi chọn một phiên nghỉ 10, 15 hoặc 30 phút; chỉ trong phiên nghỉ đó thời gian lướt mới trừ vào quỹ 60 phút của ngày.</p>
+                  <p>Mặc định là khoá. Bạn mở Kỷ luật rồi chọn một phiên nghỉ 10, 15 hoặc 30 phút; chỉ trong phiên nghỉ đó thời gian lướt mới trừ vào quỹ của ngày.</p>
                   <p>Hết giờ nghỉ là màn khoá đóng lại, dù quỹ còn. Hết quỹ thì màn khoá nói rõ còn bao lâu tới 0:00.</p>
+                </div>
+              </details>
+              <details id="faq-doi-quy">
+                <summary>Đổi mức quỹ 60 phút thì làm thế nào?</summary>
+                <div className="body">
+                  <p>Ở tab <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>. Chọn mức từ 15 đến 120 phút, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 30 giây. Ba bước này giống hệt lúc tắt bảo vệ.</p>
+                  <p>Giảm mức có hiệu lực ngay, tăng mức phải chờ đến 0:00 hôm sau — nên đổi quỹ không cứu được một ngày đã dùng hết. Đã trót hẹn tăng mà đổi ý thì có nút <strong>Hủy lịch đổi</strong> ở bước chọn mức, bỏ lịch đó ngay, không phải gõ lại gì.</p>
                 </div>
               </details>
               <details id="faq-mat-ket-noi">

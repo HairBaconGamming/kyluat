@@ -119,6 +119,11 @@ export default function Page() {
                     <td>Đóng gói thành một file exe chạy độc lập, thêm lệnh <code>Kyluat.exe turn-off</code>.</td>
                   </tr>
                   <tr>
+                    <td className="yes">Android 3.5</td>
+                    <td>01/11/2026</td>
+                    <td>Quỹ mạng xã hội đổi được trong khoảng 15–120 phút, kèm đoạn cam kết gõ tay.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.4</td>
                     <td>01/11/2026</td>
                     <td>Giữ màn khoá ổn định khi app khác chèn cửa sổ phụ, viết lại câu chữ cho ngắn.</td>

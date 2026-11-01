@@ -29,10 +29,10 @@ export const WINDOWS = {
 };
 
 export const ANDROID = {
-  file: "kyluat-android-v3.4.apk",
-  url: `${RELEASE}/kyluat-android-v3.4.apk`,
-  size: "3,66 MB",
-  note: "phiên bản 3.4 (số 9)",
-  bytes: "3.655.146",
-  sha256: "3054b13c53f43cd584949b5babc10a53c4067fc1a0de2be990414c223b7fbf44",
+  file: "kyluat-android-v3.5.apk",
+  url: `${RELEASE}/kyluat-android-v3.5.apk`,
+  size: "3,81 MB",
+  note: "phiên bản 3.5 (số 10)",
+  bytes: "3.810.480",
+  sha256: "351a7a75e4288d36df4a1413b3f07edb899d61d066868534d0d21ea95bd0af71",
 };

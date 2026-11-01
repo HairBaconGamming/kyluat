@@ -11,6 +11,14 @@ import kotlin.math.min
 class QuotaManager(private val prefs: Prefs) {
     private val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
+    val limitMinutes: Int
+        @Synchronized get() = prefs.quotaMinutes.coerceIn(MIN_MINUTES, MAX_MINUTES)
+
+    val limitSeconds: Int get() = limitMinutes * 60
+
+    val pendingMinutes: Int
+        @Synchronized get() = prefs.quotaPendingMinutes.coerceIn(0, MAX_MINUTES)
+
     @Synchronized
     fun resetIfNeeded(now: Long = System.currentTimeMillis()) {
         val today = formatter.format(Date(now))
@@ -18,18 +26,27 @@ class QuotaManager(private val prefs: Prefs) {
             prefs.quotaDate = today
             prefs.quotaUsedSeconds = 0
             prefs.breakUntilMs = 0L
+            val pending = prefs.quotaPendingMinutes
+            if (pending > 0) {
+                prefs.quotaMinutes = pending.coerceIn(MIN_MINUTES, MAX_MINUTES)
+                prefs.quotaPendingMinutes = 0
+            }
         }
     }
 
     @Synchronized
     fun usedSeconds(now: Long = System.currentTimeMillis()): Int {
         resetIfNeeded(now)
-        return prefs.quotaUsedSeconds.coerceIn(0, DAILY_LIMIT_SECONDS)
+        return prefs.quotaUsedSeconds.coerceIn(0, limitSeconds)
     }
 
     @Synchronized
     fun remainingSeconds(now: Long = System.currentTimeMillis()): Int =
-        max(0, DAILY_LIMIT_SECONDS - usedSeconds(now))
+        max(0, limitSeconds - usedSeconds(now))
+
+    @Synchronized
+    fun remainingSecondsFor(minutes: Int, now: Long = System.currentTimeMillis()): Int =
+        max(0, minutes * 60 - usedSeconds(now))
 
     @Synchronized
     fun isExhausted(now: Long = System.currentTimeMillis()): Boolean = remainingSeconds(now) <= 0
@@ -56,13 +73,31 @@ class QuotaManager(private val prefs: Prefs) {
         prefs.breakUntilMs = 0L
     }
 
+    /** Mức mới có hiệu lực ngay, đồng thời hủy lịch đổi đang hẹn. */
+    @Synchronized
+    fun applyNow(minutes: Int) {
+        prefs.quotaMinutes = minutes.coerceIn(MIN_MINUTES, MAX_MINUTES)
+        prefs.quotaPendingMinutes = 0
+    }
+
+    /** Mức cao hơn chỉ được ghi nhận từ lần làm mới 0:00 kế tiếp. */
+    @Synchronized
+    fun schedule(minutes: Int) {
+        prefs.quotaPendingMinutes = minutes.coerceIn(MIN_MINUTES, MAX_MINUTES)
+    }
+
+    @Synchronized
+    fun cancelPending() {
+        prefs.quotaPendingMinutes = 0
+    }
+
     @Synchronized
     fun consume(seconds: Int, now: Long = System.currentTimeMillis()): Boolean {
         if (seconds <= 0) return isExhausted(now)
         resetIfNeeded(now)
-        val used = (prefs.quotaUsedSeconds + seconds).coerceAtMost(DAILY_LIMIT_SECONDS)
+        val used = (prefs.quotaUsedSeconds + seconds).coerceAtMost(limitSeconds)
         prefs.quotaUsedSeconds = used
-        if (used >= DAILY_LIMIT_SECONDS) {
+        if (used >= limitSeconds) {
             prefs.breakUntilMs = 0L
         }
         return isExhausted(now)
@@ -80,7 +115,10 @@ class QuotaManager(private val prefs: Prefs) {
     }
 
     companion object {
-        const val DAILY_LIMIT_SECONDS = 60 * 60
+        const val MIN_MINUTES = 15
+        const val MAX_MINUTES = 120
+        const val STEP_MINUTES = 15
+        val PRESETS = (MIN_MINUTES..MAX_MINUTES step STEP_MINUTES).toList()
     }
 }
 

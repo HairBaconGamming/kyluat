@@ -1,9 +1,6 @@
 package com.cainghien.companion
 
-import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Context
-import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -57,7 +54,7 @@ class OffActivity : Activity() {
 
         container.addView(Ui.warnBox(
             this,
-            "Khi tắt, app ngừng chặn ứng dụng, quỹ 60 phút và cảnh báo không còn tác dụng cho đến khi bạn bật lại.",
+            "Khi tắt, app ngừng chặn ứng dụng, ngừng trừ quỹ mạng xã hội và cảnh báo không còn tác dụng cho đến khi bạn bật lại.",
         ))
 
         val group = Ui.group(this)
@@ -67,7 +64,7 @@ class OffActivity : Activity() {
         group.addView(blockRow)
         val quotaRow = Ui.row(this, Ui.tile(this, R.drawable.ic_clock, Tone.NEUTRAL))
         quotaRow.title("Hủy quỹ hôm nay")
-        quotaRow.subtitle("60 phút mạng xã hội còn lại sẽ mất.")
+        quotaRow.subtitle("${(QuotaManager(prefs).remainingSeconds() + 59) / 60} phút mạng xã hội còn lại sẽ mất.")
         group.addView(quotaRow)
         val streakRow = Ui.row(this, Ui.tile(this, R.drawable.ic_flame, Tone.WARN))
         streakRow.title("Chuỗi ngày gián đoạn")
@@ -231,33 +228,6 @@ class OffActivity : Activity() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
-    }
-
-    @SuppressLint("AppCompatCustomView")
-    private class NoPasteEdit(context: Context) : EditText(context) {
-        init {
-            hint = "Gõ lại đoạn cam kết ở trên…"
-            textSize = 13f
-            setTextColor(Ui.TEXT)
-            setHintTextColor(Ui.TEXT_3)
-            gravity = Gravity.TOP
-            minLines = 4
-            setLineSpacing(0f, 1.3f)
-            background = Ui.rounded(Ui.SURFACE, 11, context).apply {
-                setStroke(Ui.dp(context, 1), android.graphics.Color.parseColor("#DFE4E7"))
-            }
-            setPadding(Ui.dp(context, 12), Ui.dp(context, 11), Ui.dp(context, 12), Ui.dp(context, 11))
-            isLongClickable = false
-            setTextIsSelectable(false)
-            typeface = Typeface.DEFAULT
-        }
-
-        override fun onTextContextMenuItem(id: Int): Boolean {
-            if (id == android.R.id.paste || id == android.R.id.pasteAsPlainText) {
-                return false
-            }
-            return super.onTextContextMenuItem(id)
-        }
     }
 
     companion object {
