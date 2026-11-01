@@ -5,7 +5,7 @@ export const metadata = {
   description:
     "Cài Kỷ luật trên Windows và Android từng bước, kèm lệnh kiểm tra và cách gỡ sạch.",
   alternates: { canonical: "/huong-dan" },
-  openGraph: { title: "Hướng dẫn cài Kỷ luật", description: "Sáu bước cho Windows, năm bước cho Android.", url: "/huong-dan" },
+  openGraph: { title: "Hướng dẫn cài Kỷ luật", description: "Sáu bước cho Windows, tám bước cho Android.", url: "/huong-dan" },
 };
 
 export default function Page() {
@@ -74,34 +74,59 @@ export default function Page() {
         <section id="android">
           <div className="wrap prose">
             <h2>Android</h2>
+            <p>Bản Android tự giữ luật trên chính cái máy bạn cầm, không cần máy tính bật suốt. Tám bước dưới đây là toàn bộ những gì phải làm.</p>
 
             <div className="block">
               <h3>1. Cài file APK</h3>
               <p>Tải <code>kyluat-android-v3.4.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Android 8.0 trở lên. Không lên CH Play.</p>
             </div>
 
             <div className="block">
               <h3>2. Cấp hai quyền bắt buộc</h3>
-              <p>App sẽ dẫn bạn qua <strong>Hiển thị trên ứng dụng khác</strong> và <strong>Trợ năng</strong>. Trợ năng chỉ dùng để biết app nào đang mở, không đọc nội dung màn hình.</p>
+              <p>App sẽ dẫn bạn qua <strong>Hiển thị trên ứng dụng khác</strong> và <strong>Trợ năng</strong>. Trợ năng khai báo ở mức thấp nhất: chỉ theo dõi cửa sổ nào đang ở phía trước, còn tuỳ chọn đọc nội dung cửa sổ bị tắt ngay trong file khai báo.</p>
               <p>Quyền thông báo là tuỳ chọn, cần nếu bạn muốn đồng hồ buổi tập hiện trên thanh trạng thái.</p>
             </div>
 
             <div className="block">
-              <h3>3. Chọn app và đọc quy tắc</h3>
-              <p>Ở tab <strong>Bảo vệ</strong>, bạn chọn app nào bị chặn. Không có danh sách tự động.</p>
-              <p>Mạng xã hội có quỹ 60 phút mỗi ngày, làm mới lúc 0 giờ. Ngoài quỹ, mở app là gặp màn khoá.</p>
+              <h3>3. Chọn app bị chặn</h3>
+              <p>Ở tab <strong>Bảo vệ</strong>, app đang cài trên máy hiện ra để bạn gạt công tắc. Không có danh sách tự động, không có gợi ý app nào "nên chặn".</p>
+              <p>Bấm <strong>Thêm app khác</strong> nếu app bạn cần không nằm trong danh sách đang hiện.</p>
+              <p>Có những thứ app loại trừ cứng và bạn không chọn được: quay số, tin nhắn, Cài đặt và màn hình chính. App ngoài danh sách luôn mở bình thường.</p>
             </div>
 
             <div className="block">
-              <h3>4. Buổi tập gym</h3>
-              <p>Bấm bắt đầu buổi tập rồi giữ app tập của bạn ở trên màn hình đủ 10 phút liên tục. Rời app hoặc tắt màn hình thì đếm lại từ đầu.</p>
+              <h3>4. Hiểu quy tắc quỹ 60 phút</h3>
+              <p>App trong danh sách bị khoá theo mặc định. Muốn dùng, bạn mở Kỷ luật và bấm <strong>Nghỉ có kiểm soát</strong>, chọn 10, 15 hoặc 30 phút. Chỉ trong khoảng nghỉ đó thời gian lướt mới trừ vào quỹ.</p>
+              <p>Quỹ 60 phút là dùng chung cho cả nhóm app đã chọn, không phải mỗi app một tiếng. Quỹ làm mới lúc 0:00 theo ngày trên máy. Hết giờ nghỉ là khoá lại, còn nghỉ thì bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</p>
+              <p>Đang có phiên focus chạy thì không xin nghỉ được. Muốn lướt trong lúc focus, bạn phải dừng phiên trước, và dừng giữa chừng thì vẫn còn chờ theo đúng cơ chế đã cam kết.</p>
             </div>
 
             <div className="block">
-              <h3>5. Ghép với máy tính (tuỳ chọn)</h3>
+              <h3>5. Màn khoá nói cho bạn biết vì sao bị chặn</h3>
+              <p>Lớp phủ hiện ngay trên mặt app với tiêu đề và lý do: app đang trong danh sách chặn, phiên focus đang chạy, hay đã dùng hết 60 phút hôm nay. Trường hợp hết quỹ ghi luôn còn bao lâu tới 0:00.</p>
+              <p>Hai nút luôn có ở trạng thái thường: <strong>Quay lại Kỷ luật</strong> và <strong>Dùng app khác</strong> để về màn hình chính. Màn khoá không giữ bạn ở lại.</p>
+            </div>
+
+            <div className="block">
+              <h3>6. Buổi tập gym</h3>
+              <p>Ở tab <strong>Hôm nay</strong>, chọn app tập của bạn rồi bấm bắt đầu. Giữ app đó trên màn hình đủ 10 phút liên tục thì được tính một buổi.</p>
+              <p>Rời app hoặc tắt màn hình là đếm lại từ đầu. Trong lúc tập, một đồng hồ nhỏ chạy ở giữa mép trên màn hình và có thông báo ở thanh trạng thái.</p>
+              <p>Buổi tập được ghi sang máy tính khi hai máy đang ghép nối và cùng có mạng.</p>
+            </div>
+
+            <div className="block">
+              <h3>7. Ghép với máy tính (tuỳ chọn)</h3>
               <p>Trên máy tính, mở <strong>Cài đặt</strong> → <strong>Tạo mã kết nối</strong>. Hai máy phải dùng chung một mạng Wi-Fi.</p>
               <p>Trên điện thoại, quét mã QR hoặc nhập 6 số. Mã hết hạn sau 5 phút và sai 5 lần thì phải lấy mã mới.</p>
-              <p>Sau khi ghép, lịch học và lịch tập hiện luôn trên máy tính.</p>
+              <p>Sau khi ghép, điện thoại hiện lịch học và lịch tập của máy tính, bấm bắt đầu phiên focus 25, 45 hoặc 60 phút từ điện thoại, và mục tiêu tuần hiển thị chung ở cả hai bên.</p>
+              <p>Không ghép thì mọi thứ ở bước 3 đến bước 6 vẫn chạy đầy đủ.</p>
+            </div>
+
+            <div className="block">
+              <h3>8. Tắt bảo vệ trên điện thoại</h3>
+              <p>Trong app, màn <strong>Cài đặt</strong> → <strong>An toàn</strong> có lối tắt bảo vệ. Tắt theo cách này là ba bước: đọc cảnh báo 60 giây, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 60 giây. Bật lại thì một chạm, không chờ gì.</p>
+              <p>Không có thời gian chờ 24 giờ trên điện thoại, và cũng không cần máy tính. Nhanh nhất là thu hồi quyền Trợ năng trong Cài đặt của máy: màn khoá biến mất lập tức.</p>
             </div>
 
             <p className="note">
@@ -122,6 +147,10 @@ export default function Page() {
               <div className="card">
                 <h3>Điện thoại không tìm thấy máy tính</h3>
                 <p style={{ margin: '0', color: 'var(--ink-2)' }}>Mở firewall bằng PowerShell Administrator: <code>.\Kyluat.exe phone firewall</code>. Router bật cách ly thiết bị thì không ghép được.</p>
+              </div>
+              <div className="card">
+                <h3>Màn khoá Android không hiện lên app</h3>
+                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Kiểm tra hai quyền ở màn <strong>Cài đặt</strong> → <strong>Quyền</strong>, rồi mở tab <strong>Bảo vệ</strong> xác nhận app đó đã được gạt công tắc. Thiếu một trong hai thì không có màn khoá.</p>
               </div>
               <div className="card">
                 <h3>Mạng bị mất sau khi tắt máy đột ngột</h3>

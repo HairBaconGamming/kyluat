@@ -51,7 +51,7 @@ export default function Page() {
               </div>
               <div className="card stat">
                 <p className="big">24 <span>giờ</span></p>
-                <p>Thời gian chờ khi bạn muốn nới lỏng luật. Thêm ràng buộc thì có hiệu lực ngay.</p>
+                <p>Thời gian chờ khi bạn nới lỏng luật trên máy tính. Thêm ràng buộc thì có hiệu lực ngay.</p>
               </div>
             </div>
           </div>
@@ -60,9 +60,9 @@ export default function Page() {
         <section id="cach-hoat-dong">
           <div className="wrap">
             <div className="head">
-              <p className="eyebrow">Cách hoạt động</p>
-              <h2>Ba bước, sau đó máy tự giữ luật</h2>
-              <p className="lede">Bạn chỉ việc khai ra danh sách và giờ giấc. Phần còn lại chạy nền.</p>
+              <p className="eyebrow">Cách hoạt động · Windows</p>
+              <h2>Trên máy tính: ba bước, sau đó máy tự giữ luật</h2>
+              <p className="lede">Bạn chỉ việc khai ra danh sách và giờ giấc. Phần còn lại chạy nền. Điện thoại có cách riêng, đọc ở mục dưới.</p>
             </div>
             <div className="steps">
               <div className="step">
@@ -132,7 +132,7 @@ export default function Page() {
                 <span className="ico"><Icon name="clock" /></span>
                 <div>
                   <h3>Nới lỏng phải chờ 24 giờ</h3>
-                  <p>Thêm app bị chặn ngay. Gỡ app ra thì chờ sang hôm sau. Cơn thèm mở YouTube lúc 11 giờ đêm không thắng được.</p>
+                  <p>Trên máy tính, thêm app thì bị chặn ngay, gỡ app ra thì chờ sang hôm sau. Cơn thèm mở YouTube lúc 11 giờ đêm không thắng được.</p>
                 </div>
               </div>
               <div className="card principle">
@@ -146,7 +146,7 @@ export default function Page() {
                 <span className="ico"><Icon name="chart" /></span>
                 <div>
                   <h3>Không can thiệp hệ thống</h3>
-                  <p>Điện thoại chỉ phủ màn khoá lên app bạn chọn. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở.</p>
+                  <p>Điện thoại chỉ phủ màn khoá lên app bạn chọn, không đổi DNS và không đổi chính sách hệ thống. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở.</p>
                 </div>
               </div>
             </div>
@@ -188,58 +188,105 @@ export default function Page() {
         <section className="alt" id="dien-thoai">
           <div className="wrap">
             <div className="head">
-              <p className="eyebrow">Trên điện thoại</p>
-              <h2>Quỹ 60 phút, không phải chế độ nghiêm khắc</h2>
-              <p className="lede">Điện thoại không chặn hết mạng xã hội. Nó cho bạn một quỹ dùng mỗi ngày, hết thì thôi.</p>
+              <p className="eyebrow">Cách hoạt động · Android</p>
+              <h2>Trên điện thoại: app bị khoá sẵn, quỹ 60 phút phải chủ động xin dùng</h2>
+              <p className="lede">60 phút không phải vé lướt miễn phí. Đó là hạn mức của cả ngày, và nó chỉ trừ dần khi bạn mở một phiên nghỉ có kiểm soát.</p>
             </div>
-            <div className="grid two" style={{ alignItems: 'center' }}>
-              <div className="phone" aria-hidden="true">
-                <div className="screen">
-                  <div className="row"><span>Hôm nay</span><span className="chip">Còn 42 phút</span></div>
-                  <svg className="ring" width="150" height="150" viewBox="0 0 150 150">
-                    <circle cx="75" cy="75" r="62" fill="none" stroke="#e8ebed" strokeWidth="12"></circle>
-                    <circle cx="75" cy="75" r="62" fill="none" stroke="#2f6f5e" strokeWidth="12" strokeLinecap="round" strokeDasharray="389.6" strokeDashoffset="272.7" transform="rotate(-90 75 75)"></circle>
-                    <text x="75" y="70" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="30" fontWeight="650" fill="#10151a">18</text>
-                    <text x="75" y="92" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="13" fill="#5c666f">/ 60 phút</text>
-                  </svg>
-                  <div className="line"><span>Buổi tập gym</span><span>10:00</span></div>
-                  <div className="bar-track"><div className="bar-fill" style={{ width: '62%' }}></div></div>
-                  <div className="line"><span>Zeta Chat</span><span>8 phút</span></div>
-                  <div className="bar-track"><div className="bar-fill" style={{ width: '26%' }}></div></div>
-                  <div className="line"><span>Loop Shorts</span><span>10 phút</span></div>
-                  <div className="bar-track"><div className="bar-fill" style={{ width: '34%' }}></div></div>
+            <div className="steps">
+              <div className="step">
+                <div>
+                  <span className="num">1</span>
+                  <h3>Bạn gạch tên app, máy không tự đoán</h3>
+                  <p>Ở tab <strong>Bảo vệ</strong>, app đang cài trên máy hiện ra để bạn gạt công tắc. Chọn cái nào thì chỉ cái đó bị chặn.</p>
+                  <ul>
+                    <li>App ngoài danh sách luôn mở bình thường.</li>
+                    <li>Quay số, Tin nhắn, Cài đặt và màn hình chính bị loại trừ ngay trong mã, bạn không chọn được.</li>
+                  </ul>
+                </div>
+                <div className="phone step-media" aria-hidden="true">
+                  <div className="screen">
+                    <div className="row"><span>Hôm nay</span><span className="chip">Nghỉ 10 phút · còn 3 phút</span></div>
+                    <svg className="ring" width="150" height="150" viewBox="0 0 150 150">
+                      <circle cx="75" cy="75" r="62" fill="none" stroke="#e8ebed" strokeWidth="12"></circle>
+                      <circle cx="75" cy="75" r="62" fill="none" stroke="#2f6f5e" strokeWidth="12" strokeLinecap="round" strokeDasharray="389.6" strokeDashoffset="272.7" transform="rotate(-90 75 75)"></circle>
+                      <text x="75" y="70" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="30" fontWeight="650" fill="#10151a">18</text>
+                      <text x="75" y="92" textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize="13" fill="#5c666f">/ 60 phút</text>
+                    </svg>
+                    <div className="line"><span>Quỹ hôm nay</span><span>còn 42 phút</span></div>
+                    <div className="bar-track"><div className="bar-fill" style={{ width: '30%' }}></div></div>
+                    <div className="line"><span>Phiên nghỉ đang mở</span><span>còn 3 phút</span></div>
+                    <div className="bar-track"><div className="bar-fill" style={{ width: '70%' }}></div></div>
+                    <div className="line"><span>Buổi tập gym</span><span>08:40 / 10:00</span></div>
+                    <div className="bar-track"><div className="bar-fill" style={{ width: '87%' }}></div></div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <div className="grid" style={{ gap: '12px' }}>
-                  <div className="card principle">
-                    <span className="ico"><Icon name="phone" /></span>
-                    <div>
-                      <h3>Không cần cắm dây</h3>
-                      <p>Điện thoại ghép nối với máy tính qua Wi-Fi gia đình bằng mã QR. Không có máy chủ trung gian.</p>
-                    </div>
-                  </div>
-                  <div className="card principle">
-                    <span className="ico"><Icon name="dumbbell" /></span>
-                    <div>
-                      <h3>Gym tính bằng 10 phút thật</h3>
-                      <p>Giữ app tập trên màn hình đủ 10 phút liên tục mới được tính một buổi. Rời app là đếm lại.</p>
-                    </div>
-                  </div>
-                  <div className="card principle">
-                    <span className="ico"><Icon name="power" /></span>
-                    <div>
-                      <h3>Bỏ được trong 10 giây</h3>
-                      <p>Tắt quyền Trợ năng là mọi thứ dừng ngay. App không giữ điện thoại của bạn làm con tin.</p>
-                    </div>
+              <div className="step">
+                <div>
+                  <span className="num">2</span>
+                  <h3>Muốn dùng thì xin một phiên nghỉ</h3>
+                  <p>Bấm <strong>Nghỉ có kiểm soát</strong>, chọn 10, 15 hoặc 30 phút. Trong phiên nghỉ, app mạng xã hội mở bình thường và thời gian bạn lướt trừ dần vào quỹ.</p>
+                  <ul>
+                    <li>Hết giờ nghỉ là màn khoá đóng lại, dù quỹ chưa cạn.</li>
+                    <li>Đang có phiên focus thì không xin nghỉ được.</li>
+                    <li>Nghỉ sớm cũng được: bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</li>
+                  </ul>
+                </div>
+                <div className="card principle step-media">
+                  <span className="ico"><Icon name="clock" /></span>
+                  <div>
+                    <h3>Quỹ dùng chung, không chia theo app</h3>
+                    <p>60 phút là cho cả nhóm app bạn đã chọn, không phải mỗi app một tiếng. Hết quỹ, màn khoá hiện luôn còn bao lâu tới 0:00.</p>
                   </div>
                 </div>
-                <p className="note warn" style={{ marginTop: '14px' }}>
-                  <Icon name="alert" />
-                  <span>Hình trên là minh hoạ cấu trúc, không phải ảnh chụp từ điện thoại.</span>
-                </p>
+              </div>
+              <div className="step">
+                <div>
+                  <span className="num">3</span>
+                  <h3>Màn khoá có bốn trạng thái, và luôn nói lý do</h3>
+                  <p>Màn khoá là một lớp phủ do app tự vẽ. Nó hiện tiêu đề và lý do ngay trên mặt app, không phải một trang web hay thông báo.</p>
+                  <ul>
+                    <li>App đang bị chặn: <strong>Quay lại Kỷ luật</strong> hoặc <strong>Dùng app khác</strong>, nút sau đưa bạn về màn hình chính.</li>
+                    <li>Đang focus hoặc đã hết quỹ: chỉ có tiêu đề và thời gian còn lại, không có nút mở app.</li>
+                    <li>Đang nghỉ có kiểm soát: không có màn khoá.</li>
+                  </ul>
+                </div>
+                <div className="card principle step-media">
+                  <span className="ico"><Icon name="shield" /></span>
+                  <div>
+                    <h3>Trợ năng chỉ nhìn tên app</h3>
+                    <p>Quyền Trợ năng khai báo ở mức thấp nhất: chỉ sự đổi cửa sổ phía trước, tuỳ chọn đọc nội dung màn hình bị tắt trong file khai báo.</p>
+                  </div>
+                </div>
               </div>
             </div>
+            <div className="grid two" style={{ marginTop: '40px' }}>
+              <div className="card principle">
+                <span className="ico"><Icon name="phone" /></span>
+                <div>
+                  <h3>Chặn được cả khi không có máy tính</h3>
+                  <p>Quỹ, danh sách chặn và màn khoá chạy hoàn toàn trên điện thoại. Mất Wi-Fi thì luật vẫn còn, ghép nối chỉ để nhìn lịch học và lịch tập chung với máy tính.</p>
+                </div>
+              </div>
+              <div className="card principle">
+                <span className="ico"><Icon name="power" /></span>
+                <div>
+                  <h3>Tắt trên điện thoại không chờ 24 giờ</h3>
+                  <p>Thu hồi quyền Trợ năng là dừng ngay. Còn trong app, tắt bảo vệ là ba bước: đọc cảnh báo 60 giây, gõ lại đoạn cam kết, chờ nốt 60 giây.</p>
+                </div>
+              </div>
+              <div className="card principle">
+                <span className="ico"><Icon name="dumbbell" /></span>
+                <div>
+                  <h3>Gym tính bằng 10 phút thật</h3>
+                  <p>Giữ app tập trên màn hình đủ 10 phút liên tục mới được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, có đồng hồ chạy ở thanh trạng thái.</p>
+                </div>
+              </div>
+            </div>
+            <p className="note warn" style={{ marginTop: '16px' }}>
+              <Icon name="alert" />
+              <span>Hình điện thoại ở trên là minh hoạ cấu trúc màn hình, không phải ảnh chụp từ máy thật.</span>
+            </p>
           </div>
         </section>
 
@@ -304,6 +351,34 @@ export default function Page() {
                 <div className="body">
                   <p>Không. Quyền Trợ năng trên Android chỉ được dùng để biết app nào đang ở phía trước và phủ màn khoá lên app trong danh sách.</p>
                   <p>Tuỳ chọn đọc nội dung cửa sổ bị tắt ngay trong file khai báo của app.</p>
+                </div>
+              </details>
+              <details id="faq-quy">
+                <summary>Quỹ 60 phút trên điện thoại tiêu thế nào?</summary>
+                <div className="body">
+                  <p>Mặc định là khoá. Bạn mở Kỷ luật rồi chọn một phiên nghỉ 10, 15 hoặc 30 phút; chỉ trong phiên nghỉ đó thời gian lướt mới trừ vào quỹ 60 phút của ngày.</p>
+                  <p>Hết giờ nghỉ là màn khoá đóng lại, dù quỹ còn. Hết quỹ thì màn khoá nói rõ còn bao lâu tới 0:00.</p>
+                </div>
+              </details>
+              <details id="faq-mat-ket-noi">
+                <summary>Điện thoại có cần máy tính bật suốt không?</summary>
+                <div className="body">
+                  <p>Không. Danh sách chặn, quỹ và màn khoá chạy hết trên máy bạn. Ghép nối chỉ để hai bên nhìn chung lịch học và lịch tập, và để bấm bắt đầu hoặc dừng phiên từ điện thoại.</p>
+                  <p>Mất Wi-Fi thì điện thoại vẫn chặn như cũ.</p>
+                </div>
+              </details>
+              <details id="faq-man-khoa">
+                <summary>Màn khoá có giữ bạn ở lại không?</summary>
+                <div className="body">
+                  <p>Không. Lớp phủ không nhận thao tác bàn phím và luôn có hai nút: <strong>Quay lại Kỷ luật</strong> và <strong>Dùng app khác</strong>, nút sau đưa bạn về màn hình chính.</p>
+                  <p>Lúc đã hết quỹ hoặc đang trong phiên focus, màn khoá chỉ hiện tiêu đề và thời gian còn lại, không có nút mở app.</p>
+                </div>
+              </details>
+              <details id="faq-tat-android">
+                <summary>Tắt bảo vệ trên điện thoại mất bao lâu?</summary>
+                <div className="body">
+                  <p>Trong app là ba bước: đọc cảnh báo 60 giây, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 60 giây. Không có thời gian chờ 24 giờ như trên máy tính.</p>
+                  <p>Thu hồi quyền Trợ năng trong Cài đặt thì dừng ngay lập tức.</p>
                 </div>
               </details>
               <details id="faq-web">
