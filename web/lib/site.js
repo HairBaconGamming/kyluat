@@ -1,6 +1,17 @@
 /** Một chỗ duy nhất cho tên miền và các file phát hành, để sitemap/og/trang tải về không lệch nhau. */
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://kyluat.vercel.app").replace(/\/$/, "");
+const DEFAULT_URL = "https://kyluat.vercel.app";
+
+// Ô env của Vercel cho phép nhập host trần ("kyluat.vercel.app") còn new URL() thì từ chối,
+// nên miền luôn được chuẩn hoá về dạng có scheme trước khi export.
+const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim();
+const base = !configured
+  ? DEFAULT_URL
+  : /^[a-z][a-z\d+.-]*:\/\//i.test(configured)
+    ? configured
+    : `https://${configured}`;
+
+export const SITE_URL = base.replace(/\/+$/, "");
 
 export const TITLE = "Kỷ luật — máy chặn xao nhãng cho Windows và Android";
 export const DESCRIPTION =
