@@ -3,7 +3,7 @@ import Icon from "@/components/icon";
 export const metadata = {
   title: "Vì sao an toàn",
   description:
-    "Kỷ luật chạm vào những gì trên Windows, vì sao SmartScreen vẫn cảnh báo, và năm lệnh để bạn tự kiểm tra file tải về.",
+    "Kỷ luật chạm vào những gì trên Windows, lớp nhận diện ảnh tuỳ chọn đọc gì, vì sao SmartScreen vẫn cảnh báo, và năm lệnh để bạn tự kiểm tra file tải về.",
   alternates: { canonical: "/an-toan" },
   openGraph: {
     title: "Kỷ luật không phải virus: những gì app thay đổi trên máy bạn",
@@ -52,7 +52,7 @@ export default function Page() {
         <div className="wrap">
           <div className="head">
             <p className="eyebrow">Những gì app chạm vào</p>
-            <h2>Bảy thứ thay đổi, và cách hoàn tác</h2>
+            <h2>Tám thứ thay đổi, và cách hoàn tác</h2>
             <p className="lede">Phần mềm chặn xao nhãng phải đụng vào hệ thống nhiều hơn một app ghi chú. Nên danh sách này là đủ, không có mục ẩn.</p>
           </div>
           <div className="block" style={{ overflowX: "auto" }}>
@@ -93,6 +93,11 @@ export default function Page() {
                   <td>Tắt bảo vệ xóa rule này</td>
                 </tr>
                 <tr>
+                  <td>Ảnh màn hình, chỉ trong bộ nhớ</td>
+                  <td>Chỉ khi bật <strong>Chặn ảnh 18+</strong>, mặc định tắt</td>
+                  <td>Tắt công tắc là dừng ngay; không có ảnh nào được ghi ra đĩa</td>
+                </tr>
+                <tr>
                   <td>Lối tắt Start Menu và màn hình nền</td>
                   <td>Khi chạy bộ cài</td>
                   <td>Bộ gỡ xóa cả hai</td>
@@ -102,7 +107,7 @@ export default function Page() {
           </div>
           <p className="note">
             <Icon name="lock" />
-            <span>App không sửa file <code>hosts</code>, không cài service hay driver, không chạm kernel, không đọc ảnh hay tài liệu của bạn. Ngoài thư mục cài, bộ cài chỉ thêm lối tắt Start Menu và một mục trong Add or remove programs; bộ gỡ xóa cả hai.</span>
+            <span>App không sửa file <code>hosts</code>, không cài service hay driver, không chạm kernel, không đọc file ảnh hay tài liệu của bạn. Khi bạn bật <strong>Chặn ảnh 18+</strong>, app chỉ đọc pixel của cửa sổ trình duyệt đang mở trong bộ nhớ; không ghi ảnh ra đĩa, không gửi lên mạng. Ngoài thư mục cài, bộ cài chỉ thêm lối tắt Start Menu và một mục trong Add or remove programs; bộ gỡ xóa cả hai.</span>
           </p>
         </div>
       </section>
@@ -168,7 +173,7 @@ export default function Page() {
             <p className="lede">Chạy sau khi cài để xem app đã để lại những gì. Mở PowerShell thường, không cần quyền quản trị.</p>
           </div>
           <pre className="code"><code>{`# 1. Dung lượng và dấu vân tay của bộ cài
-certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.7.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.8.exe" SHA256
 
 # 2. App cài ở đâu, trong đó có những file nào
 Get-ChildItem "$env:LOCALAPPDATA\\Programs\\Kyluat"
@@ -216,6 +221,34 @@ Get-DnsClientServerAddress -AddressFamily IPv4`}</code></pre>
           <p className="note warn">
             <Icon name="alert" />
             <span>Tắt bằng một chạm: nút <strong>Tắt bộ lọc</strong> trên thông báo, công tắc ở tab <strong>Bảo vệ</strong>, hoặc màn <strong>Tắt bảo vệ</strong> trong app. Muốn kiểm từ hệ thống, mở Cài đặt → Mạng và Internet → VPN và tắt Kỷ luật ở đó. Cần Android 8.1 trở lên.</span>
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div className="wrap">
+          <div className="head">
+            <p className="eyebrow">Nhận diện ảnh</p>
+            <h2>Lớp thứ hai chỉ đọc đúng chỗ, và không giữ ảnh</h2>
+            <p className="lede">DNS không thấy nội dung bên trong một trang đã mở. Lớp nhận diện ảnh bổ sung khoảng trống đó, nhưng là tuỳ chọn và mặc định tắt.</p>
+          </div>
+          <div className="grid three">
+            <div className="card">
+              <h3>Đúng phạm vi</h3>
+              <p>Trên Windows, nó chỉ chụp cửa sổ trình duyệt đang ở phía trước. Trên Android 11+, nó chỉ đọc màn hình khi app đang mở là trình duyệt, YouTube hoặc app mạng xã hội bạn đã chọn — không quét ngân hàng, tin nhắn hay ảnh riêng.</p>
+            </div>
+            <div className="card">
+              <h3>Không lưu, không gửi</h3>
+              <p>Mô hình chạy ngay trên máy. Ảnh chỉ nằm trong bộ nhớ trong lúc chấm điểm, không ghi ra file, không có máy chủ của tác giả. Mô hình lấy từ Déchaîner, giấy phép Apache-2.0; văn bản giấy phép đi kèm bản cài.</p>
+            </div>
+            <div className="card">
+              <h3>Tự nhường khi có lỗi</h3>
+              <p>Không xin được ảnh hoặc mô hình lỗi thì bỏ qua lần quét và tạm dừng 5 phút. Trên Android, app đưa bạn về màn hình chính khi phát hiện; tắt công tắc là dừng ngay, không chờ 60 giây.</p>
+            </div>
+          </div>
+          <p className="note warn">
+            <Icon name="alert" />
+            <span>Có thể nhận nhầm ảnh bơi lội hoặc em bé. Windows chỉ thấy cửa sổ trình duyệt; Android chỉ thấy màn hình đang hiển thị và cần Android 11 trở lên. Video bị DRM làm đen hoặc đoạn hình ngắn hơn nhịp quét có thể lọt. Đây là lớp giảm thiểu, không phải bảo đảm tuyệt đối.</span>
           </p>
         </div>
       </section>

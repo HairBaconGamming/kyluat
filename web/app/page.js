@@ -147,7 +147,7 @@ export default function Page() {
                 <span className="ico"><Icon name="chart" /></span>
                 <div>
                   <h3>Không can thiệp hệ thống</h3>
-                  <p>Điện thoại phủ màn khoá lên app bạn chọn, không đọc nội dung màn hình. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở. Bộ lọc 18+ là đường hầm DNS tự chọn, tắt một chạm là máy về như cũ. Bước cản gỡ cài đặt cũng là tuỳ chọn, mặc định tắt và Android luôn cho tắt trong Cài đặt.</p>
+                  <p>Điện thoại phủ màn khoá lên app bạn chọn. Bộ lọc 18+ là đường hầm DNS tự chọn, tắt một chạm là máy về như cũ; lớp nhận diện ảnh là công tắc riêng, mặc định tắt và chỉ đọc màn hình trình duyệt, mạng xã hội khi bạn bật. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở. Bước cản gỡ cài đặt cũng là tuỳ chọn, mặc định tắt và Android luôn cho tắt trong Cài đặt.</p>
                 </div>
               </div>
             </div>
@@ -299,6 +299,7 @@ export default function Page() {
                 <div>
                   <h3>Nội dung 18+ chặn riêng, suốt ngày đêm</h3>
                   <p>Công tắc <strong>Chặn trang người lớn</strong> ở tab Bảo vệ mở một đường hầm chỉ đọc DNS: tên trong danh sách hơn 200.000 tên miền bị trả lời là không tồn tại, trang khác đi qua bộ lọc gia đình AdGuard. Không cần phiên tập trung, không ghi lại truy vấn, và tắt được bằng một chạm.</p>
+                  <p>Bật thêm <strong>Chặn ảnh 18+ trên màn hình</strong> để mô hình trên máy nhận diện ảnh trong trình duyệt và app mạng xã hội. Ảnh chỉ nằm trong bộ nhớ, không lưu, không gửi đi; tắt công tắc là dừng ngay.</p>
                 </div>
               </div>
             </div>
@@ -322,11 +323,12 @@ export default function Page() {
                   <span className="ico"><Icon name="desktop" /></span>
                   <div>
                     <h3>Windows 10 và 11 (64-bit)</h3>
-                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài v1.7, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
+                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài v1.8, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
                   </div>
                 </div>
                 <ul>
                   <li>Chặn app trong giờ tập trung, chặn trang web theo tên miền, và chặn hơn 200.000 tên miền người lớn suốt ngày đêm.</li>
+                  <li>Lớp nhận diện ảnh 18+ tuỳ chọn trong cửa sổ trình duyệt, chạy hoàn toàn trên máy.</li>
                   <li>Công tắc 18+ tắt được sau 60 giây suy nghĩ, không cần gõ cam kết.</li>
                   <li>Cài vào thư mục của riêng bạn, gỡ bằng Add or remove programs.</li>
                   <li>File chưa có chữ ký số, Windows sẽ hỏi bạn một lần.</li>
@@ -345,6 +347,7 @@ export default function Page() {
                   <li>Quỹ mạng xã hội mỗi ngày, mặc định 60 phút và đổi được, cùng màn khoá trong phiên.</li>
                   <li>Bộ thiết lập lần đầu và tự kiểm tra bản mới hằng ngày, tắt được trong Cài đặt.</li>
                   <li>Bật thêm bộ lọc 18+ thì máy cần Android 8.1 trở lên; trang web tuỳ ý vẫn thuộc về bản Windows.</li>
+                  <li>Nhận diện ảnh 18+ cần Android 11 trở lên; chỉ đọc màn hình trình duyệt, YouTube và app mạng xã hội bạn chọn.</li>
                   <li>File ký bằng key phát hành riêng, không lên CH Play nên máy vẫn hỏi bạn một lần.</li>
                 </ul>
                 <a className="btn primary" href="/tai-nguyen#android">Tải bản Android</a>
@@ -435,20 +438,28 @@ export default function Page() {
                 <div className="body">
                   <p>Một danh sách hơn 200.000 tên miền dùng chung cho cả hai máy, chặn suốt ngày đêm, không liên quan giờ tập trung. Trên Windows nó đi qua trình phân giải cục bộ; trên Android nó đi qua một đường hầm chỉ đọc DNS.</p>
                   <p>Tên bị chặn nhận trả lời "không tồn tại", còn mọi tên khác được hỏi sang bộ lọc gia đình AdGuard, nên lớp lọc nằm luôn ở máy chủ phân giải. Tắt trên Windows phải chờ 24 giờ vì đó là nới lỏng luật; tắt trên Android có hiệu lực ngay.</p>
+                  <p>Bản 1.8 thêm lớp thứ hai, mặc định tắt: mô hình nhận diện ảnh chạy trên máy, đọc cửa sổ trình duyệt trên Windows hoặc màn hình trình duyệt, YouTube, mạng xã hội trên Android 11+. Lớp này bắt được phần nội dung mà DNS không thấy, nhưng có thể nhận nhầm và không bảo đảm tuyệt đối.</p>
                 </div>
               </details>
               <details id="faq-18-youtube">
                 <summary>Có chặn được nội dung 18+ nằm trong YouTube không?</summary>
                 <div className="body">
-                  <p>Không. Bộ lọc chỉ đọc tên miền, nên nội dung nằm trong YouTube hoặc trong một trang được phép không đi qua nó. Trình duyệt tự bật DNS-over-HTTPS cũng đi vòng được.</p>
-                  <p>Bản này tập trung chặn đúng tên miền và sửa lỗi đường hầm từng làm hỏng YouTube. Chặn tầng hình ảnh hoặc chữ trên màn hình là một lớp khác, chưa có trong bản này.</p>
+                  <p>Lớp DNS thì không: nó chỉ đọc tên miền, nên nội dung trong YouTube hoặc trong một trang được phép không đi qua nó. Trình duyệt tự bật DNS-over-HTTPS cũng đi vòng được.</p>
+                  <p>Lớp nhận diện ảnh thì có thể bắt hình ảnh trên màn hình: trên Windows nó đọc cửa sổ trình duyệt đang mở, trên Android 11+ nó đọc màn hình YouTube, trình duyệt và app mạng xã hội bạn chọn. Nó chấm khoảng 4–5 giây một lần và đưa bạn ra khỏi nội dung; đoạn video ngắn hơn nhịp quét hoặc hình ảnh bị DRM làm đen có thể lọt. Đây là lớp giảm thiểu, không phải bảo đảm tuyệt đối.</p>
+                </div>
+              </details>
+              <details id="faq-18-visual">
+                <summary>Lớp nhận diện ảnh đọc gì, có gửi ảnh đi đâu không?</summary>
+                <div className="body">
+                  <p>Trên Windows, nó chỉ chụp cửa sổ trình duyệt đang ở phía trước. Trên Android 11+, nó chỉ đọc màn hình khi app đang mở là trình duyệt, YouTube hoặc app mạng xã hội bạn đã chọn; không quét ngân hàng, tin nhắn hay ảnh riêng. Mặc định công tắc tắt.</p>
+                  <p>Ảnh chỉ tồn tại trong bộ nhớ trong lúc chấm điểm, không ghi ra file và không gửi lên mạng. Có thể nhận nhầm ảnh bơi lội hoặc em bé; tắt công tắc là dừng ngay, không phải chờ 60 giây.</p>
                 </div>
               </details>
               <details id="faq-vpn-android">
                 <summary>Bật bộ lọc 18+ trên Android có làm mất mạng không?</summary>
                 <div className="body">
                   <p>Đường hầm chỉ mang gói tin DNS gửi tới một địa chỉ nội bộ giả định, nên các kết nối khác vẫn ra Wi-Fi như cũ. Hai máy chủ phân giải cùng im lặng là app tự tháo đường hầm và máy trở về DNS bình thường; thiết kế là fail-open vì mất mạng nặng hơn chưa chặn.</p>
-                  <p>Cần Android 8.1 trở lên; máy Android 8.0 thì tab Bảo vệ không hiện công tắc này. App không tự bật lại sau khi lỗi, và bạn tắt bằng một chạm. Đây vẫn là tính năng mới, chưa được kiểm chứng trên mọi loại máy.</p>
+                  <p>Cần Android 8.1 trở lên; máy Android 8.0 thì tab Bảo vệ không hiện công tắc này. Lớp nhận diện ảnh cần thêm Android 11 trở lên. App không tự bật lại sau khi lỗi, và bạn tắt bằng một chạm. Đây vẫn là tính năng mới, chưa được kiểm chứng trên mọi loại máy.</p>
                 </div>
               </details>
               <details id="faq-gym">

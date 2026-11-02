@@ -25,7 +25,7 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Chạy bộ cài</h3>
-              <p>Mở <code>KYLUAT-Setup-v1.7.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
+              <p>Mở <code>KYLUAT-Setup-v1.8.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
               <p>Không muốn cài gì thì tải bản <code>.zip</code>, giải nén thư mục <code>Kyluat</code> vào nơi bạn muốn rồi mở <code>Kyluat.exe</code>. Ở cách nào, dữ liệu cũng nằm trong <code>data\</code> cạnh file exe, chép cả thư mục là chuyển được máy.</p>
               <p>Lần mở đầu tiên, app hiện bộ thiết lập sáu bước: chọn app và trang web, đặt lịch, mục tiêu, tuỳ chọn chặn web và ghép điện thoại. Bước chọn mục chặn là bắt buộc, các bước còn lại bỏ qua được. Mở lại bằng <strong>Cài đặt</strong> → <strong>Chạy lại thiết lập</strong>.</p>
             </div>
@@ -35,6 +35,7 @@ export default function Page() {
               <p>Vào màn <strong>Bảo vệ</strong>. Gạt công tắc với app có sẵn, hoặc chọn <strong>Thêm app khác</strong> để lấy đúng app đang cài trên máy.</p>
               <p>Cùng màn hình đó có mục <strong>Trang web</strong> cho tên miền. Thêm tên miền là chặn luôn các trang con.</p>
               <p>Ngay đầu màn là khối <strong>Nội dung 18+</strong>. Gạt <strong>Chặn trang người lớn</strong> là chặn hơn 200.000 tên miền có sẵn suốt ngày đêm, không chờ giờ tập trung. Luật này cần bật chặn web: bấm nút <strong>Bật chặn web</strong> ngay dưới công tắc (cần Administrator), hoặc làm ở bước 4. Tắt công tắc thì chờ 60 giây suy nghĩ, không cần gõ cam kết.</p>
+              <p>Bên dưới là công tắc <strong>Chặn ảnh 18+ trên trình duyệt</strong>. Bật thì daemon chụp cửa sổ trình duyệt đang mở khoảng 4 giây một lần, chấm bằng mô hình ngay trên máy; thấy nội dung thì thu nhỏ cửa sổ và báo. Ảnh không được lưu hay gửi đi, tắt công tắc là dừng ngay. Có thể nhận nhầm ảnh bơi lội hoặc em bé.</p>
               <figure className="shot" style={{ marginTop: '14px' }}>
                 <img src="/assets/img/desktop-them-app.png" alt="Hộp thoại Thêm app với danh sách ứng dụng đang cài trên máy, có ô tìm kiếm" width="580" height="620" loading="lazy" />
                 <figcaption>Hộp thoại Thêm app: chọn từ danh sách cài thật, không có gợi ý tự động.</figcaption>
@@ -53,7 +54,7 @@ export default function Page() {
               <p><code>cd $env:LOCALAPPDATA\Programs\Kyluat</code><br /><code>.\Kyluat-cli.exe net install</code></p>
               <p>Muốn tắt: <code>.\Kyluat-cli.exe net uninstall</code>. Lệnh này khôi phục đúng DNS bạn đang dùng.</p>
               <p>Đang bật 18+ thì máy hỏi bộ lọc gia đình AdGuard (<code>94.140.14.14</code>) thay vì Cloudflare; <code>.\Kyluat-cli.exe adult status</code> đọc rõ đang dùng DNS nào.</p>
-              <p>Bật xong, bấm <strong>Kiểm tra chặn thử</strong> ở màn Bảo vệ hoặc chạy <code>.\Kyluat-cli.exe adult test</code>. Nếu trình duyệt tự bật DoH, trang vẫn có thể mở dù DNS của máy đã bị chặn.</p>
+              <p>Bật xong, bấm <strong>Kiểm tra chặn thử</strong> ở màn Bảo vệ hoặc chạy <code>.\Kyluat-cli.exe adult test</code>. Nếu trình duyệt tự bật DoH, trang vẫn có thể mở dù DNS của máy đã bị chặn. Muốn kiểm tra mô hình nhận diện ảnh đã nạp được, chạy <code>.\Kyluat-cli.exe adult visual</code>.</p>
             </div>
 
             <div className="block">
@@ -82,7 +83,7 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Cài file APK</h3>
-              <p>Tải <code>kyluat-android-v3.11.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Tải <code>kyluat-android-v3.12.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
               <p>Lần mở đầu tiên có bộ thiết lập: cấp hai quyền cốt lõi, chọn app cần chặn, đặt quỹ và app gym, rồi tuỳ chọn ghép máy tính và lọc 18+. Sau đó app tự kiểm tra bản mới hằng ngày khi bạn để bật; tắt trong <strong>Cài đặt</strong> → <strong>Cập nhật</strong>.</p>
               <p>Android 8.0 trở lên. Không lên CH Play.</p>
               <p>File phát hành trên GitHub nên Google không nhận ra người gửi và hiện cảnh báo <strong>Ứng dụng chưa được xác minh</strong>; trên vài máy phải bấm <strong>Chi tiết khác</strong> rồi mới thấy <strong>Vẫn cài</strong>. Trước khi bấm, so dãy SHA-256 ở trang <a href="/tai-nguyen">Tải về</a> với file vừa tải để chắc nó không bị sửa giữa đường.</p>
@@ -91,7 +92,7 @@ export default function Page() {
 
             <div className="block">
               <h3>2. Cấp hai quyền bắt buộc</h3>
-              <p>App sẽ dẫn bạn qua <strong>Hiển thị trên ứng dụng khác</strong> và <strong>Trợ năng</strong>. Trợ năng khai báo ở mức thấp nhất: chỉ theo dõi cửa sổ nào đang ở phía trước, còn tuỳ chọn đọc nội dung cửa sổ bị tắt ngay trong file khai báo.</p>
+              <p>App sẽ dẫn bạn qua <strong>Hiển thị trên ứng dụng khác</strong> và <strong>Trợ năng</strong>. Trợ năng chỉ theo dõi cửa sổ nào đang ở phía trước; quyền đọc cây nội dung cửa sổ vẫn tắt. Khi bạn bật nhận diện ảnh, Android cấp thêm quyền chụp màn hình cho đúng service đó.</p>
               <p>Quyền thông báo là tuỳ chọn, cần nếu bạn muốn đồng hồ buổi tập hiện trên thanh trạng thái.</p>
             </div>
 
@@ -112,7 +113,8 @@ export default function Page() {
               <p>Tên nào khớp danh sách hơn 200.000 tên miền bị trả lời là không tồn tại; trang còn lại đi hỏi bộ lọc gia đình AdGuard. Luật chạy suốt ngày đêm, không cần phiên tập trung.</p>
               <p>Cần Android 8.1 trở lên. Máy Android 8.0 không hiện công tắc này, vì mở đường hầm an toàn kiểu đó cần bản mới hơn.</p>
               <p>Bộ lọc tự rút nếu không gọi được máy chủ DNS và không tự bật lại sau khi lỗi. Thông báo đang chạy có nút <strong>Tắt bộ lọc</strong>; tắt bảo vệ trong app cũng tháo đường hầm. Trang trong app tự tra DNS riêng, ví dụ Chrome bật DoH, thì đi vòng qua bộ lọc.</p>
-              <p>Đây là lớp lọc tên miền: nội dung nằm trong YouTube hoặc trong một trang được phép không đi qua bộ lọc. Danh sách mở rộng tham khảo BlockNSFW (MIT); bản 3.11 sửa lỗi đường hầm từng làm gián đoạn YouTube.</p>
+              <p>Bên dưới còn công tắc <strong>Chặn ảnh 18+ trên màn hình</strong>, cần Android 11 trở lên. Bật thì app đọc màn hình khoảng 5 giây một lần khi bạn đang ở trình duyệt, YouTube hoặc app mạng xã hội đã chọn, chạy mô hình ngay trên máy và đưa bạn về màn hình chính khi thấy nội dung. Ảnh chỉ nằm trong bộ nhớ, không lưu, không gửi đi; tắt công tắc là dừng ngay. Có thể nhận nhầm ảnh bơi lội hoặc em bé.</p>
+              <p>Đây là lớp lọc tên miền: nội dung nằm trong YouTube hoặc trong một trang được phép không đi qua bộ lọc. Lớp nhận diện ảnh bổ sung cho khoảng trống đó nhưng không bảo đảm tuyệt đối. Danh sách mở rộng tham khảo BlockNSFW (MIT); bản 3.12 thêm nhận diện ảnh và giữ phần sửa đường hầm DNS của 3.11.</p>
             </div>
 
             <div className="block">
