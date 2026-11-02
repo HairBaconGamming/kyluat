@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Kỷ luật</string>
-    <string name="accessibility_description">Phát hiện ứng dụng đang mở để phủ cảnh báo trong phiên focus và đếm thời gian tập gym.</string>
+    <string name="accessibility_description">Nhận biết ứng dụng đang mở, đếm thời gian tập gym và đọc màn hình trình duyệt, mạng xã hội để chặn ảnh 18+ khi bạn bật tính năng đó.</string>
 </resources>

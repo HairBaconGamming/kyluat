@@ -24,6 +24,11 @@ domains = [
   "youtube.com",
   "youtu.be",
 ]
+# Chặn tên miền 18+ suốt ngày đêm; cũng cần net install.
+adult = false
+# Nhận diện ảnh 18+ trong cửa sổ trình duyệt bằng mô hình chạy trên máy.
+# Bật/tắt bằng công tắc ở tab Bảo vệ; ảnh không được lưu hay gửi đi.
+visual = false
 # Bật 18+ thì chặn suốt ngày, không chờ giờ focus: 81 domain chọn tay trong
 # enforcer/adult_list.py, và mọi truy vấn còn lại đi qua bộ lọc gia đình của AdGuard
 # (94.140.14.14 / 94.140.14.15) thay vì 1.1.1.1. Vẫn cần net install vì vẫn là DNS.

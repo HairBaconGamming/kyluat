@@ -17,7 +17,7 @@ Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình n
 | Thêm ràng buộc mới | có hiệu lực ngay |
 | Tắt hẳn bảo vệ | màn Nâng cao, gõ lại đoạn cam kết và chờ 60 giây |
 | Chặn trang web | chỉ trên Windows, theo tên miền, tính cả trang con, chỉ trong giờ tập trung |
-| Chặn nội dung 18+ | hơn 200.000 tên miền (nhập từ BlockNSFW, MIT), chạy suốt ngày đêm trên cả Windows và Android, không phụ thuộc giờ tập trung |
+| Chặn nội dung 18+ | hơn 200.000 tên miền (nhập từ BlockNSFW, MIT), chạy suốt ngày đêm trên cả Windows và Android, không phụ thuộc giờ tập trung; thêm lớp nhận diện ảnh tuỳ chọn, chạy cục bộ bằng mô hình Déchaîner (Apache-2.0) |
 
 Danh sách app bị chặn không tự sinh ra. Máy không tự đoán cái nào gây nghiện.
 
@@ -38,7 +38,7 @@ File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: ch�
 Máy tính và điện thoại nói chuyện với nhau qua Wi-Fi nội bộ, mỗi bên tự giữ luật của mình.
 
 - `enforcer/` chạy trên Windows. Tiến trình nền kiểm tra mỗi 3 giây và tắt tiến trình thuộc danh sách chặn trong giờ tập trung. Lần mở đầu tiên có `SetupDialog` sáu bước để chọn app, web, lịch, mục tiêu và tuỳ chọn chặn web; mở lại từ Cài đặt, thay đổi nới lỏng vẫn xếp hàng 24 giờ như luật cũ.
-- `android/` chạy trên Android. Màn khoá chỉ là một lớp phủ hình ảnh do `WindowManager.addView` với cửa sổ `TYPE_APPLICATION_OVERLAY` vẽ lên, còn AccessibilityService chỉ báo về app nào đang ở phía trước. Lớp phủ không lấy focus, không đổi chính sách hệ thống, không đọc nội dung màn hình. Hai nút trên màn khoá luôn còn: "Quay lại Kỷ luật" và "Dùng app khác"; thu hồi quyền Trợ năng là app dừng chặn ngay. Riêng bộ lọc 18+ là một `VpnService` tự chọn, chỉ nhận DNS, tắt được bằng một chạm; không bật thì máy không đổi gì. Bước cản gỡ cài đặt là Device Admin tuỳ chọn, mặc định tắt, không giữ policy nào và luôn tắt được trong Cài đặt hệ thống; app không dùng Device Owner.
+- `android/` chạy trên Android. Màn khoá chỉ là một lớp phủ hình ảnh do `WindowManager.addView` với cửa sổ `TYPE_APPLICATION_OVERLAY` vẽ lên, còn AccessibilityService chỉ báo về app nào đang ở phía trước. Lớp phủ không lấy focus, không đổi chính sách hệ thống; mặc định nó không đọc nội dung màn hình. Việc đọc màn hình chỉ xảy ra khi bạn bật riêng **Chặn ảnh 18+ trên màn hình**. Hai nút trên màn khoá luôn còn: "Quay lại Kỷ luật" và "Dùng app khác"; thu hồi quyền Trợ năng là app dừng chặn ngay. Riêng bộ lọc 18+ là một `VpnService` tự chọn, chỉ nhận DNS, tắt được bằng một chạm; không bật thì máy không đổi gì. Bước cản gỡ cài đặt là Device Admin tuỳ chọn, mặc định tắt, không giữ policy nào và luôn tắt được trong Cài đặt hệ thống; app không dùng Device Owner.
 - Android có `OnboardingActivity` năm bước ở lần mở đầu tiên: hai quyền cốt lõi bắt buộc, chọn app, quỹ và gym, tuỳ chọn ghép máy tính và lọc 18+; mở lại từ Cài đặt.
 - Tự cập nhật trên Android đọc release công khai trên GitHub mỗi ngày khi được bật, chỉ nhận file `kyluat-android-v*.apk` của repo và để Android kiểm chữ ký trước khi cài.
 - Ghép nối: máy tính sinh mã 6 số và QR, hết hạn sau 5 phút, sai 5 lần thì phải lấy mã mới. Server chỉ lắng nghe trong mạng nội bộ, cổng 8766. Key nằm trong Android Keystore.
@@ -75,7 +75,20 @@ Bốn ràng buộc fail-open, vì một đường hầm lỗi có thể làm m�
 - Thông báo đang chạy có nút **Tắt bộ lọc**, và màn **Tắt bảo vệ** cũng dừng đường hầm trong một lần chạm. Luật trên Android tắt ngay, không chờ 24 giờ: lớp bảo vệ trên máy cầm tay phải luôn tắt được.
 - Cần Android 8.1 (API 27) trở lên vì `setBlocking(false)` có từ đó. Dưới 8.1, `MainActivity` ẩn công tắc (kèm lý do trong dòng phụ) và `begin()` từ chối mở đường hầm, thay vì dựng một VPN chiếm toàn bộ traffic rồi rơi mạng.
 
-Codec và bộ kiểm tra cập nhật đã kiểm chứng bằng 11 unit test trên JVM; hành vi trên máy thật thì chưa, vì dự án không chạy emulator hay adb.
+Codec, bộ kiểm tra cập nhật và phần chia vùng ảnh đã kiểm chứng bằng 16 unit test trên JVM; hành vi trên máy thật thì chưa, vì dự án không chạy emulator hay adb.
+
+### Nhận diện ảnh 18+ (tuỳ chọn)
+
+DNS không thấy được nội dung bên trong một trang hay một video đã mở. Lớp thứ hai bổ sung cho đúng khoảng trống đó, nhưng là tuỳ chọn và mặc định tắt:
+
+- **Windows:** daemon chụp cửa sổ trình duyệt đang ở phía trước khoảng 4 giây một lần, cắt 5 vùng (giữa và bốn góc), chạy `enforcer/data/nsfw_model.tflite` ngay trên máy. Điểm `hentai + porn` từ 0.60 trở lên thì cửa sổ bị thu nhỏ và có thông báo; không đóng tab, không xoá dữ liệu. Ảnh chỉ nằm trong bộ nhớ, không ghi tệp, không gửi mạng.
+- **Android 11 trở lên:** `VisualScanner` xin ảnh màn hình qua Accessibility, chạy cùng mô hình, đưa máy về màn hình chính khi phát hiện. Nó chỉ đọc màn hình của trình duyệt và những app mạng xã hội bạn đã chọn, không quét app ngân hàng, tin nhắn hay ảnh riêng. Toàn bộ mã API 30 nằm trong lớp riêng, nên máy Android 8–10 không nạp lớp này. Lỗi hoặc không xin được ảnh thì bỏ qua lần quét và tạm dừng 5 phút, không đụng tới lớp khoá app hay DNS.
+- **Tắt ngay:** công tắc trong tab Bảo vệ. Không áp dụng thời gian chờ 60 giây của luật DNS, vì đây là lớp dễ nhận nhầm và người dùng phải thoát được ngay.
+- **Giới hạn:** mô hình có thể nhận nhầm ảnh bơi lội, em bé hoặc hình vẽ; cửa sổ hoặc video được bảo vệ bằng DRM có thể cho ảnh đen; Windows chỉ quét cửa sổ trình duyệt đang phía trước, Android chỉ quét màn hình đang hiển thị. Đây là lớp giảm thiểu, không phải bảo đảm tuyệt đối. Sau khi cập nhật APK, nếu Android giữ quyền Trợ năng cũ, tắt rồi bật lại Trợ năng để hệ thống cấp lại quyền chụp màn hình.
+
+Mô hình lấy từ [Déchaîner](https://github.com/warleysr/dechainer), giấy phép Apache-2.0; văn bản giấy phép đi kèm ở `enforcer/data/NOTICE-nsfw-model.txt` và được đóng gói vào cả APK lẫn bản Windows. `Kyluat-cli.exe adult visual` nạp thử mô hình và chấm một ảnh xám, dùng để kiểm tra bản cài mà không cần nội dung thật.
+
+Phần này có trong bản nguồn Windows 1.8 và Android 3.12. Các file tải công khai 1.7 / 3.11 vẫn là bản trước khi có lớp nhận diện ảnh.
 
 ## Chạy từ mã nguồn
 
@@ -113,9 +126,9 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-56 test, chạy được mà không cần quyền Administrator và không đụng tới hệ thống thật. `tests/test_proc_gate.py` giữ hai chuyện: mọi lời gọi tiến trình con trong `enforcer/` phải đi qua `enforcer/proc.py`, và cửa đó vẫn chạy được khi tiến trình không có console hoặc bị mất stdin. `tests/test_packaging_entry.py` đọc luôn header PE của hai file exe đã build để chắc `Kyluat.exe` là subsystem GUI. `tests/test_turn_off.py` kẹp hai nhánh của lệnh tắt bảo vệ: chưa từng đổi DNS thì không đòi quyền admin, còn đổi rồi mà khôi phục thất bại thì từ chối gỡ và bật lại task để máy không mất mạng. `tests/test_adult_list.py` giữ định dạng danh sách 18+ và so từng byte với file asset của Android.
+60 test, chạy được mà không cần quyền Administrator và không đụng tới hệ thống thật. `tests/test_proc_gate.py` giữ hai chuyện: mọi lời gọi tiến trình con trong `enforcer/` phải đi qua `enforcer/proc.py`, và cửa đó vẫn chạy được khi tiến trình không có console hoặc bị mất stdin. `tests/test_packaging_entry.py` đọc luôn header PE của hai file exe đã build để chắc `Kyluat.exe` là subsystem GUI. `tests/test_turn_off.py` kẹp hai nhánh của lệnh tắt bảo vệ: chưa từng đổi DNS thì không đòi quyền admin, còn đổi rồi mà khôi phục thất bại thì từ chối gỡ và bật lại task để máy không mất mạng. `tests/test_adult_list.py` giữ định dạng danh sách 18+ và so từng byte với file asset của Android.
 
-Codec DNS và bộ kiểm tra cập nhật của Android có 13 unit test chạy trên JVM, không cần thiết bị:
+Codec DNS, bộ kiểm tra cập nhật và phần chia vùng ảnh của Android có 16 unit test chạy trên JVM, không cần thiết bị:
 
 ```bash
 cd android
@@ -129,7 +142,7 @@ pip install -r requirements-dev.txt
 python tools/build_windows.py
 ```
 
-Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.7.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.7.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
+Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.8.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.8.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
 
 Thư mục exe có hai file, giống cặp `pythonw`/`python` trong source:
 
@@ -161,7 +174,7 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 16 tương ứng `versionName` 3.11. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 17 tương ứng `versionName` 3.12. APK build ra nằm ở `android/app/build/` và không được commit.
 
 Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
 
@@ -213,10 +226,11 @@ App này là phần mềm chặn xao nhãng nên phải đụng vào hệ thốn
 | Policy DoH của Chrome và Edge trong registry | chỉ khi bật chặn web, cần Administrator | tắt bảo vệ trả về giá trị cũ từng trình duyệt |
 | Rule tường lửa `CaiNghienPhone8766` | chỉ khi ghép nối điện thoại, profile private | `turn-off` xóa rule |
 | Đường hầm VPN lọc DNS trên Android | chỉ khi gạt **Chặn trang người lớn** ở tab Bảo vệ | tắt công tắc, nút **Tắt bộ lọc** trên thông báo, hoặc màn Tắt bảo vệ |
+| Đọc pixel màn hình để nhận diện ảnh | chỉ khi bật **Chặn ảnh 18+**, mặc định tắt | tắt công tắc là dừng ngay; không có ảnh nào được lưu |
 | Quyền quản lý thiết bị trên Android | chỉ khi bật **Chặn gỡ cài đặt**, mặc định tắt | tắt trong Cài đặt → Bảo mật → Quản lý thiết bị, hoặc màn Tắt bảo vệ |
 | Lối tắt Start Menu và màn hình nền | chạy bộ cài | bộ gỡ xóa cả hai |
 
-App không sửa file `hosts`, không cài service hay driver, không chạm kernel, không đọc ảnh hay tài liệu, không keylogger. Nó ghi nhận tên tiến trình và tiêu đề cửa sổ đang mở để biết app nào đang chạy, và ghi tên miền bị chặn vào SQLite; tên miền không bị chặn không được ghi lại. Đường hầm VPN trên Android không giữ nội dung truy vấn: packet chỉ đi qua bộ nhớ trong lúc trả lời, không ghi ra file nào.
+App không sửa file `hosts`, không cài service hay driver, không chạm kernel, không đọc file ảnh hay tài liệu, không keylogger. Nó ghi nhận tên tiến trình và tiêu đề cửa sổ đang mở để biết app nào đang chạy, và ghi tên miền bị chặn vào SQLite; tên miền không bị chặn không được ghi lại. Đường hầm VPN trên Android không giữ nội dung truy vấn: packet chỉ đi qua bộ nhớ trong lúc trả lời, không ghi ra file nào. Khi bật nhận diện ảnh, ảnh màn hình chỉ tồn tại trong bộ nhớ của tiến trình trong lúc chấm điểm, không ghi ra đĩa và không gửi lên mạng.
 
 Mạch mạng đi ra ngoài chỉ có DNS và một lần kiểm tra bản mới mỗi ngày. Trên Windows, khi chặn web đang bật, sinkhole hỏi `1.1.1.1` và `8.8.8.8` cho tên miền không bị chặn, đổi sang `94.140.14.14` và `94.140.14.15` khi luật 18+ bật. Trên Android, bộ lọc 18+ gửi đúng câu hỏi DNS tới hai địa chỉ AdGuard đó; khi tự kiểm tra bản mới đang bật, app đọc danh sách phát hành công khai trên `api.github.com` mỗi ngày và chỉ tải APK của repo này khi bạn bấm Cập nhật. Không telemetry, không upload, không có máy chủ của tác giả. Ghép nối điện thoại dùng mDNS và cổng 8766 trong mạng nội bộ.
 
@@ -244,7 +258,9 @@ Không có telemetry. Không có tài khoản. File phát hành để trên GitH
 - Không có gì là không thể vượt qua. Người quyết định gỡ vẫn là bạn, và lối gỡ luôn còn: màn Nâng cao trong app, `Kyluat-cli.exe turn-off`, hoặc nhấp đúp `Tat_Enforcer_Admin.cmd`. Trên Android, nếu đã bật bước cản gỡ cài đặt thì tắt quyền quản lý thiết bị trong Cài đặt trước khi gỡ; quyền đó luôn tắt được.
 - Chặn web phụ thuộc DNS của máy. Trình duyệt bật DoH, ví dụ Firefox trong Settings → Privacy & Security, thì vẫn vượt được; app tự trỏ tới một máy chủ phân giải riêng cũng vậy. Trên Android, Chrome bật DoH là đi vòng qua bộ lọc 18+.
 - Bộ lọc 18+ trên Android cần Android 8.1 trở lên và chưa được kiểm chứng trên máy thật.
-- DNS chỉ chặn được tên miền. Nội dung 18+ nằm trong YouTube hoặc trong một trang được phép, hoặc trình duyệt tự bật DoH, thì không đi qua bộ lọc. Nút **Kiểm tra chặn thử** và `adult test` chỉ xác nhận lớp DNS đang chặn tên mẫu, không xác nhận nội dung bên trong trang. Bộ thiết lập lần đầu, tự cập nhật và bước cản gỡ cài đặt cũng mới kiểm bằng unit test, ảnh chụp Qt và cơ sở dữ liệu tạm, chưa chạy trọn trên thiết bị thật. Luồng xin quyền Administrator của bản Windows chưa được bấm thử trong phiên phát hành này.
+- DNS chỉ chặn được tên miền. Nội dung 18+ nằm trong YouTube hoặc trong một trang được phép, hoặc trình duyệt tự bật DoH, thì không đi qua bộ lọc. Nút **Kiểm tra chặn thử** và `adult test` chỉ xác nhận lớp DNS đang chặn tên mẫu, không xác nhận nội dung bên trong trang.
+- Lớp nhận diện ảnh là tuỳ chọn, có thể nhận nhầm và chưa được kiểm chứng với nội dung thật trên thiết bị. Trên Windows nó chỉ nhìn cửa sổ trình duyệt đang phía trước; trên Android cần Android 11 trở lên và quyền Trợ năng, và chỉ thấy màn hình đang hiển thị. Nó không thay thế được luật DNS.
+- APK chỉ đóng gói thư viện ARM (`arm64-v8a` và `armeabi-v7a`) cho điện thoại thật; máy ảo x86 không cài được bản này. Bộ thiết lập lần đầu, tự cập nhật và bước cản gỡ cài đặt cũng mới kiểm bằng unit test, ảnh chụp Qt và cơ sở dữ liệu tạm, chưa chạy trọn trên thiết bị thật. Luồng xin quyền Administrator của bản Windows chưa được bấm thử trong phiên phát hành này.
 
 ## Giấy phép và bảo hành
 

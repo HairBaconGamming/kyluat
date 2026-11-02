@@ -765,6 +765,28 @@ def cmd_adult(args) -> int:
         blocked, safe, message = net.adult_selftest()
         print(message)
         return 0 if blocked and safe else 1
+    if action == "visual":
+        from PIL import Image
+
+        from .visual import THRESHOLD, VisualGuard, model_available
+
+        if not model_available():
+            print("Thiếu mô hình nhận diện trong bản cài.")
+            return 1
+        guard = VisualGuard()
+        try:
+            guard._load()
+            score = guard._scan(Image.new("RGB", (960, 640), (128, 128, 128)))
+        except Exception as error:
+            print(f"Không nạp được mô hình: {error}")
+            return 1
+        finally:
+            guard.close()
+        print(
+            f"Mô hình chạy được. Ảnh xám trung tính cho điểm {score:.3f}; "
+            f"ngưỡng chặn {THRESHOLD:.2f}."
+        )
+        return 0
     store = Store(DB_PATH)
     try:
         approved = rules.approved_config(store)
@@ -774,6 +796,7 @@ def cmd_adult(args) -> int:
                 print("Chưa có luật, chưa bật 18+.")
                 return 1
             print(f"Chặn 18+  : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS):,} tên miền")
+            print(f"Ảnh 18+   : {'bật, quét cửa sổ trình duyệt' if approved.adult_visual else 'tắt'}")
             print(f"Upstream  : {'94.140.14.14 (AdGuard Family)' if approved.adult_block else '1.1.1.1 / 8.8.8.8'}")
             print(f"Chặn web  : {'bật, DNS đã trỏ về máy này' if net_enabled else 'tắt, chưa có gì đi qua sinkhole'}")
             return 0
@@ -1113,6 +1136,7 @@ def main(argv: list[str] | None = None) -> int:
     adult_sub.add_parser("off", help="tắt chặn 18+ (chờ 24 giờ)").set_defaults(func=cmd_adult)
     adult_sub.add_parser("status", help="xem trạng thái và upstream đang dùng").set_defaults(func=cmd_adult)
     adult_sub.add_parser("test", help="hỏi thử sinkhole bằng một tên miền mẫu").set_defaults(func=cmd_adult)
+    adult_sub.add_parser("visual", help="kiểm tra mô hình nhận diện ảnh trên máy").set_defaults(func=cmd_adult)
     install_parser = sub.add_parser("install", help="tạo Scheduled Task: tự chạy + watchdog mỗi phút")
     install_parser.add_argument("--elevated", action="store_true", help="chạy daemon bằng quyền admin")
     install_parser.set_defaults(func=cmd_install)

@@ -14,6 +14,10 @@ class Prefs(context: Context) {
         get() = store.getBoolean("adult_filter", false)
         set(value) = store.edit().putBoolean("adult_filter", value).apply()
 
+    var visualFilterEnabled: Boolean
+        get() = store.getBoolean("visual_filter", false)
+        set(value) = store.edit().putBoolean("visual_filter", value).apply()
+
     var gymPackage: String
         get() = store.getString("gym_package", DEFAULT_GYM) ?: DEFAULT_GYM
         set(value) = store.edit().putString("gym_package", value).apply()

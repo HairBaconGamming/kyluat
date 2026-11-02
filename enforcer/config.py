@@ -61,6 +61,7 @@ class Config:
     windows: tuple[FocusWindow, ...]
     session_stop_delay_minutes: int = 10
     adult_block: bool = False
+    adult_visual: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -72,6 +73,7 @@ class Config:
             "windows": [window.to_dict() for window in self.windows],
             "session_stop_delay_minutes": self.session_stop_delay_minutes,
             "adult_block": self.adult_block,
+            "adult_visual": self.adult_visual,
         }
 
     @classmethod
@@ -85,6 +87,7 @@ class Config:
             windows=tuple(FocusWindow.from_dict(item) for item in data.get("windows", [])),
             session_stop_delay_minutes=int(data.get("session_stop_delay_minutes", 10)),
             adult_block=bool(data.get("adult_block", False)),
+            adult_visual=bool(data.get("adult_visual", False)),
         )
 
     def to_json(self) -> str:
@@ -172,6 +175,7 @@ def load_config(path: Path) -> Config:
         windows=tuple(windows),
         session_stop_delay_minutes=session_delay,
         adult_block=bool(web.get("adult", False)),
+        adult_visual=bool(web.get("visual", False)),
     )
 
 

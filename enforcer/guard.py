@@ -55,6 +55,8 @@ class Guard:
         self._last_window: str | None = None
         self._last_reminder_check = 0.0
         self.focus_active = False
+        self._visual = None
+        self._visual_error_at = 0.0
 
     def run(self) -> None:
         last_refresh = 0.0
@@ -85,6 +87,7 @@ class Guard:
                     )
             if state is not None:
                 self._enforce(label)
+            self._check_visual()
             time.sleep(self.config.poll_seconds)
 
     def _focus_state(self, now: datetime) -> tuple[str, datetime] | None:
@@ -177,6 +180,35 @@ class Guard:
             self._log_once(name, f"{name} — không đủ quyền để tắt (chạy enforcer bằng quyền admin?)")
             return
         self._log_once(name, f"{name} · {label} · pid {pid}")
+
+    def _check_visual(self) -> None:
+        if not self.config.adult_visual:
+            if self._visual is not None:
+                self._visual.close()
+                self._visual = None
+            return
+        if self._visual is None:
+            if time.monotonic() < self._visual_error_at:
+                return
+            try:
+                from .visual import VisualGuard
+
+                self._visual = VisualGuard()
+            except Exception as error:
+                self._visual_error_at = time.monotonic() + 600
+                self.store.event("visual_error", str(error)[:200])
+                return
+        try:
+            if self._visual.check():
+                self.store.event("adult_visual", "thu nhỏ cửa sổ trình duyệt")
+        except Exception as error:
+            self.store.event("visual_error", str(error)[:200])
+            try:
+                self._visual.close()
+            except Exception:
+                pass
+            self._visual = None
+            self._visual_error_at = time.monotonic() + 600
 
     def _log_once(self, key: str, message: str) -> None:
         current = time.monotonic()

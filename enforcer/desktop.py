@@ -71,6 +71,7 @@ from .config_writer import write_plan, write_reminders, write_rules
 from .dashboard import build_summary
 from .habits import WEEKDAY_VI
 from .store import APPROVED_KEY, NET_ENABLED_KEY, PENDING_KEY, Store
+from .visual import model_available
 
 CUSTOM_APPS_KEY = "desktop_custom_apps"
 CUSTOM_SITES_KEY = "desktop_custom_sites"
@@ -175,6 +176,7 @@ ICONS = {
     "alert": '<path d="M12 4.6 20.2 19H3.8Z"/><path d="M12 10.2v3.4M12 16.2v.1"/>',
     "power": '<path d="M12 4.4v6.4"/><path d="M7.6 7a6.6 6.6 0 1 0 8.8 0"/>',
     "search": '<circle cx="11" cy="11" r="6.2"/><path d="m15.6 15.6 4 4"/>',
+    "eye": '<path d="M2.8 12s3.4-5.8 9.2-5.8S21.2 12 21.2 12s-3.4 5.8-9.2 5.8S2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.6"/>',
     "chart": '<path d="M4.5 19.5h15"/><path d="M7.5 16V10M12 16V5.5M16.5 16v-4"/>',
     "refresh": '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.6 4.4v3.6h-3.6"/>',
     "target": '<circle cx="12" cy="12" r="7.4"/><circle cx="12" cy="12" r="3"/><path d="M12 4.6V2.4M19.6 12h2.2"/>',
@@ -956,6 +958,19 @@ class MainWindow(QMainWindow):
         adult_row.add(self.adult_switch)
         self.adult_status = adult_row.subtitle
         adult_group.add(adult_row)
+
+        self.visual_switch = Switch()
+        self.visual_switch.setAccessibleName("Chặn ảnh 18+ trên trình duyệt")
+        self.visual_switch.toggled.connect(self.toggle_visual)
+        self.visual_row = Row(
+            "Chặn ảnh 18+ trên trình duyệt",
+            "Đang kiểm tra…",
+            _tile(icon="eye", tone="accent"),
+        )
+        self.visual_row.add(self.visual_switch)
+        self.visual_status = self.visual_row.subtitle
+        adult_group.add(self.visual_row)
+
         self.web_pill = Pill("Cần bật", "neutral", dot=False)
         self.web_row = Row(
             "Bật chặn web",
@@ -978,6 +993,13 @@ class MainWindow(QMainWindow):
         left.addWidget(
             _note(
                 "Luật này chạy cả ngày. Trang bạn tự thêm ở mục Trang web chỉ bị chặn trong giờ tập trung.",
+                "info",
+            )
+        )
+        left.addWidget(
+            _note(
+                "Nhận diện ảnh chỉ đọc cửa sổ trình duyệt đang mở, ảnh không lưu và không gửi đi. "
+                "Có thể nhận nhầm ảnh bơi lội hoặc em bé; tắt công tắc là dừng ngay.",
                 "info",
             )
         )
@@ -1382,6 +1404,7 @@ class MainWindow(QMainWindow):
         self.protect_apps = apps
         self.protect_sites = sites
         self.sync_adult(approved, net_enabled)
+        self.sync_visual(approved)
         if not approved:
             self.protect_note.body.setText(f"Chưa có luật. Hãy chạy {CLI_HINT} apply trước.")
             self.protect_note.show()
@@ -1406,10 +1429,12 @@ class MainWindow(QMainWindow):
             switch.setChecked(active)
             switch.blockSignals(False)
             blocked_sites += 1 if active else 0
-        anything = bool(blocked_apps or blocked_sites or approved.adult_block)
+        anything = bool(blocked_apps or blocked_sites or approved.adult_block or approved.adult_visual)
         parts = [f"{blocked_apps} app", f"{blocked_sites} web"]
         if approved.adult_block:
             parts.append("18+")
+        if approved.adult_visual:
+            parts.append("ảnh 18+")
         self.protect_pill.set_state(" · ".join(parts) + " đang chặn", "accent" if anything else "neutral")
 
         self.schedule_group.reset()
@@ -1612,6 +1637,62 @@ class MainWindow(QMainWindow):
             self.adult_status.setText("Đã bật luật · máy chưa bật chặn web nên chưa có tác dụng")
         else:
             self.adult_status.setText(f"{count} tên miền · chạy suốt ngày đêm")
+
+    def sync_visual(self, approved: Config | None) -> None:
+        active = bool(approved and approved.adult_visual)
+        self.visual_switch.blockSignals(True)
+        self.visual_switch.setChecked(active)
+        self.visual_switch.blockSignals(False)
+        if not model_available():
+            self.visual_switch.setEnabled(False)
+            self.visual_status.setText("Thiếu mô hình nhận diện trong bản cài")
+            return
+        self.visual_switch.setEnabled(True)
+        if active and _daemon_pid() is None:
+            self.visual_status.setText("Đã bật · chờ bảo vệ nền khởi động")
+        elif active:
+            self.visual_status.setText("Trình duyệt · quét 4 giây một lần, ảnh không rời máy")
+        else:
+            self.visual_status.setText("Tắt · thu nhỏ cửa sổ trình duyệt khi thấy ảnh 18+")
+
+    def toggle_visual(self, checked: bool) -> None:
+        if checked and not self._confirm_visual_on():
+            self.refresh_protect()
+            return
+        store = self._store()
+        try:
+            approved = rules.approved_config(store)
+            if approved is None:
+                QMessageBox.warning(self, "Chưa có luật", f"Hãy chạy {CLI_HINT} apply trước.")
+                self.refresh_protect()
+                return
+            candidate = replace(approved, adult_visual=checked)
+            write_rules(CONFIG_PATH, candidate)
+            rules.apply_now(
+                store,
+                candidate,
+                "bật nhận diện ảnh 18+" if checked else "tắt nhận diện ảnh 18+",
+            )
+        finally:
+            store.close()
+        if checked and _daemon_pid() is None:
+            _start_daemon()
+        self.refresh_protect()
+
+    def _confirm_visual_on(self) -> bool:
+        box = QMessageBox(self)
+        box.setWindowTitle("Bật nhận diện ảnh 18+?")
+        box.setText("Kỷ luật sẽ đọc cửa sổ trình duyệt đang mở khoảng 4 giây một lần.")
+        box.setInformativeText(
+            "Ảnh chỉ được xử lý trong bộ nhớ bằng mô hình trên máy, không lưu và không gửi đi. "
+            "Khi thấy nội dung 18+, cửa sổ trình duyệt bị thu nhỏ.\n\n"
+            "Có thể nhận nhầm ảnh bơi lội hoặc em bé. Tắt công tắc này bất cứ lúc nào."
+        )
+        box.setIcon(QMessageBox.Icon.Warning)
+        on = box.addButton("Bật", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Để sau", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        return box.clickedButton() is on
 
     def toggle_adult(self, checked: bool) -> None:
         store = self._store()

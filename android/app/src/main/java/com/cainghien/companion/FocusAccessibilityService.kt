@@ -14,6 +14,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -49,6 +50,7 @@ class FocusAccessibilityService : AccessibilityService() {
     private var lastUsageTick = 0L
     private var lastToast = 0L
     private val executor = Executors.newSingleThreadExecutor()
+    private var visualScanner: Any? = null
 
     private var neverBlocked: Set<String> = emptySet()
     private val launchable = HashMap<String, Boolean>()
@@ -123,6 +125,7 @@ class FocusAccessibilityService : AccessibilityService() {
                     updateQuotaPill()
                     updateBreakNotification()
                     updateGym()
+                    if (Build.VERSION.SDK_INT >= 30) maybeScanVisual()
                 } else {
                     removeOverlay()
                     removeQuotaPill()
@@ -258,6 +261,38 @@ class FocusAccessibilityService : AccessibilityService() {
                 true,
             )
         }
+    }
+
+    /**
+     * Quét ảnh bằng mô hình trên máy. Mọi lỗi đều bỏ qua và tạm dừng quét, không bao giờ
+     * làm hỏng lớp bảo vệ DNS hay khoá máy: thà bỏ sót còn hơn treo điện thoại.
+     */
+    private fun maybeScanVisual() {
+        if (Build.VERSION.SDK_INT < 30) return
+        if (!prefs.visualFilterEnabled || !Runtime.screenOn || overlay != null) return
+        val pkg = Runtime.currentPackage
+        if (pkg.isEmpty() || isIgnored(pkg) || ALWAYS_TRACK.any { pkg.contains(it, ignoreCase = true) }) return
+        if (pkg !in VISUAL_BROWSERS && pkg !in prefs.socialPackages) return
+        val scanner = visualScanner as? VisualScanner
+            ?: VisualScanner(this) {
+                if (Runtime.currentPackage == pkg) {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    Toast.makeText(
+                        this,
+                        "Đã chặn nội dung 18+ trên màn hình",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }.also { visualScanner = it }
+        scanner.maybeScan {
+            prefs.visualFilterEnabled && prefs.protectionEnabled && Runtime.currentPackage == pkg
+        }
+    }
+
+    private fun closeVisualScanner() {
+        if (Build.VERSION.SDK_INT < 30) return
+        (visualScanner as? VisualScanner)?.close()
+        visualScanner = null
     }
 
     private fun resetLabel(): String {
@@ -702,6 +737,7 @@ class FocusAccessibilityService : AccessibilityService() {
         cancelBreakNotification()
         network.shutdownNow()
         executor.shutdownNow()
+        closeVisualScanner()
         super.onDestroy()
     }
 
@@ -715,6 +751,37 @@ class FocusAccessibilityService : AccessibilityService() {
         private val ALWAYS_TRACK = listOf(
             "incall", "telecom", "telephony", "dialer", "settings", "systemui",
             "launcher", "permissioncontroller", "packageinstaller", "sms", "mms",
+        )
+
+        /** Chỉ đọc màn hình trình duyệt và app mạng xã hội người dùng đã chọn, không quét app ngân hàng hay tin nhắn. */
+        private val VISUAL_BROWSERS = setOf(
+            "com.android.chrome",
+            "com.chrome.beta",
+            "com.chrome.dev",
+            "com.chrome.canary",
+            "com.android.browser",
+            "com.coccoc.trinhduyet",
+            "org.mozilla.firefox",
+            "org.mozilla.firefox_beta",
+            "org.mozilla.focus",
+            "com.brave.browser",
+            "com.microsoft.emmx",
+            "com.opera.browser",
+            "com.opera.mini.native",
+            "com.opera.gx",
+            "com.sec.android.app.sbrowser",
+            "com.duckduckgo.mobile.android",
+            "com.vivaldi.browser",
+            "com.yandex.browser",
+            "com.UCMobile.intl",
+            "com.mi.globalbrowser",
+            "com.huawei.browser",
+            "com.heytap.browser",
+            "com.coloros.browser",
+            "com.vivo.browser",
+            "com.ecosia.android",
+            "com.cloudmosa.puffinFree",
+            "com.google.android.youtube",
         )
     }
 }

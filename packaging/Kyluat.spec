@@ -3,15 +3,26 @@
 
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_all
+
 ROOT = Path(SPECPATH).resolve().parent
+
+litert_datas, litert_binaries, litert_hidden = collect_all("ai_edge_litert")
+# WebGPU (31 MB), compiler plugin và công cụ dòng lệnh không dùng cho suy luận CPU.
+_skip = ("libLiteRtWebGpuAccelerator", "tools\\", "tools/", "vendors\\", "vendors/")
+litert_datas = [item for item in litert_datas if not any(part in item[0] for part in _skip)]
+litert_binaries = [item for item in litert_binaries if not any(part in item[0] for part in _skip)]
 
 a = Analysis(
     [str(ROOT / "packaging" / "kyluat.py")],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=litert_binaries,
     datas=[
         (str(ROOT / "enforcer" / "static"), "static"),
         (str(ROOT / "enforcer" / "data" / "adult_domains.txt"), "enforcer/data"),
+        (str(ROOT / "enforcer" / "data" / "nsfw_model.tflite"), "enforcer/data"),
+        (str(ROOT / "enforcer" / "data" / "NOTICE-nsfw-model.txt"), "enforcer/data"),
+        *litert_datas,
     ],
     hiddenimports=[
         "enforcer.adult_list",
@@ -33,6 +44,9 @@ a = Analysis(
         "enforcer.schedule",
         "enforcer.sessions",
         "enforcer.store",
+        "enforcer.visual",
+        "PIL.ImageGrab",
+        *litert_hidden,
         "dnslib",
         "psutil",
         "segno",

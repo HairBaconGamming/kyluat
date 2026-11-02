@@ -77,6 +77,8 @@ class MainActivity : Activity() {
     private lateinit var protectGroup: UiGroup
     private lateinit var adultRow: UiRow
     private lateinit var adultToggle: UiToggle
+    private lateinit var visualRow: UiRow
+    private lateinit var visualToggle: UiToggle
     private val socialToggles = mutableMapOf<String, UiToggle>()
     private val protectPackages = mutableListOf<String>()
     private var protectSignature = ""
@@ -369,6 +371,14 @@ class MainActivity : Activity() {
         adultToggle.onChange = { checked -> setAdultFilter(checked) }
         adultRow.trailing(adultToggle, leftMarginDp = 10)
         adultGroup.addView(adultRow)
+
+        visualRow = Ui.row(this, Ui.tile(this, R.drawable.ic_scan, Tone.ACCENT))
+        visualRow.title("Chặn ảnh 18+ trên màn hình")
+        visualRow.subtitle("Đang kiểm tra…")
+        visualToggle = UiToggle(this)
+        visualToggle.onChange = { checked -> setVisualFilter(checked) }
+        visualRow.trailing(visualToggle, leftMarginDp = 10)
+        adultGroup.addView(visualRow)
         page.addView(adultGroup)
         page.addView(
             Ui.note(
@@ -514,6 +524,67 @@ class MainActivity : Activity() {
                 wanted -> "Đang khởi động…"
                 Runtime.adultFilter -> "Đang tắt…"
                 else -> "Tắt · bật để chặn suốt ngày đêm"
+            }
+        )
+        refreshVisual()
+    }
+
+    private fun setVisualFilter(checked: Boolean) {
+        if (!checked) {
+            prefs.visualFilterEnabled = false
+            refreshVisual()
+            return
+        }
+        if (Build.VERSION.SDK_INT < 30) {
+            visualToggle.setChecked(false)
+            return
+        }
+        if (!accessibilityEnabled()) {
+            visualToggle.setChecked(false)
+            AlertDialog.Builder(this)
+                .setTitle("Cần bật Trợ năng")
+                .setMessage(
+                    "Android chỉ cho Kỷ luật đọc màn hình khi quyền Trợ năng đang bật. " +
+                        "Bật xong, quay lại đây gạt công tắc."
+                )
+                .setPositiveButton("Mở Cài đặt") { _, _ ->
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+                .setNegativeButton("Để sau", null)
+                .show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Chặn ảnh 18+?")
+            .setMessage(
+                "Kỷ luật sẽ đọc màn hình khoảng 5 giây một lần khi bạn đang ở trình duyệt, " +
+                    "YouTube hoặc app mạng xã hội đã chọn, rồi chạy mô hình ngay trên máy. " +
+                    "Ảnh chỉ nằm trong bộ nhớ, không lưu, không gửi đi. Khi thấy nội dung 18+, " +
+                    "app đưa bạn về màn hình chính.\n\n" +
+                    "Có thể nhận nhầm ảnh bơi lội hoặc em bé. Tắt công tắc này bất cứ lúc nào."
+            )
+            .setPositiveButton("Bật") { _, _ ->
+                prefs.visualFilterEnabled = true
+                refreshVisual()
+            }
+            .setNegativeButton("Để sau") { _, _ -> visualToggle.setChecked(false) }
+            .setOnCancelListener { visualToggle.setChecked(false) }
+            .show()
+    }
+
+    private fun refreshVisual() {
+        val supported = Build.VERSION.SDK_INT >= 30
+        visualRow.visibility = if (supported) View.VISIBLE else View.GONE
+        if (!supported) return
+        val wanted = prefs.visualFilterEnabled
+        val access = accessibilityEnabled()
+        visualToggle.setChecked(wanted)
+        visualToggle.alpha = if (access) 1f else 0.55f
+        visualRow.subtitle(
+            when {
+                !wanted -> "Tắt · nhận diện ảnh ngay trên máy"
+                !access -> "Cần bật Trợ năng để đọc màn hình"
+                else -> "Đang quét trình duyệt và app mạng xã hội"
             }
         )
     }

@@ -31,6 +31,7 @@ def write_rules(path: Path, config: Config) -> None:
     web = _table(doc, "web")
     web["domains"] = list(config.web_domains)
     web["adult"] = config.adult_block
+    web["visual"] = config.adult_visual
 
     windows = tomlkit.aot()
     for window in config.windows:

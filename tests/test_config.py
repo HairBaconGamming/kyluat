@@ -129,6 +129,15 @@ def test_adult_flag_reads_and_roundtrips(tmp_path):
     assert not load_config(write(tmp_path, valid)).adult_block
 
 
+def test_visual_flag_reads_and_roundtrips(tmp_path):
+    valid = CONFIG.replace('"https://bad.example"', '"twitter.com"')
+    path = write(tmp_path, valid.replace("[web]\n", "[web]\nvisual = true\n"))
+    config = load_config(path)
+    assert config.adult_visual
+    assert Config.from_json(config.to_json()).adult_visual
+    assert not load_config(write(tmp_path, valid)).adult_visual
+
+
 def test_seed_initial_law_runs_once(tmp_path, monkeypatch):
     path = write(tmp_path, CONFIG.replace('"https://bad.example"', '"twitter.com"'))
     monkeypatch.setattr(cli, "CONFIG_PATH", path)
