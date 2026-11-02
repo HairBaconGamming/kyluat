@@ -1,9 +1,11 @@
 package com.cainghien.companion
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.provider.Settings
 import android.provider.Telephony
 
 object Apps {
@@ -52,6 +54,23 @@ object Apps {
             true
         } catch (error: PackageManager.NameNotFoundException) {
             false
+        }
+    }
+
+    /** Android lưu service dưới hai dạng: pkg/.Service hoặc pkg/pkg.Service. So cả hai. */
+    fun accessibilityEnabled(context: Context): Boolean {
+        val enabled = try {
+            Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            )
+        } catch (error: Exception) {
+            null
+        } ?: return false
+        val simpleName = FocusAccessibilityService::class.java.simpleName
+        return enabled.split(':').any { raw ->
+            val parsed = ComponentName.unflattenFromString(raw.trim()) ?: return@any false
+            parsed.packageName == context.packageName && parsed.className.endsWith(simpleName)
         }
     }
 

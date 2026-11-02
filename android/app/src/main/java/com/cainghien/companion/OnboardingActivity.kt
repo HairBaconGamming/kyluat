@@ -12,6 +12,9 @@ import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextUtils
+import android.text.TextWatcher
 import android.util.LruCache
 import android.view.Gravity
 import android.view.View
@@ -35,8 +38,9 @@ class OnboardingActivity : Activity() {
     private var step = 0
     private var quotaChoice = 60
     private var destroyed = false
-    private var appsNote: TextView? = null
-    private var appsNoteBox: LinearLayout? = null
+    private var appQuery = ""
+    private var appRowsBox: LinearLayout? = null
+    private var appCountLabel: TextView? = null
     private var actionHint: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +53,7 @@ class OnboardingActivity : Activity() {
         if (savedInstanceState != null) {
             step = savedInstanceState.getInt("step", 0)
             quotaChoice = savedInstanceState.getInt("quota", quotaChoice)
+            appQuery = savedInstanceState.getString("app_query", "") ?: ""
         }
         if (!prefs.onboardingDone && prefs.looksUntouched() && secure.load() == null) {
             // Người dùng mới chọn app từ đầu, đúng như preview; người đã dùng app thì giữ nguyên.
@@ -61,6 +66,7 @@ class OnboardingActivity : Activity() {
         super.onSaveInstanceState(outState)
         outState.putInt("step", step)
         outState.putInt("quota", quotaChoice)
+        outState.putString("app_query", appQuery)
     }
 
     override fun onResume() {
@@ -317,53 +323,150 @@ class OnboardingActivity : Activity() {
             "App nào đang lấy\nthời gian của bạn?",
             "Chỉ app bạn gạt mới bị khoá. App ngoài danh sách luôn mở bình thường.",
         )
-        val list = LinearLayout(this)
-        list.orientation = LinearLayout.VERTICAL
-        list.setPadding(0, dp(14), 0, 0)
+        val search = Ui.field(this, "Tìm ứng dụng…")
+        search.setText(appQuery)
+        search.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search, 0, 0, 0)
+        search.compoundDrawablePadding = dp(8)
+        search.compoundDrawableTintList = ColorStateList.valueOf(Ui.TEXT_3)
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                appQuery = s?.toString() ?: ""
+                renderAppRows()
+            }
+        })
+        addTop(body, search, 13)
+
+        val head = LinearLayout(this)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.setPadding(dp(2), dp(14), dp(2), dp(7))
+        head.addView(
+            Ui.eyebrow(this, "Tất cả ứng dụng"),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        appCountLabel = Ui.label(this, "", 11.5f, Ui.TEXT_3)
+        head.addView(appCountLabel)
+        body.addView(head)
+
+        appRowsBox = LinearLayout(this)
+        appRowsBox?.orientation = LinearLayout.VERTICAL
+        appRowsBox?.let { body.addView(it) }
+        renderAppRows()
+
+        addTop(
+            body,
+            note(
+                "Cuộc gọi, Tin nhắn và Cài đặt không bao giờ bị chặn. " +
+                    "App ngoài nhóm mạng xã hội ghi Ứng dụng đã cài."
+            ),
+            5,
+        )
+    }
+
+    private fun renderAppRows() {
+        val box = appRowsBox ?: return
+        box.removeAllViews()
         val current = apps
         if (current == null) {
             val loading = Ui.row(this, Ui.tile(this, R.drawable.ic_refresh, Tone.NEUTRAL))
             loading.title("Đang đọc danh sách ứng dụng…")
             loading.subtitle("Chỉ đọc tên app đã cài trên máy")
             loading.setPadding(dp(13), dp(14), dp(13), dp(14))
-            loading.background = Ui.rounded(Ui.SURFACE, 15, this, Ui.LINE)
-            list.addView(loading.withBottomMargin(9))
-        } else {
-            current.forEach { entry ->
-                list.addView(appRow(entry))
-            }
-            if (current.isEmpty()) {
-                list.addView(note("Không đọc được danh sách ứng dụng. Bạn vẫn tiếp tục được.", warn = true))
-            }
+            loading.background = Ui.rounded(Ui.SURFACE, 13, this, Ui.LINE)
+            box.addView(loading.withBottomMargin(7))
+            refreshAppCount()
+            return
         }
-        body.addView(list)
+        val query = appQuery.trim().lowercase()
+        val shown = current.filter {
+            query.isEmpty() ||
+                it.label.lowercase().contains(query) ||
+                it.packageName.lowercase().contains(query)
+        }
+        if (shown.isEmpty()) {
+            val empty = Ui.label(this, "Không có ứng dụng nào khớp.", 12.5f, Ui.TEXT_3)
+            empty.gravity = Gravity.CENTER
+            empty.setPadding(0, dp(18), 0, dp(18))
+            box.addView(empty)
+        } else {
+            shown.forEach { box.addView(appRow(it)) }
+        }
+        refreshAppCount()
+    }
 
-        if (current != null) {
-            appsNoteBox = note("", warn = false)
-            appsNote = appsNoteBox?.let { box ->
-                (box.getChildAt(1) as? TextView)
-            }
-            updateAppsNote()
-            appsNoteBox?.let { addTop(body, it, 5) }
+    private fun refreshAppCount() {
+        val count = prefs.socialPackages.size
+        appCountLabel?.text = if (apps == null) "Đang đọc…" else "$count đang chọn"
+        actionHint?.text = if (count == 0) {
+            "Có thể bỏ qua bước này."
+        } else {
+            "$count app sẽ bị khoá theo mặc định."
         }
     }
 
     private fun appRow(entry: AppEntry): View {
-        val tile = Ui.tile(this, R.drawable.ic_grid, Tone.NEUTRAL)
-        iconFor(entry.packageName)?.let { tile.setDrawable(it) }
-        val row = Ui.row(this, tile)
-        row.title(entry.label)
-        row.subtitle(Apps.category(entry.packageName))
+        val wrap = LinearLayout(this)
+        wrap.orientation = LinearLayout.VERTICAL
+        wrap.setPadding(0, 0, 0, dp(7))
+
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(dp(11), dp(9), dp(11), dp(9))
+
+        val icon = ImageView(this)
+        icon.scaleType = ImageView.ScaleType.FIT_CENTER
+        val drawable = iconFor(entry.packageName)
+        if (drawable == null) {
+            icon.setPadding(dp(9), dp(9), dp(9), dp(9))
+            icon.imageTintList = ColorStateList.valueOf(Ui.TEXT_3)
+            icon.setImageResource(R.drawable.ic_grid)
+        } else {
+            icon.setImageDrawable(drawable)
+        }
+        row.addView(icon, LinearLayout.LayoutParams(dp(38), dp(38)))
+
+        val labels = LinearLayout(this)
+        labels.orientation = LinearLayout.VERTICAL
+        labels.setPadding(dp(11), 0, 0, 0)
+        val title = Ui.label(this, entry.label, 14f, Ui.TEXT, true)
+        title.isSingleLine = true
+        title.ellipsize = TextUtils.TruncateAt.END
+        labels.addView(title)
+        val subtitleText = if (Prefs.SOCIAL_LABELS.containsKey(entry.packageName)) {
+            Apps.category(entry.packageName)
+        } else {
+            "Ứng dụng đã cài"
+        }
+        val subtitle = Ui.label(this, subtitleText, 12f, Ui.TEXT_3)
+        subtitle.isSingleLine = true
+        subtitle.ellipsize = TextUtils.TruncateAt.END
+        labels.addView(subtitle)
+        row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
         val toggle = UiToggle(this)
-        toggle.setChecked(prefs.socialPackages.contains(entry.packageName))
-        toggle.onChange = { checked -> toggleApp(entry.packageName, checked) }
-        row.trailing(toggle, 10)
-        row.setPadding(dp(13), dp(10), dp(13), dp(10))
-        row.background = Ui.ripple(Ui.rounded(Ui.SURFACE, 15, this, Ui.LINE), 0x12000000)
+        val initially = prefs.socialPackages.contains(entry.packageName)
+        toggle.setChecked(initially)
+        fun paint(on: Boolean) {
+            row.background = Ui.ripple(
+                Ui.rounded(Ui.SURFACE, 13, this, if (on) Ui.ACCENT_LINE else Ui.LINE),
+                0x12000000,
+            )
+        }
+        paint(initially)
+        toggle.onChange = { checked ->
+            paint(checked)
+            toggleApp(entry.packageName, checked)
+        }
+        row.addView(toggle, LinearLayout.LayoutParams(dp(46), dp(26)).apply { leftMargin = dp(10) })
         row.isClickable = true
         row.isFocusable = true
         row.setOnClickListener { toggle.setChecked(!toggle.checked, animate = true, notify = true) }
-        return row.withBottomMargin(8)
+
+        wrap.addView(row)
+        return wrap
     }
 
     private fun toggleApp(packageName: String, checked: Boolean) {
@@ -372,27 +475,7 @@ class OnboardingActivity : Activity() {
         } else {
             prefs.setExtraPackage(packageName, checked)
         }
-        updateAppsNote()
-        actionHint?.text = if (prefs.socialPackages.isEmpty()) {
-            "Có thể bỏ qua bước này."
-        } else {
-            "${prefs.socialPackages.size} app sẽ bị khoá theo mặc định."
-        }
-    }
-
-    private fun updateAppsNote() {
-        val count = prefs.socialPackages.size
-        val warn = count == 0
-        appsNote?.text = if (warn) {
-            "Chưa chọn app nào. Vẫn tiếp tục được, chọn sau ở tab Bảo vệ."
-        } else {
-            "Đang chặn $count app. Cuộc gọi, Tin nhắn và Cài đặt không bao giờ bị chặn."
-        }
-        appsNote?.setTextColor(if (warn) Ui.WARN else Ui.TEXT_2)
-        appsNoteBox?.background = Ui.rounded(
-            if (warn) Ui.WARN_SOFT else Ui.SURFACE_2, 12, this,
-            if (warn) Ui.WARN_LINE else Ui.LINE_SOFT,
-        )
+        refreshAppCount()
     }
 
     private fun quotaStep(body: LinearLayout) {
@@ -741,9 +824,8 @@ class OnboardingActivity : Activity() {
                 }
             } catch (error: Exception) {
             }
-            val blocked = prefs.socialPackages
             val sorted = collected.sortedWith(
-                compareByDescending<Pair<String, String>> { blocked.contains(it.first) }
+                compareByDescending<Pair<String, String>> { Prefs.SOCIAL_LABELS.containsKey(it.first) }
                     .thenBy { it.second.lowercase() }
             )
             runOnUiThread {
@@ -763,11 +845,7 @@ class OnboardingActivity : Activity() {
 
     private fun overlayGranted(): Boolean = Settings.canDrawOverlays(this)
 
-    private fun accessibilityGranted(): Boolean {
-        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
-        val component = "$packageName/${FocusAccessibilityService::class.java.name}"
-        return enabled.split(':').any { it.equals(component, true) }
-    }
+    private fun accessibilityGranted(): Boolean = Apps.accessibilityEnabled(this)
 
     private fun notificationsGranted(): Boolean =
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).areNotificationsEnabled()

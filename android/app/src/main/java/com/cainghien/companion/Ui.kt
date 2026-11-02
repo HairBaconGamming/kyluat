@@ -701,8 +701,14 @@ class UiPill(context: Context) : LinearLayout(context) {
     }
 }
 
-class UiTile(context: Context, sizeDp: Int, iconRes: Int, tone: Tone) : FrameLayout(context) {
+class UiTile(context: Context, private val sizeDp: Int, iconRes: Int, tone: Tone) : FrameLayout(context) {
     private val image: ImageView = ImageView(context)
+
+    // UiRow thêm tile bằng WRAP_CONTENT, nên phải tự giữ kích thước thay vì để icon MATCH_PARENT phình ra.
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val size = Ui.dp(context, sizeDp)
+        setMeasuredDimension(size, size)
+    }
 
     init {
         image.imageTintList = ColorStateList.valueOf(Ui.toneColors(tone).third)

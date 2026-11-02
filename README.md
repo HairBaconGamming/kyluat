@@ -27,7 +27,7 @@ Bản phát hành có ba file trên GitHub Releases:
 
 - `KYLUAT-Setup-v1.6.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
 - `KYLUAT-windows-x64-v1.6.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
-- `kyluat-android-v3.9.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
+- `kyluat-android-v3.10.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
 
@@ -161,7 +161,7 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 14 tương ứng `versionName` 3.9. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 15 tương ứng `versionName` 3.10. APK build ra nằm ở `android/app/build/` và không được commit.
 
 Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
 

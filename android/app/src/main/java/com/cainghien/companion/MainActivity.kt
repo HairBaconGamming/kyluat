@@ -869,11 +869,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun accessibilityEnabled(): Boolean {
-        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
-        val component = "$packageName/${FocusAccessibilityService::class.java.name}"
-        return enabled.split(':').any { it.equals(component, true) }
-    }
+    private fun accessibilityEnabled(): Boolean = Apps.accessibilityEnabled(this)
 
     private fun notificationsEnabled(): Boolean {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager

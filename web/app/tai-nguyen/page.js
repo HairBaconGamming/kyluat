@@ -128,6 +128,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.10</td>
+                    <td>02/11/2026</td>
+                    <td>Sửa nhận diện quyền Trợ năng (Android lưu tên service dạng rút gọn), sửa icon app phình to, và làm lại bước chọn app: ô tìm, icon 38dp, công tắc và phụ đề "Ứng dụng đã cài" cho app ngoài nhóm mạng xã hội.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Windows 1.6</td>
                     <td>02/11/2026</td>
                     <td>Thêm nút <strong>Bật chặn web</strong> ngay dưới công tắc 18+ ở màn Bảo vệ, kèm trạng thái Cần bật hoặc Đang bật.</td>
