@@ -12,7 +12,7 @@
 #define TaskName "CaiNghienEnforcer"
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.4"
+  #define MyAppVersion "1.5"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\dist\Kyluat"
@@ -42,7 +42,9 @@ UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallFilesDir={app}
 LicenseFile=..\LICENSE
-CloseApplications=yes
+; Kyluat.exe vừa là cửa sổ app vừa là daemon nền, nên đóng mềm hay bị kẹt.
+; force đóng cưỡng bức để cài đè không hỏi lại giữa chừng.
+CloseApplications=force
 RestartApplications=no
 Compression=lzma2/max
 SolidCompression=yes
