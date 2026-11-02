@@ -28,11 +28,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLayout,
     QLineEdit,
     QMainWindow,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
+    QProgressDialog,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -977,7 +979,7 @@ class MainWindow(QMainWindow):
         right.addWidget(self.schedule_group)
         right.addWidget(
             _note(
-                "Nới lỏng luật phải chờ 24 giờ; siết chặt áp dụng ngay.",
+                "Nới lỏng luật phải chờ 24 giờ; siết chặt áp dụng ngay. Riêng công tắc 18+ chờ 60 giây.",
                 "clock",
                 "warn",
             )
@@ -1073,6 +1075,17 @@ class MainWindow(QMainWindow):
         )
         column.addWidget(phone_group)
         column.addWidget(_note("Hai máy phải cùng một mạng Wi-Fi. Không cần nhập địa chỉ IP.", "info"))
+        column.addWidget(_section("Thiết lập"))
+        setup_group = Group()
+        setup_group.add(
+            _link_row(
+                "Chạy lại thiết lập",
+                "Xem lại mục chặn, lịch, mục tiêu và kết nối",
+                self.open_setup,
+                icon="steps",
+            )
+        )
+        column.addWidget(setup_group)
         column.addStretch(1)
         return page
 
@@ -1298,7 +1311,7 @@ class MainWindow(QMainWindow):
             self,
             "Thiết lập nhanh",
             "Bật các ứng dụng và trang web bạn muốn chặn. Thay đổi siết chặt áp dụng ngay; "
-            "thay đổi nới lỏng sẽ chờ 24 giờ. Mục tiêu học/gym ở tab Cài đặt.",
+            "thay đổi nới lỏng sẽ chờ 24 giờ, riêng công tắc 18+ chờ 60 giây. Mục tiêu học/gym ở tab Cài đặt.",
         )
 
     def edit_schedule(self) -> None:
@@ -1556,29 +1569,117 @@ class MainWindow(QMainWindow):
         store = self._store()
         try:
             approved = rules.approved_config(store)
-            if not approved:
-                QMessageBox.warning(self, "Chưa có luật", f"Hãy chạy {CLI_HINT} apply trước.")
+        finally:
+            store.close()
+        if approved is None:
+            QMessageBox.warning(self, "Chưa có luật", f"Hãy chạy {CLI_HINT} apply trước.")
+            self.refresh_protect()
+            return
+        if not checked and not self._confirm_adult_off():
+            self.refresh_protect()
+            return
+        store = self._store()
+        try:
+            approved = rules.approved_config(store)
+            if approved is None:
+                self.refresh_protect()
                 return
             candidate = replace(approved, adult_block=checked)
             write_rules(CONFIG_PATH, candidate)
-            result = rules.apply_candidate(store, candidate)
+            if checked:
+                rules.apply_candidate(store, candidate)
+            else:
+                rules.apply_now(store, candidate, "tắt 18+ sau 60 giây suy nghĩ")
             net_enabled = store.get_state(NET_ENABLED_KEY) == "1"
         finally:
             store.close()
         if checked and net_enabled:
             net.flush_dns()
         self.refresh_protect()
-        if result.state == "queued":
+        if checked and not net_enabled:
+            self._offer_web_blocking()
+
+    def _confirm_adult_off(self) -> bool:
+        progress = QProgressDialog(
+            "Tắt chặn nội dung 18+ sau 60 giây. Bấm Giữ bật để hủy.",
+            "Giữ bật",
+            0,
+            60,
+            self,
+        )
+        progress.setWindowTitle("Tắt chặn 18+?")
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.setValue(0)
+
+        def tick() -> None:
+            value = min(progress.maximum(), progress.value() + 1)
+            progress.setValue(value)
+            remaining = progress.maximum() - value
+            progress.setLabelText(
+                f"Tắt chặn nội dung 18+ sau {remaining} giây. Bấm Giữ bật để hủy."
+            )
+            if value >= progress.maximum():
+                progress.accept()
+
+        timer = QTimer(progress)
+        timer.setInterval(1000)
+        timer.timeout.connect(tick)
+        timer.start()
+        progress.exec()
+        timer.stop()
+        return not progress.wasCanceled()
+
+    def _offer_web_blocking(self) -> None:
+        answer = QMessageBox.question(
+            self,
+            "Bật chặn web để luật 18+ có tác dụng",
+            "Luật 18+ chỉ chặn được khi Windows hỏi DNS của Kỷ luật.\n\n"
+            "Bước này đổi DNS card mạng sang 127.0.0.1, tắt DoH của Chrome và Edge, "
+            "và cần quyền Administrator. Tắt bảo vệ sẽ trả DNS về cũ.",
+            QMessageBox.Yes | QMessageBox.Cancel,
+            QMessageBox.Yes,
+        )
+        if answer != QMessageBox.Yes:
             self.protect_note.body.setText(
-                "Tắt chặn 18+ là nới lỏng luật nên phải chờ 24 giờ. Trong lúc chờ, luật cũ vẫn thi hành."
+                "Luật 18+ đã ghi nhưng chưa có tác dụng. Khi cần, chạy "
+                f"{CLI_HINT} net install trong PowerShell Administrator."
             )
             self.protect_note.show()
-        elif checked and not net_enabled:
-            self.protect_note.body.setText(
-                "Luật 18+ đã ghi, nhưng máy chưa bật chặn web. Mở PowerShell Administrator rồi chạy "
-                f"{CLI_HINT} net install."
+            return
+        params = "net install" if FROZEN else f'"{ROOT / "run_enforcer.pyw"}" net install'
+        rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, str(ROOT), 1)
+        if rc <= 32:
+            QMessageBox.warning(
+                self,
+                "Chưa bật được chặn web",
+                "UAC bị hủy hoặc Windows không mở được tiến trình quản trị.\n"
+                f"Hãy chạy PowerShell Administrator: {CLI_HINT} net install",
             )
-            self.protect_note.show()
+            return
+        self.protect_note.body.setText(
+            "Đang bật chặn web bằng quyền Administrator. Đợi vài giây, khởi động lại Chrome/Edge; "
+            "Firefox thì tắt DNS over HTTPS trong Cài đặt."
+        )
+        self.protect_note.show()
+
+        def check_install() -> None:
+            self.refresh_protect()
+            store = self._store()
+            try:
+                enabled = store.get_state(NET_ENABLED_KEY) == "1"
+            finally:
+                store.close()
+            if not enabled:
+                self.protect_note.body.setText(
+                    "Chưa bật được chặn web. Chạy PowerShell Administrator: "
+                    f"{CLI_HINT} net install"
+                )
+                self.protect_note.show()
+
+        QTimer.singleShot(20000, check_install)
 
     def _toggle_rule(self, app: dict | None = None, web: dict | None = None, enabled: bool = True) -> None:
         store = self._store()
@@ -1665,6 +1766,16 @@ class MainWindow(QMainWindow):
 
     def open_pairing(self) -> None:
         PairingDialog(self).exec()
+
+    def open_setup(self) -> None:
+        self.hide()
+        try:
+            SetupDialog(self).exec()
+        finally:
+            self.show()
+            self.refresh()
+            self.refresh_protect()
+            self.refresh_settings()
 
     def open_disable(self) -> None:
         DisableDialog(self).exec()
@@ -2492,16 +2603,856 @@ class DisableDialog(QDialog):
         self.accept()
 
 
+SETUP_KEY = "desktop_setup_done"
+SETUP_MIGRATED_KEY = "desktop_setup_migrated"
+
+
+def start_net_install(parent) -> bool:
+    params = "net install" if FROZEN else f'"{ROOT / "run_enforcer.pyw"}" net install'
+    rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, str(ROOT), 1)
+    return rc > 32
+
+
+class SetupDialog(QDialog):
+    DAYS = ("T2", "T3", "T4", "T5", "T6", "T7", "CN")
+    CHIP = (
+        "QPushButton{background:#f7f8f9;border:1px solid #e8ebed;border-radius:8px;"
+        "min-width:38px;padding:6px 4px;color:#5c666f;font-size:12.5px;}"
+    )
+    CHIP_ON = (
+        "QPushButton{background:#edf3f0;border:1px solid #d5e4dd;border-radius:8px;"
+        "min-width:38px;padding:6px 4px;color:#2f6f5e;font-weight:600;font-size:12.5px;}"
+    )
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Thiết lập Kỷ luật")
+        self.setWindowIcon(make_icon())
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setMinimumSize(1020, 700)
+        self.resize(1120, 760)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            area = screen.availableGeometry()
+            self.move(area.center() - self.rect().center())
+        self.step = 0
+        self.web_pending = False
+        self.web_polls = 0
+        self._load()
+        self._build()
+        self._render()
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._poll_web)
+        self.timer.start(2000)
+
+    # ---------- state ----------
+
+    def _load(self) -> None:
+        store = Store(DB_PATH)
+        try:
+            self.approved = rules.approved_config(store)
+            self.processes = set(self.approved.processes) if self.approved else set()
+            self.domains = set(self.approved.web_domains) if self.approved else set()
+            self.windows = list(self.approved.windows) if self.approved else []
+            self.adult = bool(self.approved.adult_block) if self.approved else False
+            self.web_on = store.get_state(NET_ENABLED_KEY) == "1"
+            self.paired = bool(store.get_state("pair_success_at"))
+        finally:
+            store.close()
+        plan = load_plan(CONFIG_PATH)
+        self.study = plan.study_minutes_daily
+        self.gym = plan.gym_sessions_weekly
+        first = self.windows[0] if self.windows else FocusWindow((0, 1, 2, 3, 4), time(8, 0), time(11, 30), "Khung giờ 1")
+        self.days = set(first.days)
+        self.start = first.start
+        self.end = first.end
+        self.schedule_on = True
+        covered = {process for entry in catalog.APP_CATALOG for process in entry["processes"]}
+        denied = {
+            "systemsettings.exe", "textinputhost.exe", "searchapp.exe", "shellexperiencehost.exe",
+            "applicationframehost.exe", "lockapp.exe", "taskmgr.exe", "mmc.exe", "control.exe",
+        }
+        running = [entry for entry in running_apps(covered) if entry["processes"][0] not in denied]
+        seen_labels = {entry["name"].strip().lower() for entry in catalog.APP_CATALOG}
+        extras = []
+        for entry in running:
+            label = entry["name"].strip().lower()
+            if label in seen_labels:
+                continue
+            seen_labels.add(label)
+            extras.append(entry)
+        self.app_entries = list(catalog.APP_CATALOG) + extras[:10]
+        known = {process for entry in self.app_entries for process in entry["processes"]}
+        for exe in sorted(self.processes - known):
+            self.app_entries.append(
+                {"name": catalog.display_block(exe), "category": "Tự thêm", "processes": (exe,)}
+            )
+        self.site_entries = list(catalog.WEB_CATALOG)
+        covered_domains = {domain for entry in self.site_entries for domain in entry["domains"]}
+        for domain in sorted(self.domains - covered_domains):
+            self.site_entries.append({"name": domain, "category": "Tự thêm", "domains": (domain,)})
+
+    def _lowered_processes(self) -> set[str]:
+        return {name.lower() for name in self.processes}
+
+    def _lowered_domains(self) -> set[str]:
+        return {name.lower() for name in self.domains}
+
+    def _app_checked(self, entry: dict) -> bool:
+        lowered = self._lowered_processes()
+        return any(process.lower() in lowered for process in entry["processes"])
+
+    def _site_checked(self, entry: dict) -> bool:
+        lowered = self._lowered_domains()
+        return any(domain.lower() in lowered for domain in entry["domains"])
+
+    def _selection_count(self) -> int:
+        return sum(1 for entry in self.app_entries if self._app_checked(entry)) + sum(
+            1 for entry in self.site_entries if self._site_checked(entry)
+        )
+
+    # ---------- layout ----------
+
+    def _build(self) -> None:
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        rail = QWidget()
+        rail.setObjectName("rail")
+        rail.setFixedWidth(212)
+        rail_box = QVBoxLayout(rail)
+        rail_box.setContentsMargins(13, 17, 13, 14)
+        rail_box.setSpacing(3)
+        brand = QLabel("Kỷ luật")
+        brand.setStyleSheet("background:transparent;font-size:16px;font-weight:600;padding:2px 9px 0;")
+        rail_box.addWidget(brand)
+        sub = QLabel("Thiết lập lần đầu")
+        sub.setStyleSheet(f"background:transparent;color:{INK_3};font-size:11px;padding:1px 9px 15px;")
+        rail_box.addWidget(sub)
+        self.step_group = QButtonGroup(self)
+        self.step_group.setExclusive(True)
+        for index, name in enumerate(("Chào", "Mục chặn", "Lịch tập trung", "Mục tiêu", "Tuỳ chọn", "Tóm tắt")):
+            button = QPushButton(f"{index + 1}   {name}")
+            button.setObjectName("nav")
+            button.setCheckable(True)
+            button.clicked.connect(lambda _=False, i=index: self.go(i))
+            self.step_group.addButton(button, index)
+            rail_box.addWidget(button)
+        rail_box.addStretch(1)
+        foot = _label("Bước mục chặn là bắt buộc. Các bước còn lại bỏ qua được. Mở lại được từ Cài đặt.", "rowSub")
+        rail_box.addWidget(foot)
+        layout.addWidget(rail)
+
+        main = QVBoxLayout()
+        main.setContentsMargins(30, 22, 30, 16)
+        main.setSpacing(12)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        content = QWidget()
+        self.body = QVBoxLayout(content)
+        self.body.setContentsMargins(0, 0, 10, 0)
+        self.body.setSpacing(9)
+        self.body.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        self.scroll.setWidget(content)
+        main.addWidget(self.scroll, 1)
+
+        bar = QHBoxLayout()
+        bar.setSpacing(10)
+        self.hint = _label("", "rowSub")
+        self.hint.setWordWrap(True)
+        bar.addWidget(self.hint, 1)
+        self.skip_button = _button("Bỏ qua")
+        self.skip_button.clicked.connect(self._skip)
+        bar.addWidget(self.skip_button)
+        self.primary = _button("Tiếp tục", primary=True, big=True)
+        self.primary.setMinimumWidth(170)
+        self.primary.clicked.connect(self._next)
+        bar.addWidget(self.primary)
+        main.addLayout(bar)
+        layout.addLayout(main, 1)
+
+    def _heading(self, eyebrow: str, title: str, lede: str, big: bool = False) -> None:
+        self.body.addWidget(_label(eyebrow.upper(), "eyebrow"))
+        label = QLabel(title)
+        label.setObjectName("title")
+        label.setWordWrap(True)
+        if big:
+            label.setStyleSheet("font-size:26px;font-weight:600;")
+        self.body.addWidget(label)
+        text = _label(lede, "body")
+        text.setContentsMargins(0, 0, 0, 8)
+        self.body.addWidget(text)
+
+    def _card(self) -> tuple[QFrame, QVBoxLayout]:
+        frame = QFrame()
+        frame.setObjectName("card")
+        box = QVBoxLayout(frame)
+        box.setContentsMargins(17, 15, 17, 13)
+        box.setSpacing(0)
+        return frame, box
+
+    def _columns(self, left: QWidget, right: QWidget) -> None:
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        row.setContentsMargins(0, 6, 0, 0)
+        row.addWidget(left, 1)
+        row.addWidget(right, 1)
+        self.body.addLayout(row)
+
+    def _clear(self, layout) -> None:
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+            elif item.layout() is not None:
+                self._clear(item.layout())
+
+    def _render(self, keep_scroll: bool = False) -> None:
+        position = self.scroll.verticalScrollBar().value() if keep_scroll else 0
+        self._clear(self.body)
+        if self.step in (0, 6):
+            self.body.addStretch(1)
+        [self._welcome, self._pick, self._schedule, self._goals, self._optional, self._summary, self._done][self.step]()
+        self.body.addStretch(1)
+        self.step_group.button(min(self.step, 5)).setChecked(True)
+        self._update_actions()
+        QTimer.singleShot(0, lambda: self.scroll.verticalScrollBar().setValue(position))
+
+    # ---------- steps ----------
+
+    def _welcome(self) -> None:
+        self._heading(
+            "Bắt đầu",
+            "Ba phút để máy giữ luật hộ bạn",
+            "Bạn chọn thứ cần tránh và giờ cần tập trung. Kỷ luật lo phần còn lại, chạy hoàn toàn trên máy này.",
+            big=True,
+        )
+        left, left_box = self._card()
+        left_box.addWidget(_tile(icon="shield", tone="accent", size=44))
+        title = QLabel("Bạn chọn, máy không đoán")
+        title.setStyleSheet("font-size:16px;font-weight:600;padding-top:12px;")
+        left_box.addWidget(title)
+        left_box.addWidget(_label("Không có app nào bị chặn sẵn. Danh sách do bạn viết ra và sửa được bất cứ lúc nào.", "body"))
+        left.setMinimumHeight(150)
+        right, right_box = self._card()
+        right_box.addWidget(_tile(icon="calendar", tone="neutral", size=44))
+        title2 = QLabel("Thêm ràng buộc ngay, nới lỏng phải chờ")
+        title2.setStyleSheet("font-size:16px;font-weight:600;padding-top:12px;")
+        title2.setWordWrap(True)
+        right_box.addWidget(title2)
+        right_box.addWidget(_label("Thêm app hay giờ thì có hiệu lực ngay. Bỏ ra thì phải chờ 24 giờ, riêng công tắc 18+ chờ 60 giây.", "body"))
+        right.setMinimumHeight(150)
+        self._columns(left, right)
+        self.body.addWidget(_note("Bước chọn mục chặn là bắt buộc. Lịch, mục tiêu, chặn web và ghép điện thoại đều bỏ qua được.", "info"))
+
+    def _pick(self) -> None:
+        self._heading(
+            "Bước 1 / 5 · Bắt buộc",
+            "Chọn thứ bạn muốn máy giữ hộ",
+            "Chỉ mục bạn gạt mới bị chặn. App và trang web ngoài danh sách không bị đụng tới.",
+        )
+        apps, apps_box = self._card()
+        head = QHBoxLayout()
+        apps_title = QLabel("Ứng dụng")
+        apps_title.setObjectName("rowTitle")
+        self.apps_count = _label("0 đã chọn", "rowSub")
+        head.addWidget(apps_title)
+        head.addStretch(1)
+        head.addWidget(self.apps_count)
+        apps_box.addLayout(head)
+        apps_box.addWidget(_hairline())
+        for entry in self.app_entries:
+            checked = self._app_checked(entry)
+            row = Row(
+                entry["name"],
+                entry.get("category", "Đang chạy"),
+                _tile(text=entry["name"], tone="accent" if checked else "neutral"),
+            )
+            switch = Switch()
+            switch.setChecked(checked)
+            switch.toggled.connect(lambda value, e=entry: self._toggle_app(e, value))
+            row.add(switch)
+            row.setMinimumHeight(56)
+            apps_box.addWidget(row)
+            apps_box.addWidget(_hairline())
+        apps_box.addWidget(_label("Danh sách lấy từ app đang chạy và danh mục; thêm app khác ở tab Bảo vệ.", "rowSub"))
+
+        sites, sites_box = self._card()
+        site_head = QHBoxLayout()
+        sites_title = QLabel("Trang web")
+        sites_title.setObjectName("rowTitle")
+        self.sites_count = _label("0 đã chọn", "rowSub")
+        site_head.addWidget(sites_title)
+        site_head.addStretch(1)
+        site_head.addWidget(self.sites_count)
+        sites_box.addLayout(site_head)
+        sites_box.addWidget(_hairline())
+        for entry in self.site_entries:
+            checked = self._site_checked(entry)
+            row = Row(
+                entry["name"],
+                entry.get("category", "Tự thêm"),
+                _tile(text=entry["name"], tone="accent" if checked else "neutral"),
+            )
+            switch = Switch()
+            switch.setChecked(checked)
+            switch.toggled.connect(lambda value, e=entry: self._toggle_site(e, value))
+            row.add(switch)
+            row.setMinimumHeight(56)
+            sites_box.addWidget(row)
+            sites_box.addWidget(_hairline())
+        add_row = QHBoxLayout()
+        add_row.setContentsMargins(0, 10, 0, 0)
+        self.site_input = QLineEdit()
+        self.site_input.setPlaceholderText("Thêm tên miền, vd: twitch.tv")
+        self.site_input.returnPressed.connect(self._add_domain)
+        add_row.addWidget(self.site_input, 1)
+        add_button = _button("Thêm")
+        add_button.clicked.connect(self._add_domain)
+        add_row.addWidget(add_button)
+        sites_box.addLayout(add_row)
+
+        self._columns(apps, sites)
+        self.body.addWidget(_note("Cuộc gọi, Tin nhắn và Cài đặt không bao giờ bị chặn, kể cả khi bạn chọn.", "shield"))
+        self._refresh_counts()
+
+    def _toggle_app(self, entry: dict, checked: bool) -> None:
+        for process in entry["processes"]:
+            if checked:
+                self.processes.add(process)
+            else:
+                self.processes.discard(process)
+        self._refresh_counts()
+
+    def _toggle_site(self, entry: dict, checked: bool) -> None:
+        for domain in entry["domains"]:
+            if checked:
+                self.domains.add(domain)
+            else:
+                self.domains.discard(domain)
+        self._refresh_counts()
+
+    def _refresh_counts(self) -> None:
+        try:
+            self.apps_count.setText(f"{sum(1 for e in self.app_entries if self._app_checked(e))} đã chọn")
+            self.sites_count.setText(f"{sum(1 for e in self.site_entries if self._site_checked(e))} đã chọn")
+        except (AttributeError, RuntimeError):
+            pass
+        self._update_actions()
+
+    def _add_domain(self) -> None:
+        text = self.site_input.text().strip().lower()
+        text = re.sub(r"^https?://", "", text).split("/")[0].strip(".")
+        if not text or "." not in text or " " in text:
+            QMessageBox.warning(
+                self, "Tên miền chưa hợp lệ", "Nhập tên miền như twitch.tv, không kèm https:// hay đường dẫn."
+            )
+            return
+        known = {domain.lower() for entry in self.site_entries for domain in entry["domains"]}
+        if text in known:
+            return
+        self.domains.add(text)
+        self.site_entries.append({"name": text, "category": "Tự thêm", "domains": (text,)})
+        self._render(keep_scroll=True)
+
+    def _schedule(self) -> None:
+        self._heading(
+            "Bước 2 / 5",
+            "Khung giờ đầu tiên",
+            "Đúng giờ là app trong danh sách bị đóng, hết giờ là mở lại. Có thể thêm khung giờ sau ở tab Bảo vệ.",
+        )
+        card, box = self._card()
+        head = QHBoxLayout()
+        title = QLabel("Khung giờ 1")
+        title.setObjectName("rowTitle")
+        switch = Switch()
+        switch.setChecked(self.schedule_on)
+        switch.toggled.connect(self._set_schedule_on)
+        head.addWidget(title)
+        head.addStretch(1)
+        head.addWidget(switch)
+        box.addLayout(head)
+        box.addWidget(_label("Chọn ngày áp dụng", "rowSub"))
+        days_row = QHBoxLayout()
+        days_row.setSpacing(5)
+        self.day_buttons = []
+        for index, name in enumerate(self.DAYS):
+            chip = QPushButton(name)
+            chip.setCheckable(True)
+            chip.setChecked(index in self.days)
+            chip.setCursor(Qt.CursorShape.PointingHandCursor)
+            chip.setFixedHeight(30)
+            self._style_day(chip)
+            chip.toggled.connect(lambda _=False, c=chip: self._style_day(c))
+            chip.toggled.connect(lambda value, i=index: self._toggle_day(i, value))
+            days_row.addWidget(chip)
+            self.day_buttons.append(chip)
+        days_row.addStretch(1)
+        box.addLayout(days_row)
+        time_row = QHBoxLayout()
+        time_row.setContentsMargins(0, 12, 0, 0)
+        start = QTimeEdit()
+        start.setDisplayFormat("HH:mm")
+        start.setTime(QTime(self.start.hour, self.start.minute))
+        _field(start, 96)
+        end = QTimeEdit()
+        end.setDisplayFormat("HH:mm")
+        end.setTime(QTime(self.end.hour, self.end.minute))
+        _field(end, 96)
+        start.timeChanged.connect(lambda value: setattr(self, "start", time(value.hour(), value.minute())))
+        end.timeChanged.connect(lambda value: setattr(self, "end", time(value.hour(), value.minute())))
+        time_row.addWidget(start)
+        time_row.addWidget(_label("đến", "rowSub"))
+        time_row.addWidget(end)
+        time_row.addWidget(_label(f"{len(self.days)} ngày mỗi tuần", "rowSub"))
+        time_row.addStretch(1)
+        box.addLayout(time_row)
+        self.body.addWidget(card)
+        self.body.addWidget(
+            _note(
+                "Thêm khung giờ áp dụng ngay. Bỏ một khung giờ phải chờ 24 giờ. "
+                "Lịch để trống thì chỉ luật app và web 18+ chạy.",
+                "clock",
+            )
+        )
+        if len(self.windows) > 1:
+            self.body.addWidget(
+                _note("Các khung giờ khác giữ nguyên; sửa đầy đủ ở tab Bảo vệ.", "info")
+            )
+
+    def _style_day(self, chip: QPushButton) -> None:
+        chip.setStyleSheet(self.CHIP_ON if chip.isChecked() else self.CHIP)
+
+    def _toggle_day(self, index: int, checked: bool) -> None:
+        if checked:
+            self.days.add(index)
+        else:
+            self.days.discard(index)
+        self._update_actions()
+
+    def _set_schedule_on(self, checked: bool) -> None:
+        self.schedule_on = checked
+        self._update_actions()
+
+    def _stepper(self, value: int, minimum: int, maximum: int, step: int, unit: str, on_change) -> QWidget:
+        holder = QWidget()
+        row = QHBoxLayout(holder)
+        row.setContentsMargins(0, 12, 0, 0)
+        row.setSpacing(8)
+        button_style = (
+            "QPushButton{background:#ffffff;border:1px solid #e8ebed;border-radius:9px;"
+            "font-size:16px;color:#5c666f;padding:0;}"
+            "QPushButton:hover{background:#f7f8f9;border-color:#c8d0d5;}"
+        )
+        minus = QPushButton("−")
+        minus.setFixedSize(32, 32)
+        minus.setCursor(Qt.CursorShape.PointingHandCursor)
+        minus.setStyleSheet(button_style)
+        value_label = QLabel(str(value))
+        value_label.setMinimumWidth(46)
+        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        value_label.setStyleSheet("font-size:22px;font-weight:600;background:transparent;")
+        unit_label = _label(unit, "rowSub")
+        plus = QPushButton("+")
+        plus.setFixedSize(32, 32)
+        plus.setCursor(Qt.CursorShape.PointingHandCursor)
+        plus.setStyleSheet(button_style)
+        current = [value]
+
+        def change(delta: int) -> None:
+            current[0] = max(minimum, min(maximum, current[0] + delta))
+            value_label.setText(str(current[0]))
+            on_change(current[0])
+            self._update_actions()
+
+        minus.clicked.connect(lambda: change(-step))
+        plus.clicked.connect(lambda: change(step))
+        row.addWidget(minus)
+        row.addWidget(value_label)
+        row.addWidget(unit_label)
+        row.addWidget(plus)
+        row.addStretch(1)
+        return holder
+
+    def _goals(self) -> None:
+        self._heading(
+            "Bước 3 / 5",
+            "Mục tiêu của bạn",
+            "Hai con số này chỉ để nhìn lại mỗi tuần, không tham gia vào việc chặn app.",
+        )
+        left, left_box = self._card()
+        title = QLabel("Học mỗi ngày")
+        title.setObjectName("rowTitle")
+        left_box.addWidget(title)
+        left_box.addWidget(self._stepper(self.study, 0, 720, 15, "phút/ngày", lambda value: setattr(self, "study", value)))
+        left_box.addWidget(_label("Từ 0 đến 720 phút, mỗi lần 15 phút.", "rowSub"))
+
+        right, right_box = self._card()
+        title2 = QLabel("Tập gym")
+        title2.setObjectName("rowTitle")
+        right_box.addWidget(title2)
+        right_box.addWidget(self._stepper(self.gym, 0, 14, 1, "buổi/tuần", lambda value: setattr(self, "gym", value)))
+        right_box.addWidget(_label("Một buổi cần 10 phút trong app tập.", "rowSub"))
+        self._columns(left, right)
+        self.body.addWidget(_note("Không đặt mục tiêu cũng được. Đổi lại bất cứ lúc nào ở tab Cài đặt.", "info"))
+
+    def _optional(self) -> None:
+        self._heading(
+            "Bước 4 / 5",
+            "Hai thứ nên bật, nhưng không bắt buộc",
+            "Bỏ qua được, bật sau ở tab Bảo vệ hoặc Cài đặt.",
+        )
+        web, web_box = self._card()
+        head = QHBoxLayout()
+        head.addWidget(_tile(icon="globe", tone="accent", size=34))
+        web_title = QLabel("Chặn web bằng DNS")
+        web_title.setObjectName("rowTitle")
+        head.addWidget(web_title)
+        head.addStretch(1)
+        web_pill = Pill("Đang bật" if self.web_on else "Chưa bật", "accent" if self.web_on else "neutral", dot=False)
+        head.addWidget(web_pill)
+        web_box.addLayout(head)
+        web_box.addWidget(_label("Đổi DNS card mạng sang 127.0.0.1 và tắt DoH của Chrome/Edge. Cần quyền Administrator qua UAC.", "body"))
+        adult_row = QHBoxLayout()
+        adult_row.setContentsMargins(0, 8, 0, 8)
+        adult_row.addWidget(_label("Chặn trang người lớn (lọc DNS)", "body"), 1)
+        adult_switch = Switch()
+        adult_switch.setChecked(self.adult)
+        adult_switch.toggled.connect(self._set_adult)
+        adult_row.addWidget(adult_switch)
+        web_box.addLayout(adult_row)
+        web_button = _button("Đang bật" if self.web_on else "Bật chặn web")
+        web_button.setEnabled(not self.web_on and not self.web_pending)
+        if self.web_pending:
+            web_button.setText("Đang bật…")
+        web_button.clicked.connect(self._toggle_web)
+        web_box.addWidget(web_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        pair, pair_box = self._card()
+        pair_head = QHBoxLayout()
+        pair_head.addWidget(_tile(icon="desktop", tone="neutral", size=34))
+        pair_title = QLabel("Ghép điện thoại")
+        pair_title.setObjectName("rowTitle")
+        pair_head.addWidget(pair_title)
+        pair_head.addStretch(1)
+        pair_head.addWidget(Pill("Đã ghép" if self.paired else "Chưa ghép", "accent" if self.paired else "neutral", dot=False))
+        pair_box.addLayout(pair_head)
+        pair_box.addWidget(_label("Máy tính và điện thoại nhìn chung lịch học, lịch tập và trạng thái phiên.", "body"))
+        pair_box.addStretch(1)
+        pair_button = _button("Ghép lại" if self.paired else "Mở mã ghép")
+        pair_button.clicked.connect(self._open_pairing)
+        pair_box.addWidget(pair_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self._columns(web, pair)
+
+        if self.adult and not self.web_on:
+            self.body.addWidget(
+                _note("Luật 18+ cần chặn web đang bật. Tắt bảo vệ sẽ trả DNS về cũ; danh sách 81 tên miền chạy suốt ngày đêm.", "alert", "warn")
+            )
+        else:
+            self.body.addWidget(_note("Cả hai đều tắt được bất cứ lúc nào. Tắt chặn web sẽ khôi phục đúng DNS cũ.", "info"))
+
+    def _set_adult(self, checked: bool) -> None:
+        if checked and not self.web_on:
+            answer = QMessageBox.question(
+                self,
+                "Cần chặn web",
+                "Luật 18+ chỉ chạy khi chặn web đang bật. Bật chặn web ngay bằng quyền Administrator?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Yes,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                if self.step == 4:
+                    self._render()
+                return
+            self.adult = True
+            self._toggle_web()
+            return
+        self.adult = checked
+
+    def _toggle_web(self) -> None:
+        if self.web_on:
+            QMessageBox.information(self, "Đang bật", "Tắt chặn web bằng 'Tắt bảo vệ' ở tab Bảo vệ để trả DNS về cũ.")
+            return
+        if self.web_pending:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Bật chặn web?",
+            "Windows sẽ hỏi quyền Administrator. Kỷ luật sẽ đổi DNS card mạng sang 127.0.0.1, "
+            "tắt DoH của Chrome và Edge, và trả DNS về cũ khi bạn tắt bảo vệ.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        if not start_net_install(self):
+            QMessageBox.warning(
+                self,
+                "Chưa bật được chặn web",
+                "UAC bị hủy hoặc Windows không mở được tiến trình quản trị.\n"
+                f"Hãy chạy PowerShell Administrator: {CLI_HINT} net install",
+            )
+            return
+        self.web_pending = True
+        self.web_polls = 0
+        if self.step == 4:
+            self._render()
+
+    def _poll_web(self) -> None:
+        if not self.web_pending:
+            return
+        self.web_polls += 1
+        store = Store(DB_PATH)
+        try:
+            enabled = store.get_state(NET_ENABLED_KEY) == "1"
+        finally:
+            store.close()
+        if enabled:
+            self.web_pending = False
+            self.web_on = True
+            if self.step == 4:
+                self._render()
+            return
+        if self.web_polls >= 15:
+            self.web_pending = False
+            if self.step == 4:
+                self._render()
+            QMessageBox.warning(
+                self,
+                "Chưa bật được chặn web",
+                f"Không thấy DNS chuyển sang 127.0.0.1. Chạy PowerShell Administrator: {CLI_HINT} net install",
+            )
+
+    def _open_pairing(self) -> None:
+        PairingDialog(self).exec()
+        store = Store(DB_PATH)
+        try:
+            self.paired = bool(store.get_state("pair_success_at"))
+        finally:
+            store.close()
+        if self.step == 4:
+            self._render()
+
+    def _summary(self) -> None:
+        self._heading(
+            "Bước 5 / 5",
+            "Sẵn sàng giữ luật?",
+            "Kiểm lại một lần. Mọi thứ đổi được sau trong app, nhưng nới lỏng phải chờ.",
+        )
+        card, box = self._card()
+        rows = [
+            ("App và trang web", f"{self._selection_count()} mục", 1),
+            ("Lịch tập trung", self._schedule_text(), 2),
+            ("Mục tiêu", f"{self.study} phút/ngày · {self.gym} buổi/tuần", 3),
+            ("Chặn web", "Bật" if self.web_on else "Tắt", 4),
+            ("Lọc 18+", "Bật" if self.adult else "Tắt", 4),
+            ("Điện thoại", "Đã ghép" if self.paired else "Chưa ghép", 4),
+        ]
+        for index, (label, value, target) in enumerate(rows):
+            if index:
+                box.addWidget(_hairline())
+            line = QHBoxLayout()
+            line.setContentsMargins(0, 9, 0, 9)
+            line.setSpacing(10)
+            line.addWidget(_label(label, "body"), 1)
+            value_label = QLabel(value)
+            value_label.setObjectName("rowTitle")
+            value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            line.addWidget(value_label)
+            edit = _button("Sửa")
+            edit.setObjectName("link")
+            edit.clicked.connect(lambda _=False, t=target: self.go(t))
+            line.addWidget(edit)
+            box.addLayout(line)
+        self.body.addWidget(card)
+        if self.adult and not self.web_on:
+            self.body.addWidget(_note("Luật 18+ đang bật nhưng chặn web chưa bật nên chưa có tác dụng.", "alert", "warn"))
+        else:
+            self.body.addWidget(_note("Dữ liệu nằm trên máy bạn. Không tài khoản, không máy chủ.", "info"))
+
+    def _schedule_text(self) -> str:
+        if not self.schedule_on or not self.days:
+            return "Khung giờ 1 đang tắt" if self.windows else "Chưa có lịch"
+        days = ", ".join(self.DAYS[index] for index in sorted(self.days))
+        return f"{days} · {self.start:%H:%M}–{self.end:%H:%M}"
+
+    def _done(self) -> None:
+        circle = QLabel()
+        circle.setFixedSize(64, 64)
+        circle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        circle.setStyleSheet("background:#edf3f0;border:1px solid #d5e4dd;border-radius:32px;")
+        circle.setPixmap(svg_pixmap("steps", ACCENT, 30))
+        self.body.addWidget(circle, alignment=Qt.AlignmentFlag.AlignHCenter)
+        title = QLabel("Thiết lập xong")
+        title.setObjectName("title")
+        title.setStyleSheet("font-size:26px;font-weight:600;")
+        title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.body.addWidget(title)
+        body = _label(
+            "Wizard sẽ đóng và mở tab Hôm nay. Tắt bảo vệ cần đọc cảnh báo, gõ cam kết và chờ 60 giây.",
+            "body",
+        )
+        body.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.body.addWidget(body)
+        pills = QHBoxLayout()
+        pills.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        pills.addWidget(Pill(f"{self._selection_count()} mục bị chặn", "accent", dot=False))
+        pills.addWidget(Pill(f"{self.study} phút học/ngày", "accent", dot=False))
+        if self.web_on:
+            pills.addWidget(Pill("Chặn web đang bật", "accent", dot=False))
+        self.body.addLayout(pills)
+
+    # ---------- actions ----------
+
+    def _update_actions(self) -> None:
+        labels = {0: "Bắt đầu", 1: "Tiếp tục", 2: "Tiếp tục", 3: "Tiếp tục", 4: "Tiếp tục", 5: "Hoàn tất", 6: "Vào Kỷ luật"}
+        self.primary.setText(labels[self.step])
+        self.skip_button.setVisible(self.step in (2, 3, 4))
+        count = self._selection_count()
+        enabled = True
+        warn = False
+        hint = ""
+        if self.step == 0:
+            hint = "Khoảng 3 phút · 6 bước."
+        elif self.step == 1:
+            enabled = count > 0
+            warn = count == 0
+            hint = f"{count} mục sẽ bị chặn theo mặc định." if count else "Cần ít nhất một mục để tiếp tục."
+        elif self.step == 2:
+            if self.schedule_on and not self.days:
+                warn = True
+                hint = "Chưa chọn ngày nào, khung giờ sẽ không chạy."
+            else:
+                hint = "Có thể bỏ qua và thêm lịch sau."
+        elif self.step == 3:
+            hint = f"{self.study} phút học mỗi ngày · {self.gym} buổi gym mỗi tuần."
+        elif self.step == 4:
+            hint = "Bỏ qua nếu bạn muốn thiết lập sau."
+        elif self.step == 5:
+            enabled = count > 0
+            warn = count == 0
+            hint = "Có thể xem lại từ Cài đặt." if count else "Cần ít nhất một app hoặc trang web."
+        else:
+            hint = "Bước tiếp theo trong app là tab Hôm nay."
+        self.primary.setEnabled(enabled)
+        self.hint.setText(hint)
+        self.hint.setStyleSheet(f"color:{WARN if warn else INK_3};font-size:12px;")
+
+    def go(self, index: int) -> None:
+        if index == self.step:
+            return
+        self.step = index
+        self._render()
+
+    def _next(self) -> None:
+        if self.step == 1 and self._selection_count() == 0:
+            return
+        if self.step == 5:
+            if self._selection_count() == 0:
+                return
+            self._apply()
+            self.step = 6
+            self._render()
+            return
+        if self.step == 6:
+            self.accept()
+            return
+        self.step += 1
+        self._render()
+
+    def _skip(self) -> None:
+        self.step = min(5, self.step + 1)
+        self._render()
+
+    def _apply(self) -> None:
+        rest = self.windows[1:] if self.windows else []
+        windows = list(rest)
+        if self.schedule_on and self.days:
+            windows.insert(
+                0,
+                FocusWindow(tuple(sorted(self.days)), self.start, self.end, "Khung giờ 1"),
+            )
+        store = Store(DB_PATH)
+        result = None
+        try:
+            approved = rules.approved_config(store)
+            base = approved or Config(
+                poll_seconds=3,
+                cooldown_hours=24,
+                kill_browsers=False,
+                processes=(),
+                web_domains=(),
+                windows=(),
+            )
+            candidate = replace(
+                base,
+                processes=tuple(sorted(self.processes)),
+                web_domains=tuple(sorted(self.domains)),
+                windows=tuple(windows),
+                adult_block=self.adult,
+            )
+            same_law = (
+                approved is not None
+                and set(approved.processes) == set(candidate.processes)
+                and set(approved.web_domains) == set(candidate.web_domains)
+                and tuple(approved.windows) == tuple(candidate.windows)
+                and approved.adult_block == candidate.adult_block
+            )
+            if not same_law:
+                write_rules(CONFIG_PATH, candidate)
+                if approved is None:
+                    rules.apply_now(store, candidate, "thiết lập lần đầu")
+                else:
+                    result = rules.apply_candidate(store, candidate)
+            write_plan(CONFIG_PATH, Plan(self.study, self.gym))
+            store.set_state(SETUP_KEY, "1")
+        finally:
+            store.close()
+        if result is not None and result.state == "queued":
+            QMessageBox.information(
+                self,
+                "Đã ghi nhận",
+                "Một số thay đổi nới lỏng sẽ có hiệu lực sau 24 giờ. Trong lúc chờ, luật cũ vẫn thi hành.",
+            )
+
+
 def run(screenshot: str | None = None) -> int:
     app = QApplication.instance() or QApplication([sys.argv[0]])
     app.setApplicationName("Kỷ luật")
     app.setStyleSheet(STYLE)
     store = Store(DB_PATH)
     try:
-        seed_initial_law(store)
+        if store.get_state(SETUP_MIGRATED_KEY) != "1":
+            store.set_state(SETUP_MIGRATED_KEY, "1")
+            if store.get_state(APPROVED_KEY):
+                store.set_state(SETUP_KEY, "1")
+        setup_done = store.get_state(SETUP_KEY) == "1"
+        if setup_done:
+            seed_initial_law(store)
     finally:
         store.close()
     window = MainWindow()
+    if not setup_done and screenshot is None:
+        window.hide()
+        accepted = SetupDialog(window).exec() == QDialog.DialogCode.Accepted
+        if not accepted:
+            store = Store(DB_PATH)
+            try:
+                seed_initial_law(store)
+            finally:
+                store.close()
+        window.refresh()
+        window.refresh_protect()
+        window.refresh_settings()
+    elif not setup_done:
+        store = Store(DB_PATH)
+        try:
+            seed_initial_law(store)
+        finally:
+            store.close()
     window.show()
     if screenshot:
         def capture() -> None:

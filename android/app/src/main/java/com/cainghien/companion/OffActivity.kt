@@ -1,6 +1,8 @@
 package com.cainghien.companion
 
 import android.app.Activity
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -223,9 +225,20 @@ class OffActivity : Activity() {
         prefs.adultFilterEnabled = false
         stopService(Intent(this, AdultDnsVpnService::class.java))
         QuotaManager(prefs).stopBreak()
+        releaseUninstallGuard()
         Toast.makeText(this, "Đã tắt bảo vệ. Bạn có thể bật lại trong Cài đặt.", Toast.LENGTH_LONG).show()
         setResult(RESULT_OK)
         finish()
+    }
+
+    /** Tắt bảo vệ là dừng hẳn: không để lớp cản gỡ nằm lại khi người dùng đã chọn dừng. */
+    private fun releaseUninstallGuard() {
+        try {
+            val manager = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            manager.removeActiveAdmin(ComponentName(this, GuardAdminReceiver::class.java))
+        } catch (error: Exception) {
+        }
+        prefs.uninstallGuard = false
     }
 
     override fun onDestroy() {

@@ -25,8 +25,8 @@ android {
         applicationId = "com.cainghien.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "3.7"
+        versionCode = 14
+        versionName = "3.9"
     }
 
     signingConfigs {

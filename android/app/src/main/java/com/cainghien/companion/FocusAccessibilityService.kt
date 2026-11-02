@@ -44,6 +44,8 @@ class FocusAccessibilityService : AccessibilityService() {
     private var overlayOpen: UiButton? = null
     private var gymPill: View? = null
     private var gymPillText: TextView? = null
+    private var quotaPill: View? = null
+    private var quotaPillText: TextView? = null
     private var lastUsageTick = 0L
     private var lastToast = 0L
     private val executor = Executors.newSingleThreadExecutor()
@@ -58,6 +60,7 @@ class FocusAccessibilityService : AccessibilityService() {
                     Runtime.screenOn = false
                     finishGym()
                     removeGymPill()
+                    removeQuotaPill()
                     cancelGymNotification()
                     lastUsageTick = SystemClock.elapsedRealtime()
                 }
@@ -117,10 +120,12 @@ class FocusAccessibilityService : AccessibilityService() {
                     }
                     reassertBlockedWindow()
                     evaluate()
+                    updateQuotaPill()
                     updateBreakNotification()
                     updateGym()
                 } else {
                     removeOverlay()
+                    removeQuotaPill()
                     finishGym()
                     removeGymPill()
                     cancelGymNotification()
@@ -174,6 +179,7 @@ class FocusAccessibilityService : AccessibilityService() {
         lastUsageTick = SystemClock.elapsedRealtime()
         try {
             evaluate()
+            updateQuotaPill()
         } catch (error: Exception) {
             removeOverlay()
         }
@@ -219,12 +225,12 @@ class FocusAccessibilityService : AccessibilityService() {
         }
         val pkg = Runtime.currentPackage
         if (isIgnored(pkg)) {
-            removeOverlay()
+            scheduleHide()
             return
         }
         val social = pkg in prefs.socialPackages
         if (!social) {
-            removeOverlay()
+            scheduleHide()
             return
         }
         when {
@@ -418,6 +424,40 @@ class FocusAccessibilityService : AccessibilityService() {
         overlayOpen = null
     }
 
+    /**
+     * Lúc mở app, Android có thể báo thêm một cửa sổ phụ (launcher, splash) ngay sau app thật.
+     * Gỡ khoá ngay theo sự kiện đó làm màn khoá chớp rồi mất; chờ một nhịp rồi xác nhận lại
+     * cửa sổ đang thật sự hiển thị.
+     */
+    private val hideCheck = Runnable {
+        if (!prefs.protectionEnabled) {
+            removeOverlay()
+            return@Runnable
+        }
+        val pkg = Runtime.currentPackage
+        if (pkg.isNotEmpty() && pkg in prefs.socialPackages) {
+            evaluate()
+            return@Runnable
+        }
+        val active = try {
+            rootInActiveWindow?.packageName?.toString()
+        } catch (error: Exception) {
+            null
+        }
+        if (active != null && active in prefs.socialPackages) {
+            Runtime.currentPackage = active
+            evaluate()
+        } else {
+            removeOverlay()
+        }
+    }
+
+    private fun scheduleHide() {
+        if (overlay == null) return
+        handler.removeCallbacks(hideCheck)
+        handler.postDelayed(hideCheck, HIDE_DELAY_MS)
+    }
+
     private fun updateGym() {
         val pkg = Runtime.currentPackage
         if (pkg != prefs.gymPackage || !Runtime.screenOn) {
@@ -515,6 +555,74 @@ class FocusAccessibilityService : AccessibilityService() {
         gymPillText = null
     }
 
+    /** Trong phiên nghỉ, quỹ trừ dần sau mỗi nhịp đếm. Hiện ngay trên app đang dùng để
+     *  người dùng thấy mình đang tiêu quỹ chứ không phải đợi mở lại Kỷ luật. */
+    private fun updateQuotaPill() {
+        val show = Runtime.screenOn &&
+            !Runtime.focusActive &&
+            Runtime.currentPackage in prefs.socialPackages &&
+            quota.isBreakActive()
+        if (!show) {
+            removeQuotaPill()
+            return
+        }
+        showQuotaPill(quota.remainingSeconds())
+    }
+
+    private fun showQuotaPill(secondsLeft: Int) {
+        if (!Settings.canDrawOverlays(this)) return
+        val text = "Quỹ mạng xã hội · còn ${Ui.clockText(secondsLeft)}"
+        if (quotaPill == null) {
+            val pill = LinearLayout(this)
+            pill.orientation = LinearLayout.HORIZONTAL
+            pill.gravity = Gravity.CENTER_VERTICAL
+            pill.setPadding(dp(11), dp(7), dp(12), dp(7))
+            pill.background = Ui.rounded(PILL_BG, 999, this, PILL_LINE)
+            val dot = View(this)
+            dot.background = Ui.oval(OVERLAY_ACCENT, this)
+            pill.addView(dot, LinearLayout.LayoutParams(dp(6), dp(6)).apply { rightMargin = dp(7) })
+            val label = TextView(this)
+            label.text = text
+            label.textSize = 12.5f
+            label.isSingleLine = true
+            label.setTextColor(Color.parseColor("#E8ECEF"))
+            label.setTypeface(Ui.MEDIUM, Typeface.BOLD)
+            pill.addView(label)
+            quotaPillText = label
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                y = dp(if (gymPill == null) 42 else 86)
+            }
+            try {
+                windowManager.addView(pill, params)
+                quotaPill = pill
+            } catch (error: Exception) {
+                quotaPillText = null
+            }
+        } else {
+            quotaPillText?.text = text
+        }
+    }
+
+    private fun removeQuotaPill() {
+        quotaPill?.let {
+            try {
+                windowManager.removeView(it)
+            } catch (error: Exception) {
+            }
+        }
+        quotaPill = null
+        quotaPillText = null
+    }
+
     private fun showGymNotification(seconds: Int) {
         val text = if (Runtime.gymAwarded) {
             "Đã tính 1 buổi gym"
@@ -537,8 +645,8 @@ class FocusAccessibilityService : AccessibilityService() {
             return
         }
         if (quota.isBreakActive()) {
-            val minutes = (quota.breakRemainingSeconds() + 59) / 60
-            notify(41, "Đang nghỉ có kiểm soát", "Còn $minutes phút trong quỹ mạng xã hội hôm nay")
+            val left = quota.breakRemainingSeconds()
+            notify(41, "Đang nghỉ có kiểm soát", "Quỹ còn ${Ui.clockText(left)} hôm nay")
         } else {
             cancelBreakNotification()
         }
@@ -589,6 +697,7 @@ class FocusAccessibilityService : AccessibilityService() {
         }
         removeOverlay()
         removeGymPill()
+        removeQuotaPill()
         cancelGymNotification()
         cancelBreakNotification()
         network.shutdownNow()
@@ -597,6 +706,7 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     companion object {
+        private const val HIDE_DELAY_MS = 800L
         private val OVERLAY_ACCENT = Color.parseColor("#3D8B74")
         private val PILL_BG = Color.parseColor("#E6151A1E")
         private val PILL_LINE = Color.parseColor("#2E363C")

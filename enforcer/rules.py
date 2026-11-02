@@ -49,3 +49,11 @@ def apply_candidate(store: Store, candidate: Config, now: datetime | None = None
     store.set_state(PENDING_KEY, json.dumps(pending, ensure_ascii=False))
     store.event("queue", "; ".join(reasons))
     return ApplyResult("queued", tuple(reasons), effective_at)
+
+
+def apply_now(store: Store, candidate: Config, reason: str = "áp dụng ngay") -> ApplyResult:
+    """Ghi thẳng luật đã duyệt, bỏ qua cooldown. Chỉ dùng sau một khoảng chờ có chủ đích."""
+    store.set_state(APPROVED_KEY, candidate.to_json())
+    store.del_state(PENDING_KEY)
+    store.event("apply", reason)
+    return ApplyResult("applied")

@@ -147,7 +147,7 @@ export default function Page() {
                 <span className="ico"><Icon name="chart" /></span>
                 <div>
                   <h3>Không can thiệp hệ thống</h3>
-                  <p>Điện thoại phủ màn khoá lên app bạn chọn, không đọc nội dung màn hình, không đổi chính sách hệ thống. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở. Bộ lọc 18+ là đường hầm DNS tự chọn, tắt một chạm là máy về như cũ.</p>
+                  <p>Điện thoại phủ màn khoá lên app bạn chọn, không đọc nội dung màn hình. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở. Bộ lọc 18+ là đường hầm DNS tự chọn, tắt một chạm là máy về như cũ. Bước cản gỡ cài đặt cũng là tuỳ chọn, mặc định tắt và Android luôn cho tắt trong Cài đặt.</p>
                 </div>
               </div>
             </div>
@@ -322,11 +322,12 @@ export default function Page() {
                   <span className="ico"><Icon name="desktop" /></span>
                   <div>
                     <h3>Windows 10 và 11 (64-bit)</h3>
-                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài <code>KYLUAT-Setup-v1.2.exe</code>, không đòi quyền quản trị.</p>
+                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài v1.4, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
                   </div>
                 </div>
                 <ul>
                   <li>Chặn app trong giờ tập trung, chặn trang web theo tên miền, và chặn 81 trang người lớn suốt ngày đêm.</li>
+                  <li>Công tắc 18+ tắt được sau 60 giây suy nghĩ, không cần gõ cam kết.</li>
                   <li>Cài vào thư mục của riêng bạn, gỡ bằng Add or remove programs.</li>
                   <li>File chưa có chữ ký số, Windows sẽ hỏi bạn một lần.</li>
                 </ul>
@@ -342,6 +343,7 @@ export default function Page() {
                 </div>
                 <ul>
                   <li>Quỹ mạng xã hội mỗi ngày, mặc định 60 phút và đổi được, cùng màn khoá trong phiên.</li>
+                  <li>Bộ thiết lập lần đầu và tự kiểm tra bản mới hằng ngày, tắt được trong Cài đặt.</li>
                   <li>Bật thêm bộ lọc 18+ thì máy cần Android 8.1 trở lên; trang web tuỳ ý vẫn thuộc về bản Windows.</li>
                   <li>File ký bằng key phát hành riêng, không lên CH Play nên máy vẫn hỏi bạn một lần.</li>
                 </ul>

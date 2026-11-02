@@ -550,7 +550,7 @@ class RingStack(context: Context, private val sizeDp: Int, private val strokeDp:
         gravity = Gravity.CENTER
         letterSpacing = -0.03f
     }
-    val caption: TextView = Ui.label(context, "", 11.5f, Ui.TEXT_3).apply { gravity = Gravity.CENTER }
+    val caption: TextView = Ui.label(context, "", 11.5f, Ui.TEXT_2).apply { gravity = Gravity.CENTER }
 
     init {
         addView(ring, LayoutParams(Ui.dp(context, sizeDp), Ui.dp(context, sizeDp)))
@@ -558,6 +558,12 @@ class RingStack(context: Context, private val sizeDp: Int, private val strokeDp:
         center.addView(caption)
         addView(center, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         layoutParams = LinearLayout.LayoutParams(Ui.dp(context, sizeDp), Ui.dp(context, sizeDp))
+    }
+
+    // Cha truyền WRAP_CONTENT thì MATCH_PARENT của khối chữ co lại và dính góc trên trái.
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val exact = View.MeasureSpec.makeMeasureSpec(Ui.dp(context, sizeDp), View.MeasureSpec.EXACTLY)
+        super.onMeasure(exact, exact)
     }
 
     fun setProgress(fraction: Float) {

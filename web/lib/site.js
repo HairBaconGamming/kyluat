@@ -21,28 +21,28 @@ const RELEASE = "https://github.com/HairBaconGamming/kyluat/releases/download/v1
 
 // Bộ cài là bản khuyên dùng; bản nén để dành cho máy không muốn cài hoặc cần chép tay.
 export const WINDOWS = {
-  file: "KYLUAT-Setup-v1.2.exe",
-  url: `${RELEASE}/KYLUAT-Setup-v1.2.exe`,
-  size: "38,94 MB",
-  note: "bản 1.2, có installer",
-  bytes: "38.936.578",
-  sha256: "0757a235d22d3cb057deb43be91625e54eb68bcdf9b32958dfa330a864464e9f",
+  file: "KYLUAT-Setup-v1.4.exe",
+  url: `${RELEASE}/KYLUAT-Setup-v1.4.exe`,
+  size: "38,96 MB",
+  note: "bản 1.4, có installer",
+  bytes: "38.964.265",
+  sha256: "c6cc54f066bd9a3a0de2ca49e52100d18efbaa8a7ac3b94f4f09fd6eb7413cd1",
 };
 
 export const WINDOWS_ZIP = {
-  file: "KYLUAT-windows-x64-v1.2.zip",
-  url: `${RELEASE}/KYLUAT-windows-x64-v1.2.zip`,
-  size: "58,57 MB",
-  note: "bản 1.2, không cần cài",
-  bytes: "58.571.229",
-  sha256: "e1c9126efbf8c2b6d006929b415d3fb0e0bf7b92a7a55c32e0a311f0434aec0f",
+  file: "KYLUAT-windows-x64-v1.4.zip",
+  url: `${RELEASE}/KYLUAT-windows-x64-v1.4.zip`,
+  size: "58,62 MB",
+  note: "bản 1.4, không cần cài",
+  bytes: "58.618.043",
+  sha256: "857585418b3b323c03bf7f6a1f2cbb9e07ccdd10678499d6ae5c43344c5c5bd4",
 };
 
 export const ANDROID = {
-  file: "kyluat-android-v3.7.apk",
-  url: `${RELEASE}/kyluat-android-v3.7.apk`,
-  size: "2,91 MB",
-  note: "phiên bản 3.7 (số 12)",
-  bytes: "2.905.117",
-  sha256: "947d963b18c09def4e8747ba1c6b40e3665f154918075a289418481171a11b86",
+  file: "kyluat-android-v3.9.apk",
+  url: `${RELEASE}/kyluat-android-v3.9.apk`,
+  size: "2,93 MB",
+  note: "phiên bản 3.9 (số 14)",
+  bytes: "2.928.693",
+  sha256: "1e3d73dc84c7d4984c17b3d4e36986676fa7889bcbb44d7f6de2f1f293b35255",
 };

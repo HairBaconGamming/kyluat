@@ -13,7 +13,7 @@ Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình n
 | Quỹ mạng xã hội mỗi ngày trên Android | mặc định 60 phút, làm mới lúc 0 giờ, không có nút gia hạn trong ngày |
 | Đổi mức quỹ trên Android | 15–120 phút, gõ lại đoạn cam kết và chờ 30 giây; giảm có hiệu lực ngay, tăng chờ đến 0 giờ hôm sau |
 | Xin dừng một phiên tập trung giữa chừng | phải chờ 10 phút |
-| Nới lỏng luật (bỏ chặn, giảm giờ, giảm cooldown) | có hiệu lực sau 24 giờ |
+| Nới lỏng luật (bỏ chặn, giảm giờ, giảm cooldown) | có hiệu lực sau 24 giờ; riêng công tắc 18+ trên Windows chờ 60 giây, không gõ cam kết |
 | Thêm ràng buộc mới | có hiệu lực ngay |
 | Tắt hẳn bảo vệ | màn Nâng cao, gõ lại đoạn cam kết và chờ 60 giây |
 | Chặn trang web | chỉ trên Windows, theo tên miền, tính cả trang con, chỉ trong giờ tập trung |
@@ -25,9 +25,9 @@ Danh sách app bị chặn không tự sinh ra. Máy không tự đoán cái nà
 
 Bản phát hành có ba file trên GitHub Releases:
 
-- `KYLUAT-Setup-v1.2.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
-- `KYLUAT-windows-x64-v1.2.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
-- `kyluat-android-v3.7.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
+- `KYLUAT-Setup-v1.4.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
+- `KYLUAT-windows-x64-v1.4.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
+- `kyluat-android-v3.9.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
 
@@ -37,8 +37,10 @@ File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: ch�
 
 Máy tính và điện thoại nói chuyện với nhau qua Wi-Fi nội bộ, mỗi bên tự giữ luật của mình.
 
-- `enforcer/` chạy trên Windows. Tiến trình nền kiểm tra mỗi 3 giây và tắt tiến trình thuộc danh sách chặn trong giờ tập trung.
-- `android/` chạy trên Android. Màn khoá chỉ là một lớp phủ hình ảnh do `WindowManager.addView` với cửa sổ `TYPE_APPLICATION_OVERLAY` vẽ lên, còn AccessibilityService chỉ báo về app nào đang ở phía trước. Lớp phủ không lấy focus, không đổi chính sách hệ thống, không đọc nội dung màn hình. Hai nút trên màn khoá luôn còn: "Quay lại Kỷ luật" và "Dùng app khác"; thu hồi quyền Trợ năng là app dừng chặn ngay. Riêng bộ lọc 18+ là một `VpnService` tự chọn, chỉ nhận DNS, tắt được bằng một chạm; không bật thì máy không đổi gì.
+- `enforcer/` chạy trên Windows. Tiến trình nền kiểm tra mỗi 3 giây và tắt tiến trình thuộc danh sách chặn trong giờ tập trung. Lần mở đầu tiên có `SetupDialog` sáu bước để chọn app, web, lịch, mục tiêu và tuỳ chọn chặn web; mở lại từ Cài đặt, thay đổi nới lỏng vẫn xếp hàng 24 giờ như luật cũ.
+- `android/` chạy trên Android. Màn khoá chỉ là một lớp phủ hình ảnh do `WindowManager.addView` với cửa sổ `TYPE_APPLICATION_OVERLAY` vẽ lên, còn AccessibilityService chỉ báo về app nào đang ở phía trước. Lớp phủ không lấy focus, không đổi chính sách hệ thống, không đọc nội dung màn hình. Hai nút trên màn khoá luôn còn: "Quay lại Kỷ luật" và "Dùng app khác"; thu hồi quyền Trợ năng là app dừng chặn ngay. Riêng bộ lọc 18+ là một `VpnService` tự chọn, chỉ nhận DNS, tắt được bằng một chạm; không bật thì máy không đổi gì. Bước cản gỡ cài đặt là Device Admin tuỳ chọn, mặc định tắt, không giữ policy nào và luôn tắt được trong Cài đặt hệ thống; app không dùng Device Owner.
+- Android có `OnboardingActivity` năm bước ở lần mở đầu tiên: hai quyền cốt lõi bắt buộc, chọn app, quỹ và gym, tuỳ chọn ghép máy tính và lọc 18+; mở lại từ Cài đặt.
+- Tự cập nhật trên Android đọc release công khai trên GitHub mỗi ngày khi được bật, chỉ nhận file `kyluat-android-v*.apk` của repo và để Android kiểm chữ ký trước khi cài.
 - Ghép nối: máy tính sinh mã 6 số và QR, hết hạn sau 5 phút, sai 5 lần thì phải lấy mã mới. Server chỉ lắng nghe trong mạng nội bộ, cổng 8766. Key nằm trong Android Keystore.
 
 ### Chặn web bằng DNS sinkhole local
@@ -73,7 +75,7 @@ Bốn ràng buộc fail-open, vì một đường hầm lỗi có thể làm m�
 - Thông báo đang chạy có nút **Tắt bộ lọc**, và màn **Tắt bảo vệ** cũng dừng đường hầm trong một lần chạm. Luật trên Android tắt ngay, không chờ 24 giờ: lớp bảo vệ trên máy cầm tay phải luôn tắt được.
 - Cần Android 8.1 (API 27) trở lên vì `setBlocking(false)` có từ đó. Dưới 8.1, `MainActivity` ẩn công tắc (kèm lý do trong dòng phụ) và `begin()` từ chối mở đường hầm, thay vì dựng một VPN chiếm toàn bộ traffic rồi rơi mạng.
 
-Codec đã kiểm chứng bằng 8 unit test trên JVM; hành vi trên máy thật thì chưa, vì dự án không chạy emulator hay adb.
+Codec và bộ kiểm tra cập nhật đã kiểm chứng bằng 11 unit test trên JVM; hành vi trên máy thật thì chưa, vì dự án không chạy emulator hay adb.
 
 ## Chạy từ mã nguồn
 
@@ -111,9 +113,9 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-55 test, chạy được mà không cần quyền Administrator và không đụng tới hệ thống thật. `tests/test_proc_gate.py` giữ hai chuyện: mọi lời gọi tiến trình con trong `enforcer/` phải đi qua `enforcer/proc.py`, và cửa đó vẫn chạy được khi tiến trình không có console hoặc bị mất stdin. `tests/test_packaging_entry.py` đọc luôn header PE của hai file exe đã build để chắc `Kyluat.exe` là subsystem GUI. `tests/test_turn_off.py` kẹp hai nhánh của lệnh tắt bảo vệ: chưa từng đổi DNS thì không đòi quyền admin, còn đổi rồi mà khôi phục thất bại thì từ chối gỡ và bật lại task để máy không mất mạng. `tests/test_adult_list.py` giữ định dạng danh sách 18+ và so từng byte với file asset của Android.
+56 test, chạy được mà không cần quyền Administrator và không đụng tới hệ thống thật. `tests/test_proc_gate.py` giữ hai chuyện: mọi lời gọi tiến trình con trong `enforcer/` phải đi qua `enforcer/proc.py`, và cửa đó vẫn chạy được khi tiến trình không có console hoặc bị mất stdin. `tests/test_packaging_entry.py` đọc luôn header PE của hai file exe đã build để chắc `Kyluat.exe` là subsystem GUI. `tests/test_turn_off.py` kẹp hai nhánh của lệnh tắt bảo vệ: chưa từng đổi DNS thì không đòi quyền admin, còn đổi rồi mà khôi phục thất bại thì từ chối gỡ và bật lại task để máy không mất mạng. `tests/test_adult_list.py` giữ định dạng danh sách 18+ và so từng byte với file asset của Android.
 
-Codec DNS của Android có 8 unit test chạy trên JVM, không cần thiết bị:
+Codec DNS và bộ kiểm tra cập nhật của Android có 11 unit test chạy trên JVM, không cần thiết bị:
 
 ```bash
 cd android
@@ -127,7 +129,7 @@ pip install -r requirements-dev.txt
 python tools/build_windows.py
 ```
 
-Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.2.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.2.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
+Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.4.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.4.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
 
 Thư mục exe có hai file, giống cặp `pythonw`/`python` trong source:
 
@@ -159,7 +161,7 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 12 tương ứng `versionName` 3.7. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 14 tương ứng `versionName` 3.9. APK build ra nằm ở `android/app/build/` và không được commit.
 
 Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
 
@@ -211,16 +213,17 @@ App này là phần mềm chặn xao nhãng nên phải đụng vào hệ thốn
 | Policy DoH của Chrome và Edge trong registry | chỉ khi bật chặn web, cần Administrator | tắt bảo vệ trả về giá trị cũ từng trình duyệt |
 | Rule tường lửa `CaiNghienPhone8766` | chỉ khi ghép nối điện thoại, profile private | `turn-off` xóa rule |
 | Đường hầm VPN lọc DNS trên Android | chỉ khi gạt **Chặn trang người lớn** ở tab Bảo vệ | tắt công tắc, nút **Tắt bộ lọc** trên thông báo, hoặc màn Tắt bảo vệ |
+| Quyền quản lý thiết bị trên Android | chỉ khi bật **Chặn gỡ cài đặt**, mặc định tắt | tắt trong Cài đặt → Bảo mật → Quản lý thiết bị, hoặc màn Tắt bảo vệ |
 | Lối tắt Start Menu và màn hình nền | chạy bộ cài | bộ gỡ xóa cả hai |
 
 App không sửa file `hosts`, không cài service hay driver, không chạm kernel, không đọc ảnh hay tài liệu, không keylogger. Nó ghi nhận tên tiến trình và tiêu đề cửa sổ đang mở để biết app nào đang chạy, và ghi tên miền bị chặn vào SQLite; tên miền không bị chặn không được ghi lại. Đường hầm VPN trên Android không giữ nội dung truy vấn: packet chỉ đi qua bộ nhớ trong lúc trả lời, không ghi ra file nào.
 
-Mạch mạng đi ra ngoài chỉ có DNS. Trên Windows, khi chặn web đang bật, sinkhole hỏi `1.1.1.1` và `8.8.8.8` cho tên miền không bị chặn, đổi sang `94.140.14.14` và `94.140.14.15` khi luật 18+ bật. Trên Android, bộ lọc 18+ gửi đúng câu hỏi DNS tới hai địa chỉ AdGuard đó. Không telemetry, không upload, không tự cập nhật, không có máy chủ của tác giả. Ghép nối điện thoại dùng mDNS và cổng 8766 trong mạng nội bộ.
+Mạch mạng đi ra ngoài chỉ có DNS và một lần kiểm tra bản mới mỗi ngày. Trên Windows, khi chặn web đang bật, sinkhole hỏi `1.1.1.1` và `8.8.8.8` cho tên miền không bị chặn, đổi sang `94.140.14.14` và `94.140.14.15` khi luật 18+ bật. Trên Android, bộ lọc 18+ gửi đúng câu hỏi DNS tới hai địa chỉ AdGuard đó; khi tự kiểm tra bản mới đang bật, app đọc danh sách phát hành công khai trên `api.github.com` mỗi ngày và chỉ tải APK của repo này khi bạn bấm Cập nhật. Không telemetry, không upload, không có máy chủ của tác giả. Ghép nối điện thoại dùng mDNS và cổng 8766 trong mạng nội bộ.
 
 File chưa mua chứng chỉ chữ ký số nên SmartScreen báo "Unknown publisher", và PyInstaller là định dạng hay bị ăn báo nhầm. Muốn tự kiểm:
 
 ```powershell
-certutil -hashfile "$env:USERPROFILE\Downloads\KYLUAT-Setup-v1.2.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\Downloads\KYLUAT-Setup-v1.4.exe" SHA256
 schtasks /Query /TN CaiNghienEnforcer
 netsh advfirewall firewall show rule name=CaiNghienPhone8766
 Get-DnsClientServerAddress -AddressFamily IPv4
@@ -232,15 +235,15 @@ Cùng nội dung này, viết cho người dùng cuối, ở `/an-toan` trên tr
 
 Lịch sử chặn, check-in và luật đang chạy nằm trong `data\enforcer.db`, một file SQLite duy nhất trên máy bạn, xoá được. Tự động backup giữ 7 bản gần nhất trong `data\backups\`. Dữ liệu không mã hoá: ai mở được máy bạn thì đọc được lịch sử, và token ghép nối cũng nằm trong file đó.
 
-Không có telemetry. Không có tài khoản. File phát hành để trên GitHub Releases.
+Không có telemetry. Không có tài khoản. File phát hành để trên GitHub Releases. Bản Android có thể hỏi GitHub mỗi ngày để xem bản mới; tắt trong Cài đặt → Cập nhật.
 
 ## Giới hạn của bản này
 
 - Không có bản iOS, không có đồng bộ đám mây.
 - Android chặn ứng dụng bằng màn khoá, còn trang web thì chỉ lọc được nội dung 18+ qua DNS; chưa chặn tên miền tuỳ ý như Windows.
-- Không có gì là không thể vượt qua. Người quyết định gỡ vẫn là bạn, và lối gỡ luôn còn: màn Nâng cao trong app, `Kyluat-cli.exe turn-off`, hoặc nhấp đúp `Tat_Enforcer_Admin.cmd`.
+- Không có gì là không thể vượt qua. Người quyết định gỡ vẫn là bạn, và lối gỡ luôn còn: màn Nâng cao trong app, `Kyluat-cli.exe turn-off`, hoặc nhấp đúp `Tat_Enforcer_Admin.cmd`. Trên Android, nếu đã bật bước cản gỡ cài đặt thì tắt quyền quản lý thiết bị trong Cài đặt trước khi gỡ; quyền đó luôn tắt được.
 - Chặn web phụ thuộc DNS của máy. Trình duyệt bật DoH, ví dụ Firefox trong Settings → Privacy & Security, thì vẫn vượt được; app tự trỏ tới một máy chủ phân giải riêng cũng vậy. Trên Android, Chrome bật DoH là đi vòng qua bộ lọc 18+.
-- Bộ lọc 18+ trên Android cần Android 8.1 trở lên và chưa được kiểm chứng trên máy thật.
+- Bộ lọc 18+ trên Android cần Android 8.1 trở lên và chưa được kiểm chứng trên máy thật. Bộ thiết lập lần đầu, tự cập nhật và bước cản gỡ cài đặt cũng mới kiểm bằng unit test, ảnh chụp Qt và cơ sở dữ liệu tạm, chưa chạy trọn trên thiết bị thật. Luồng xin quyền Administrator của bản Windows chưa được bấm thử trong phiên phát hành này.
 
 ## Giấy phép và bảo hành
 

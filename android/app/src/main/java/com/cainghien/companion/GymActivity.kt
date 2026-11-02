@@ -53,7 +53,7 @@ class GymActivity : Activity() {
         statusPill = Ui.pill(this, "Chưa bắt đầu", Tone.NEUTRAL)
         hero.addView(statusPill, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ))
+        ).apply { gravity = Gravity.CENTER_HORIZONTAL })
 
         heroRing = Ui.ringStack(this, 186, 10f)
         heroRing.setValueSize(36f)

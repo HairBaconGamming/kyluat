@@ -12,7 +12,7 @@
 #define TaskName "CaiNghienEnforcer"
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.2"
+  #define MyAppVersion "1.4"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\dist\Kyluat"

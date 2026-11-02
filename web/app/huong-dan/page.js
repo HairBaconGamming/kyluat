@@ -25,15 +25,16 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Chạy bộ cài</h3>
-              <p>Mở <code>KYLUAT-Setup-v1.2.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
+              <p>Mở <code>KYLUAT-Setup-v1.4.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
               <p>Không muốn cài gì thì tải bản <code>.zip</code>, giải nén thư mục <code>Kyluat</code> vào nơi bạn muốn rồi mở <code>Kyluat.exe</code>. Ở cách nào, dữ liệu cũng nằm trong <code>data\</code> cạnh file exe, chép cả thư mục là chuyển được máy.</p>
+              <p>Lần mở đầu tiên, app hiện bộ thiết lập sáu bước: chọn app và trang web, đặt lịch, mục tiêu, tuỳ chọn chặn web và ghép điện thoại. Bước chọn mục chặn là bắt buộc, các bước còn lại bỏ qua được. Mở lại bằng <strong>Cài đặt</strong> → <strong>Chạy lại thiết lập</strong>.</p>
             </div>
 
             <div className="block">
               <h3>2. Khai ra thứ làm bạn xao nhãng</h3>
               <p>Vào màn <strong>Bảo vệ</strong>. Gạt công tắc với app có sẵn, hoặc chọn <strong>Thêm app khác</strong> để lấy đúng app đang cài trên máy.</p>
               <p>Cùng màn hình đó có mục <strong>Trang web</strong> cho tên miền. Thêm tên miền là chặn luôn các trang con.</p>
-              <p>Ngay đầu màn là khối <strong>Nội dung 18+</strong>. Gạt <strong>Chặn trang người lớn</strong> là chặn 81 tên miền có sẵn suốt ngày đêm, không chờ giờ tập trung. Luật này cần bật chặn web ở bước 4 thì mới có tác dụng.</p>
+              <p>Ngay đầu màn là khối <strong>Nội dung 18+</strong>. Gạt <strong>Chặn trang người lớn</strong> là chặn 81 tên miền có sẵn suốt ngày đêm, không chờ giờ tập trung. Luật này cần bật chặn web ở bước 4 thì mới có tác dụng; tắt công tắc thì chờ 60 giây suy nghĩ, không cần gõ cam kết.</p>
               <figure className="shot" style={{ marginTop: '14px' }}>
                 <img src="/assets/img/desktop-them-app.png" alt="Hộp thoại Thêm app với danh sách ứng dụng đang cài trên máy, có ô tìm kiếm" width="580" height="620" loading="lazy" />
                 <figcaption>Hộp thoại Thêm app: chọn từ danh sách cài thật, không có gợi ý tự động.</figcaption>
@@ -80,7 +81,8 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Cài file APK</h3>
-              <p>Tải <code>kyluat-android-v3.7.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Tải <code>kyluat-android-v3.9.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Lần mở đầu tiên có bộ thiết lập: cấp hai quyền cốt lõi, chọn app cần chặn, đặt quỹ và app gym, rồi tuỳ chọn ghép máy tính và lọc 18+. Sau đó app tự kiểm tra bản mới hằng ngày khi bạn để bật; tắt trong <strong>Cài đặt</strong> → <strong>Cập nhật</strong>.</p>
               <p>Android 8.0 trở lên. Không lên CH Play.</p>
               <p>File phát hành trên GitHub nên Google không nhận ra người gửi và hiện cảnh báo <strong>Ứng dụng chưa được xác minh</strong>; trên vài máy phải bấm <strong>Chi tiết khác</strong> rồi mới thấy <strong>Vẫn cài</strong>. Trước khi bấm, so dãy SHA-256 ở trang <a href="/tai-nguyen">Tải về</a> với file vừa tải để chắc nó không bị sửa giữa đường.</p>
               <p>Bản 3.6 trở lên cài đè nhau bình thường. Máy đang cài bản 3.5 thì gỡ bản đó trước, vì hai bản ký bằng hai key khác nhau.</p>

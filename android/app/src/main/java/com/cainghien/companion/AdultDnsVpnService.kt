@@ -49,6 +49,13 @@ class AdultDnsVpnService : VpnService() {
         super.onDestroy()
     }
 
+    /** Hệ thống thu hồi đường hầm (người dùng tắt VPN hoặc app khác chiếm VPN). */
+    override fun onRevoke() {
+        Prefs(this).adultFilterEnabled = false
+        stopEverything()
+        super.onRevoke()
+    }
+
     private fun begin() {
         if (Build.VERSION.SDK_INT < 27) {
             giveUp("Android 8.0 trở xuống không mở được đường hầm lọc DNS an toàn")
@@ -185,12 +192,16 @@ class AdultDnsVpnService : VpnService() {
         tunnel = null
         try {
             device?.close()
-        } catch (error: IOException) {
+        } catch (error: Exception) {
             // đóng hai lần thì bỏ qua
         }
         Runtime.adultFilter = false
-        manager().cancel(STILL)
-        manager().cancel(WENT)
+        try {
+            manager().cancel(STILL)
+            manager().cancel(WENT)
+        } catch (error: Exception) {
+            // Mất quyền thông báo vẫn phải đi tiếp để đường hầm được nhả.
+        }
         stopSelf()
     }
 

@@ -50,6 +50,34 @@ class Prefs(context: Context) {
         get() = store.getBoolean("pending_gym_checkin", false)
         set(value) = store.edit().putBoolean("pending_gym_checkin", value).apply()
 
+    var autoUpdate: Boolean
+        get() = store.getBoolean("auto_update", true)
+        set(value) = store.edit().putBoolean("auto_update", value).apply()
+
+    var updateLastCheckMs: Long
+        get() = store.getLong("update_last_check", 0L)
+        set(value) = store.edit().putLong("update_last_check", value).apply()
+
+    var updatePromptedVersion: String
+        get() = store.getString("update_prompted", "") ?: ""
+        set(value) = store.edit().putString("update_prompted", value).apply()
+
+    var uninstallGuard: Boolean
+        get() = store.getBoolean("uninstall_guard", false)
+        set(value) = store.edit().putBoolean("uninstall_guard", value).apply()
+
+    var onboardingDone: Boolean
+        get() = store.getBoolean("onboarding_done", false)
+        set(value) = store.edit().putBoolean("onboarding_done", value).apply()
+
+    var onboardingMigrated: Boolean
+        get() = store.getBoolean("onboarding_migrated", false)
+        set(value) = store.edit().putBoolean("onboarding_migrated", value).apply()
+
+    /** Chưa ai chạm vào danh sách chặn, quỹ hay ghép nối: coi như bản cài mới. */
+    fun looksUntouched(): Boolean =
+        quotaDate.isEmpty() && extraPackages.isEmpty() && socialPackages == DEFAULT_SOCIAL
+
     var deviceName: String
         get() = store.getString("device_name", Build.MODEL) ?: Build.MODEL
         set(value) = store.edit().putString("device_name", value).apply()

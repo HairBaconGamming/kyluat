@@ -37,8 +37,8 @@ export default function Page() {
               <p>App không đăng nhập đâu cả, không có đường truyền nào tới tác giả. Số liệu học và luật chỉ nằm trong một file SQLite trên máy bạn.</p>
             </div>
             <div className="card">
-              <h3>Không tự tải mã về</h3>
-              <p>Exe đã chứa sẵn mọi thứ. App không tải bản cập nhật, không thực thi script từ mạng, không cài thêm runtime.</p>
+              <h3>Không tải mã lạ</h3>
+              <p>Bản Windows không tự tải gì: exe đã chứa sẵn mọi thứ, không chạy script từ mạng, không cài thêm runtime. Bản Android chỉ đọc danh sách bản phát hành trên GitHub mỗi ngày, và chỉ tải đúng file APK của repo này khi bạn bấm Cập nhật.</p>
             </div>
             <div className="card">
               <h3>Gỡ là sạch</h3>
@@ -120,13 +120,20 @@ export default function Page() {
             </div>
             <div className="card">
               <h3>Ra ngoài internet</h3>
-              <p>Chỉ có một đường: khi chặn web đang bật, trình phân giải cục bộ hỏi DNS công cộng cho những tên miền không bị chặn, mặc định là <code>1.1.1.1</code> rồi <code>8.8.8.8</code>, đổi sang <code>94.140.14.14</code> và <code>94.140.14.15</code> của bộ lọc gia đình AdGuard khi bạn bật luật 18+. Trên Android, bộ lọc 18+ cũng gửi đúng câu hỏi DNS tới hai địa chỉ AdGuard đó. Không có lệnh upload, không có telemetry, không tự cập nhật.</p>
+              <p>Khi chặn web đang bật, trình phân giải cục bộ hỏi DNS công cộng cho những tên miền không bị chặn, mặc định là <code>1.1.1.1</code> rồi <code>8.8.8.8</code>, đổi sang <code>94.140.14.14</code> và <code>94.140.14.15</code> của bộ lọc gia đình AdGuard khi bạn bật luật 18+. Trên Android, bộ lọc 18+ cũng gửi đúng câu hỏi DNS tới hai địa chỉ AdGuard đó.</p>
+              <p>Ngoài DNS, bản Android còn gọi <code>api.github.com</code> mỗi ngày một lần nếu bạn để bật tự kiểm tra bản mới. Không có lệnh upload, không có telemetry.</p>
             </div>
           </div>
           <p className="note warn">
             <Icon name="alert" />
             <span>Vì đường đó tồn tại, bật chặn web đồng nghĩa nhà cung cấp DNS của bạn chuyển từ nhà mạng sang Cloudflare hoặc Google, và sang AdGuard Family khi luật 18+ bật. Tắt chặn web là trả về cũ.</span>
           </p>
+          <div className="block" style={{ marginTop: "18px" }}>
+            <h3>Tự kiểm tra bản mới gửi gì</h3>
+            <p>Bản Android đọc danh sách bản phát hành công khai trên GitHub, giống mở trang release bằng trình duyệt. GitHub thấy địa chỉ IP và tên app gửi kèm; không có mã thiết bị, không danh sách app, không số liệu sử dụng.</p>
+            <p>Khi bạn bấm Cập nhật, app tải đúng file <code>kyluat-android-vX.apk</code> của repo này. Android kiểm tra chữ ký trước khi cài nên file ký bằng key khác bị từ chối, và bạn vẫn phải xác nhận trong hộp thoại cài đặt của hệ thống.</p>
+            <p>Tắt ở <strong>Cài đặt</strong> → <strong>Cập nhật</strong> → <strong>Tự kiểm tra bản mới</strong>. Bản Windows không có cơ chế này, exe không tự tải gì.</p>
+          </div>
         </div>
       </section>
 
@@ -161,7 +168,7 @@ export default function Page() {
             <p className="lede">Chạy sau khi cài để xem app đã để lại những gì. Mở PowerShell thường, không cần quyền quản trị.</p>
           </div>
           <pre className="code"><code>{`# 1. Dung lượng và dấu vân tay của bộ cài
-certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.2.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.4.exe" SHA256
 
 # 2. App cài ở đâu, trong đó có những file nào
 Get-ChildItem "$env:LOCALAPPDATA\\Programs\\Kyluat"
@@ -210,6 +217,34 @@ Get-DnsClientServerAddress -AddressFamily IPv4`}</code></pre>
       </section>
 
       <section className="alt">
+        <div className="wrap">
+          <div className="head">
+            <p className="eyebrow">Chặn gỡ cài đặt</p>
+            <h2>Một bước cản tuỳ chọn, không phải khoá vĩnh viễn</h2>
+            <p className="lede">Mặc định tính năng này tắt. Bật thì Android hỏi lại khi bạn gỡ Kỷ luật, và bạn luôn tắt được quyền đó trong Cài đặt hệ thống.</p>
+          </div>
+          <div className="grid three">
+            <div className="card">
+              <h3>Chỉ khi bạn bật</h3>
+              <p>App đăng ký làm trình quản lý thiết bị nhưng không giữ policy nào: không khoá máy, không xoá dữ liệu, không đổi mật khẩu. Không dùng Device Owner.</p>
+            </div>
+            <div className="card">
+              <h3>Android luôn cho tắt</h3>
+              <p>Quyền này nằm trong Cài đặt → Bảo mật → Quản lý thiết bị. App không chặn màn Cài đặt và không có đường nào để tự khoá bạn ra ngoài.</p>
+            </div>
+            <div className="card">
+              <h3>Tắt bảo vệ là nhả hết</h3>
+              <p>Tắt bảo vệ trong app cũng tắt luôn quyền quản lý. Gỡ app thì Android huỷ VPN, lớp phủ và Trợ năng theo tiến trình, không còn gì chặn máy.</p>
+            </div>
+          </div>
+          <p className="note warn">
+            <Icon name="alert" />
+            <span>Android không cho app tự đặt thời gian chờ hay ô gõ cam kết vào hộp thoại gỡ của hệ thống. Bước cản hợp pháp duy nhất là quyền quản lý thiết bị ở trên; app cố tình không dùng Device Owner để bạn không bao giờ bị khoá vĩnh viễn.</span>
+          </p>
+        </div>
+      </section>
+
+      <section>
         <div className="wrap">
           <div className="head">
             <p className="eyebrow">Giới hạn thật lòng</p>

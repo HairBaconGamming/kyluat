@@ -31,7 +31,7 @@ export default function Page() {
                 <span className="ico"><Icon name="desktop" /></span>
                 <div>
                   <h3>Windows 10 và 11, bản 64-bit</h3>
-                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.2.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
+                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.4.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '10px' }}>
@@ -55,6 +55,7 @@ export default function Page() {
                     <li><code>Kyluat.exe</code> trong <code>%LOCALAPPDATA%\Programs\Kyluat</code>: mở app, không có cửa sổ command prompt chớp lúc khởi động.</li>
                     <li><code>Kyluat-cli.exe</code>: cùng phần mềm nhưng để gõ lệnh, ví dụ <code>.\Kyluat-cli.exe doctor</code>.</li>
                     <li><code>config.toml</code>: luật mẫu, bạn sửa trong app là được. Cài đè bản mới không ghi đè luật cũ.</li>
+                    <li>Lần mở đầu tiên có bộ thiết lập: chọn app và trang web, đặt lịch, mục tiêu, bật chặn web và ghép điện thoại.</li>
                     <li><code>data\</code>: lịch sử và sổ tay, chỉ sinh ra khi bạn dùng. Gỡ app vẫn giữ lại.</li>
                   </ul>
                 </div>
@@ -96,6 +97,8 @@ export default function Page() {
                     <li>Bật Quyền Trợ năng cho Kỷ luật trong phần Cài đặt điện thoại.</li>
                     <li>Muốn lọc nội dung 18+ thì gạt thêm <strong>Chặn trang người lớn</strong> ở tab <strong>Bảo vệ</strong>; mục này cần Android 8.1 trở lên.</li>
                     <li>Đã cài bản cũ thì cài đè được, dữ liệu giữ nguyên.</li>
+                    <li>Lần mở đầu tiên có bộ thiết lập 5 bước; mở lại được từ <strong>Cài đặt</strong>.</li>
+                    <li>Tự kiểm tra bản mới hằng ngày khi bạn để bật, tắt được trong <strong>Cài đặt</strong>.</li>
                   </ul>
                 </div>
                 <div className="card">
@@ -124,6 +127,16 @@ export default function Page() {
                   <tr><th scope="col">Bản</th><th scope="col">Ngày</th><th scope="col">Thay đổi</th></tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td className="yes">Windows 1.4</td>
+                    <td>02/11/2026</td>
+                    <td>Bộ thiết lập lần đầu: chọn app và web, đặt lịch, mục tiêu, bật chặn web và ghép điện thoại. Công tắc 18+ tắt được sau 60 giây suy nghĩ, mở lại wizard từ Cài đặt.</td>
+                  </tr>
+                  <tr>
+                    <td className="yes">Android 3.9</td>
+                    <td>02/11/2026</td>
+                    <td>Bộ thiết lập lần đầu, tự kiểm tra bản mới hằng ngày, mục Thông tin app và bước cản gỡ cài đặt tuỳ chọn. Sửa công tắc 18+ không tắt được, màn khoá chớp khi mở app và hiện quỹ tiêu dần trong phiên nghỉ.</td>
+                  </tr>
                   <tr>
                     <td className="yes">Windows 1.2</td>
                     <td>02/11/2026</td>

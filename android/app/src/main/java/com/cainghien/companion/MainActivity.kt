@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.NotificationManager
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -23,6 +25,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -35,6 +38,7 @@ class MainActivity : Activity() {
     private lateinit var secure: SecureStore
     private val handler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
+    private val updateExecutor = Executors.newSingleThreadExecutor()
 
     private lateinit var nav: UiNav
     private val pages = mutableListOf<ScrollView>()
@@ -86,6 +90,32 @@ class MainActivity : Activity() {
     private lateinit var gymSettingRow: UiRow
     private lateinit var quotaSettingRow: UiRow
     private lateinit var protectionRow: UiRow
+    private lateinit var guardRow: UiRow
+    private lateinit var guardToggle: UiToggle
+    private lateinit var autoUpdateRow: UiRow
+    private lateinit var autoUpdateToggle: UiToggle
+    private lateinit var checkUpdateRow: UiRow
+    private lateinit var versionRow: UiRow
+    private var updateBusy = false
+    private val appVersion: String by lazy {
+        try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+        } catch (error: Exception) {
+            "?"
+        }
+    }
+    private val appVersionLabel: String by lazy {
+        val code = try {
+            val info = packageManager.getPackageInfo(packageName, 0)
+            if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else {
+                @Suppress("DEPRECATION")
+                info.versionCode.toLong()
+            }
+        } catch (error: Exception) {
+            0L
+        }
+        "$appVersion ($code)"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +123,14 @@ class MainActivity : Activity() {
         quota = QuotaManager(prefs)
         secure = SecureStore(this)
         Ui.chrome(this)
+
+        val untouched = prefs.looksUntouched() && secure.load() == null
+        if (!prefs.onboardingMigrated) {
+            // Bản cài đã dùng từ trước 3.9 không bị đẩy vào wizard sau khi cập nhật.
+            prefs.onboardingMigrated = true
+            if (!untouched) prefs.onboardingDone = true
+        }
+        val showSetup = !prefs.onboardingDone
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
@@ -120,14 +158,18 @@ class MainActivity : Activity() {
         setContentView(root)
         selectTab(0)
 
-        if (Build.VERSION.SDK_INT >= 33 &&
+        if (showSetup) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+        } else if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 51)
         }
         handler.post(ticker)
         refreshNetwork()
+        refreshUpdateRows()
         handler.postDelayed({ showCrashLog() }, 700)
+        handler.postDelayed({ maybeCheckUpdate() }, 2500)
     }
 
     private fun selectTab(index: Int) {
@@ -428,6 +470,19 @@ class MainActivity : Activity() {
             prefs.adultFilterEnabled = false
             stopService(Intent(this, AdultDnsVpnService::class.java))
             refreshAdult()
+            // Nếu onDestroy của service bị kẹt, ép nó tự đóng đường hầm qua ACTION_STOP.
+            handler.postDelayed({
+                if (!prefs.adultFilterEnabled && Runtime.adultFilter) {
+                    try {
+                        startService(
+                            Intent(this, AdultDnsVpnService::class.java)
+                                .setAction(AdultDnsVpnService.ACTION_STOP)
+                        )
+                    } catch (error: Exception) {
+                        Runtime.adultFilter = false
+                    }
+                }
+            }, 1500)
             return
         }
         val consent = try {
@@ -444,18 +499,20 @@ class MainActivity : Activity() {
         refreshAdult()
     }
 
-    /** Tô đúng trạng thái đường hầm, không tô theo cái người dùng vừa chạm. */
+    /** Công tắc bám ý định người dùng; Runtime chỉ dùng để mô tả đường hầm đã mở hay chưa. */
     private fun refreshAdult() {
         // setBlocking(false) cần API 27. Dưới 8.1 thì đường hầm chỉ nhận DNS sẽ thành VPN chiếm
         // toàn bộ traffic, nên ẩn công tắc thay vì để người dùng bấm vào thứ máy không làm được.
         val supported = Build.VERSION.SDK_INT >= 27
+        val wanted = prefs.adultFilterEnabled
         adultToggle.visibility = if (supported) View.VISIBLE else View.GONE
-        adultToggle.setChecked(Runtime.adultFilter)
+        adultToggle.setChecked(supported && wanted)
         adultRow.subtitle(
             when {
                 !supported -> "Cần Android 8.1 trở lên để lọc DNS mà không mất mạng"
-                Runtime.adultFilter -> "Đang lọc từng truy vấn DNS của máy"
-                prefs.adultFilterEnabled -> "Đang khởi động…"
+                wanted && Runtime.adultFilter -> "Đang lọc từng truy vấn DNS của máy"
+                wanted -> "Đang khởi động…"
+                Runtime.adultFilter -> "Đang tắt…"
                 else -> "Tắt · bật để chặn suốt ngày đêm"
             }
         )
@@ -547,13 +604,74 @@ class MainActivity : Activity() {
         protectionRow.trailing(Ui.chevron(this))
         protectionRow.makeClickable { onProtectionButton() }
         safety.addView(protectionRow)
+        guardRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield_alert, Tone.WARN))
+        guardRow.title("Chặn gỡ cài đặt")
+        guardRow.subtitle("Tắt · thêm bước xác nhận khi gỡ app")
+        guardToggle = UiToggle(this)
+        guardToggle.onChange = { checked -> onUninstallGuard(checked) }
+        guardRow.trailing(guardToggle, leftMarginDp = 10)
+        safety.addView(guardRow)
+        val setupRow = Ui.row(this, Ui.tile(this, R.drawable.ic_grid, Tone.NEUTRAL))
+        setupRow.title("Chạy lại thiết lập")
+        setupRow.subtitle("Xem lại quyền, app chặn, quỹ và ghép nối")
+        setupRow.trailing(Ui.chevron(this))
+        setupRow.makeClickable { startActivity(Intent(this, OnboardingActivity::class.java)) }
+        safety.addView(setupRow)
         page.addView(safety)
+
+        page.addView(Ui.section(this, "Cập nhật"))
+        val updates = Ui.group(this)
+        autoUpdateRow = Ui.row(this, Ui.tile(this, R.drawable.ic_refresh, Tone.ACCENT))
+        autoUpdateRow.title("Tự kiểm tra bản mới")
+        autoUpdateRow.subtitle("Hỏi GitHub mỗi ngày một lần")
+        autoUpdateToggle = UiToggle(this)
+        autoUpdateToggle.onChange = { checked ->
+            prefs.autoUpdate = checked
+            refreshUpdateRows()
+            if (checked) checkUpdate(manual = false)
+        }
+        autoUpdateRow.trailing(autoUpdateToggle, leftMarginDp = 10)
+        updates.addView(autoUpdateRow)
+        checkUpdateRow = Ui.row(this, Ui.tile(this, R.drawable.ic_search, Tone.NEUTRAL))
+        checkUpdateRow.title("Kiểm tra ngay")
+        checkUpdateRow.subtitle("Chưa kiểm tra lần nào")
+        checkUpdateRow.trailing(Ui.chevron(this))
+        checkUpdateRow.makeClickable { checkUpdate(manual = true) }
+        updates.addView(checkUpdateRow)
+        page.addView(updates)
+
+        page.addView(Ui.section(this, "Thông tin app"))
+        val about = Ui.group(this)
+        versionRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield, Tone.ACCENT))
+        versionRow.title("Kỷ luật")
+        versionRow.subtitle("Máy chặn xao nhãng, chạy hoàn toàn trên máy bạn")
+        about.addView(versionRow)
+        val sourceRow = Ui.row(this, Ui.tile(this, R.drawable.ic_grid, Tone.NEUTRAL))
+        sourceRow.title("Mã nguồn")
+        sourceRow.subtitle("github.com/HairBaconGamming/kyluat")
+        sourceRow.trailing(Ui.chevron(this))
+        sourceRow.makeClickable { openUrl("https://github.com/HairBaconGamming/kyluat") }
+        about.addView(sourceRow)
+        val siteRow = Ui.row(this, Ui.tile(this, R.drawable.ic_desktop, Tone.NEUTRAL))
+        siteRow.title("Hướng dẫn và tải về")
+        siteRow.subtitle("kyluat.vercel.app")
+        siteRow.trailing(Ui.chevron(this))
+        siteRow.makeClickable { openUrl("https://kyluat.vercel.app") }
+        about.addView(siteRow)
+        page.addView(about)
 
         page.addView(
             Ui.note(
                 this,
                 "Mã kết nối được mã hoá trong Android Keystore, chỉ dùng trong mạng nội bộ. " +
                     "Kỷ luật không đọc nội dung màn hình.",
+                R.drawable.ic_info,
+            )
+        )
+        page.addView(
+            Ui.note(
+                this,
+                "Dự án cá nhân, không bán, không bảo hành. Bản mới chỉ được cài khi bạn bấm qua trình cài đặt của Android.",
                 R.drawable.ic_info,
             )
         )
@@ -650,7 +768,7 @@ class MainActivity : Activity() {
         quotaPending.text = if (hasPending) "Đã hẹn $pending phút từ 0:00 hôm sau" else ""
         quotaPending.visibility = if (hasPending) View.VISIBLE else View.GONE
         breakButton.text = if (quota.isBreakActive()) {
-            "Kết thúc nghỉ · còn ${(quota.breakRemainingSeconds() + 59) / 60} phút"
+            "Kết thúc nghỉ · còn ${Ui.clockText(quota.breakRemainingSeconds())}"
         } else {
             "Nghỉ có kiểm soát"
         }
@@ -943,15 +1061,228 @@ class MainActivity : Activity() {
         wakeAdultFilter()
         refreshAll()
         refreshNetwork()
+        refreshUpdateRows()
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (error: Exception) {
+            Toast.makeText(this, "Không mở được trình duyệt", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun refreshUpdateRows() {
+        if (::autoUpdateToggle.isInitialized) {
+            autoUpdateToggle.setChecked(prefs.autoUpdate)
+            autoUpdateRow.subtitle(
+                if (prefs.autoUpdate) "Hỏi GitHub mỗi ngày một lần, không có telemetry"
+                else "Tắt · chỉ kiểm tra khi bạn bấm"
+            )
+            checkUpdateRow.subtitle(
+                if (prefs.updateLastCheckMs == 0L) "Chưa kiểm tra lần nào"
+                else "Lần cuối ${timeAgo(prefs.updateLastCheckMs)} · đang dùng $appVersion"
+            )
+        }
+        if (::versionRow.isInitialized) {
+            versionRow.status(appVersionLabel, Ui.TEXT_3)
+        }
+        if (::guardRow.isInitialized) {
+            val active = guardActive()
+            if (guardToggle.checked != active) guardToggle.setChecked(active)
+            if (prefs.uninstallGuard != active) prefs.uninstallGuard = active
+            guardRow.subtitle(
+                if (active) "Đang bật · gỡ app phải tắt quyền quản lý thiết bị trước"
+                else "Tắt · thêm bước xác nhận khi gỡ app"
+            )
+        }
+    }
+
+    private fun timeAgo(wallClockMs: Long): String {
+        val seconds = ((System.currentTimeMillis() - wallClockMs) / 1000).toInt().coerceAtLeast(0)
+        return when {
+            seconds < 60 -> "vừa xong"
+            seconds < 3600 -> "${seconds / 60} phút trước"
+            seconds < 86400 -> "${seconds / 3600} giờ trước"
+            else -> "${seconds / 86400} ngày trước"
+        }
+    }
+
+    private fun guardActive(): Boolean = try {
+        dpm().isAdminActive(ComponentName(this, GuardAdminReceiver::class.java))
+    } catch (error: Exception) {
+        false
+    }
+
+    private fun dpm(): DevicePolicyManager =
+        getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+
+    private fun onUninstallGuard(enabled: Boolean) {
+        val component = ComponentName(this, GuardAdminReceiver::class.java)
+        if (enabled && !prefs.protectionEnabled) {
+            Toast.makeText(this, "Hãy bật bảo vệ trước khi dùng bước cản gỡ.", Toast.LENGTH_LONG).show()
+            refreshUpdateRows()
+            return
+        }
+        if (enabled) {
+            AlertDialog.Builder(this)
+                .setTitle("Chặn gỡ cài đặt?")
+                .setMessage(
+                    "Kỷ luật sẽ được đăng ký làm trình quản lý thiết bị để Android thêm bước xác nhận khi gỡ. " +
+                        "App không khoá máy, không xoá dữ liệu, và bạn luôn tắt được quyền này trong Cài đặt hệ thống, " +
+                        "kể cả khi app gặp lỗi. Android không cho app tự đặt thời gian chờ ở hộp thoại gỡ; " +
+                        "đây là bước cản duy nhất hệ thống cho phép."
+                )
+                .setPositiveButton("Bật") { _, _ ->
+                    val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                        putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, component)
+                        putExtra(
+                            DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                            "Kỷ luật chỉ dùng quyền này để Android hỏi lại khi gỡ app. " +
+                                "Không khoá máy, không xoá dữ liệu."
+                        )
+                    }
+                    try {
+                        startActivityForResult(intent, GUARD_REQUEST)
+                    } catch (error: Exception) {
+                        Toast.makeText(this, "Máy không mở được màn hình quản lý thiết bị.", Toast.LENGTH_LONG).show()
+                    }
+                }
+                .setNegativeButton("Để sau") { _, _ -> refreshUpdateRows() }
+                .setOnCancelListener { refreshUpdateRows() }
+                .show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Tắt bước cản gỡ?")
+            .setMessage("Sau khi tắt, Android cho gỡ Kỷ luật như mọi app khác. Việc chặn app và bộ lọc 18+ giữ nguyên.")
+            .setPositiveButton("Tắt") { _, _ ->
+                try {
+                    dpm().removeActiveAdmin(component)
+                } catch (error: Exception) {
+                    Toast.makeText(this, "Không tắt được: ${error.message}", Toast.LENGTH_LONG).show()
+                }
+                prefs.uninstallGuard = false
+                refreshUpdateRows()
+            }
+            .setNegativeButton("Giữ") { _, _ -> refreshUpdateRows() }
+            .setOnCancelListener { refreshUpdateRows() }
+            .show()
+    }
+
+    private fun maybeCheckUpdate() {
+        if (!prefs.autoUpdate) return
+        if (System.currentTimeMillis() - prefs.updateLastCheckMs < UPDATE_INTERVAL_MS) return
+        checkUpdate(manual = false)
+    }
+
+    private fun checkUpdate(manual: Boolean) {
+        if (updateBusy) return
+        updateBusy = true
+        if (manual) Toast.makeText(this, "Đang kiểm tra bản mới…", Toast.LENGTH_SHORT).show()
+        updateExecutor.execute {
+            val release = try {
+                UpdateChecker.latest()
+            } catch (error: Exception) {
+                null
+            }
+            prefs.updateLastCheckMs = System.currentTimeMillis()
+            runOnUiThread {
+                updateBusy = false
+                refreshUpdateRows()
+                when {
+                    release == null -> if (manual) {
+                        Toast.makeText(this, "Không kiểm tra được, thử lại khi có mạng.", Toast.LENGTH_LONG).show()
+                    }
+                    UpdateChecker.isNewer(release.version, appVersion) ->
+                        offerUpdate(release, manual)
+                    manual -> AlertDialog.Builder(this)
+                        .setTitle("Bản mới nhất")
+                        .setMessage("Bạn đang dùng bản $appVersion.")
+                        .setPositiveButton("Đóng", null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun offerUpdate(release: UpdateChecker.Release, manual: Boolean) {
+        if (!manual && prefs.updatePromptedVersion == release.version) return
+        prefs.updatePromptedVersion = release.version
+        AlertDialog.Builder(this)
+            .setTitle("Đã có bản ${release.version}")
+            .setMessage("Bản đang dùng: $appVersion. Tải bản mới rồi mở trình cài đặt? Dữ liệu và mã kết nối được giữ nguyên.")
+            .setPositiveButton("Cập nhật") { _, _ -> downloadUpdate(release) }
+            .setNegativeButton("Để sau", null)
+            .show()
+    }
+
+    private fun downloadUpdate(release: UpdateChecker.Release) {
+        if (!packageManager.canRequestPackageInstalls()) {
+            AlertDialog.Builder(this)
+                .setTitle("Cần cho phép cài đặt")
+                .setMessage("Android chặn cài app ngoài cửa hàng cho tới khi bạn bật mục cho phép cài đặt cho Kỷ luật.")
+                .setPositiveButton("Mở cài đặt") { _, _ ->
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:$packageName")
+                        )
+                    )
+                }
+                .setNegativeButton("Để sau", null)
+                .show()
+            return
+        }
+        val progress = AlertDialog.Builder(this)
+            .setTitle("Đang tải bản ${release.version}")
+            .setMessage("Đang tải file cài đặt…")
+            .setCancelable(false)
+            .create()
+        progress.show()
+        updateExecutor.execute {
+            val file = File(cacheDir, "kyluat-update.apk")
+            file.delete()
+            val ok = UpdateChecker.download(release.url, file) &&
+                UpdateChecker.verified(this, file, appVersion)
+            runOnUiThread {
+                try {
+                    progress.dismiss()
+                } catch (error: Exception) {
+                }
+                if (ok) {
+                    installUpdate(file)
+                } else {
+                    file.delete()
+                    Toast.makeText(this, "Tải bản mới thất bại, thử lại khi có mạng.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun installUpdate(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.updates", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (error: Exception) {
+            Toast.makeText(this, "Không mở được trình cài đặt: ${error.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         executor.shutdownNow()
+        updateExecutor.shutdownNow()
         super.onDestroy()
     }
 
     companion object {
         private const val ADULT_REQUEST = 71
+        private const val GUARD_REQUEST = 72
+        private const val UPDATE_INTERVAL_MS = 24L * 60 * 60 * 1000
     }
 }
