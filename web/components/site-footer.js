@@ -17,7 +17,7 @@ export default function SiteFooter() {
           <p>
             <strong>Kỷ luật.</strong> Dự án cá nhân, không bán, không bảo hành, không hỗ trợ kỹ thuật.
           </p>
-          <p style={{ marginTop: "6px" }}>Ảnh giao diện dùng dữ liệu giả. Bản hiện tại: Windows 1.5, Android 3.9.</p>
+          <p style={{ marginTop: "6px" }}>Ảnh giao diện dùng dữ liệu giả. Bản hiện tại: Windows 1.6, Android 3.9.</p>
         </div>
         <nav aria-label="Liên kết cuối trang">
           {LINKS.map((l) => (

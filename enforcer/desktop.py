@@ -956,6 +956,16 @@ class MainWindow(QMainWindow):
         adult_row.add(self.adult_switch)
         self.adult_status = adult_row.subtitle
         adult_group.add(adult_row)
+        self.web_pill = Pill("Cần bật", "neutral", dot=False)
+        self.web_row = Row(
+            "Bật chặn web",
+            "Cần Administrator · để luật web và 18+ có tác dụng",
+            _tile(icon="globe", tone="accent"),
+            handler=self._offer_web_blocking,
+        )
+        self.web_row.add(self.web_pill)
+        self.web_row.setCursor(Qt.CursorShape.PointingHandCursor)
+        adult_group.add(self.web_row)
         left.addWidget(adult_group)
         left.addWidget(
             _note(
@@ -1553,7 +1563,28 @@ class MainWindow(QMainWindow):
     def toggle_web(self, entry: dict, checked: bool) -> None:
         self._toggle_rule(web=entry, enabled=checked)
 
+    def sync_web_row(self, net_enabled: bool) -> None:
+        if not hasattr(self, "web_row"):
+            return
+        if net_enabled:
+            self.web_row.set_text("Chặn web đang bật", "DNS máy trỏ về 127.0.0.1 · tắt bằng Tắt bảo vệ")
+            self.web_row.title.setStyleSheet(
+                f"background:transparent;color:{INK};font-size:14px;font-weight:600;"
+            )
+            self.web_pill.set_state("Đang bật", "accent")
+            self.web_row.handler = None
+            self.web_row.setCursor(Qt.CursorShape.ArrowCursor)
+        else:
+            self.web_row.set_text("Bật chặn web", "Cần Administrator · để luật web và 18+ có tác dụng")
+            self.web_row.title.setStyleSheet(
+                f"background:transparent;color:{ACCENT};font-size:14px;font-weight:600;"
+            )
+            self.web_pill.set_state("Cần bật", "neutral")
+            self.web_row.handler = self._offer_web_blocking
+            self.web_row.setCursor(Qt.CursorShape.PointingHandCursor)
+
     def sync_adult(self, approved: Config | None, net_enabled: bool) -> None:
+        self.sync_web_row(net_enabled)
         active = bool(approved and approved.adult_block)
         self.adult_switch.blockSignals(True)
         self.adult_switch.setChecked(active)

@@ -168,7 +168,7 @@ export default function Page() {
             <p className="lede">Chạy sau khi cài để xem app đã để lại những gì. Mở PowerShell thường, không cần quyền quản trị.</p>
           </div>
           <pre className="code"><code>{`# 1. Dung lượng và dấu vân tay của bộ cài
-certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.5.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.6.exe" SHA256
 
 # 2. App cài ở đâu, trong đó có những file nào
 Get-ChildItem "$env:LOCALAPPDATA\\Programs\\Kyluat"

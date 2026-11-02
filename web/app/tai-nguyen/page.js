@@ -31,7 +31,7 @@ export default function Page() {
                 <span className="ico"><Icon name="desktop" /></span>
                 <div>
                   <h3>Windows 10 và 11, bản 64-bit</h3>
-                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.5.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
+                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.6.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '10px' }}>
@@ -127,6 +127,11 @@ export default function Page() {
                   <tr><th scope="col">Bản</th><th scope="col">Ngày</th><th scope="col">Thay đổi</th></tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td className="yes">Windows 1.6</td>
+                    <td>02/11/2026</td>
+                    <td>Thêm nút <strong>Bật chặn web</strong> ngay dưới công tắc 18+ ở màn Bảo vệ, kèm trạng thái Cần bật hoặc Đang bật.</td>
+                  </tr>
                   <tr>
                     <td className="yes">Windows 1.5</td>
                     <td>02/11/2026</td>
