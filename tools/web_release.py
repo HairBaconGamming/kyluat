@@ -10,9 +10,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = [
-    ROOT / "dist" / "KYLUAT-Setup-v1.6.exe",
-    ROOT / "dist" / "KYLUAT-windows-x64-v1.6.zip",
-    ROOT / "dist" / "kyluat-android-v3.10.apk",
+    ROOT / "dist" / "KYLUAT-Setup-v1.7.exe",
+    ROOT / "dist" / "KYLUAT-windows-x64-v1.7.zip",
+    ROOT / "dist" / "kyluat-android-v3.11.apk",
 ]
 
 

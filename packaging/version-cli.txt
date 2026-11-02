@@ -3,8 +3,8 @@
 # tools/build_windows.py kiểm hai FileVersion giống nhau trước khi đóng gói.
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 6, 0, 0),
-    prodvers=(1, 6, 0, 0),
+    filevers=(1, 7, 0, 0),
+    prodvers=(1, 7, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -17,12 +17,12 @@ VSVersionInfo(
       StringTable('040904b0', [
         StringStruct('CompanyName', 'HairBaconGamming'),
         StringStruct('FileDescription', 'Kyluat command line - block distractions on Windows'),
-        StringStruct('FileVersion', '1.6'),
+        StringStruct('FileVersion', '1.7'),
         StringStruct('InternalName', 'Kyluat-cli'),
         StringStruct('LegalCopyright', 'Open source: github.com/HairBaconGamming/kyluat'),
         StringStruct('OriginalFilename', 'Kyluat-cli.exe'),
         StringStruct('ProductName', 'Kyluat'),
-        StringStruct('ProductVersion', '1.6')
+        StringStruct('ProductVersion', '1.7')
       ])
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])

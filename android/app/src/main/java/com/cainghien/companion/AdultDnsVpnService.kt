@@ -17,6 +17,7 @@ import java.io.OutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.util.concurrent.Executors
 
 /**
  * Đường hầm VPN chỉ lấy riêng truy vấn DNS của máy: tên 18+ trả về NXDOMAIN, phần còn lại
@@ -30,6 +31,7 @@ import java.net.InetAddress
  */
 class AdultDnsVpnService : VpnService() {
     @Volatile private var running = false
+    private val workers = Executors.newFixedThreadPool(4)
     private var tunnel: ParcelFileDescriptor? = null
     private var domains: Set<String> = emptySet()
     private val misses = ArrayDeque<Long>()
@@ -109,7 +111,14 @@ class AdultDnsVpnService : VpnService() {
                     while (running) {
                         val read = input.read(buffer)
                         if (read < 0) break
-                        if (read > 0) handle(buffer, read, output)
+                        if (read > 0) {
+                            val copy = buffer.copyOf(read)
+                            try {
+                                workers.execute { handle(copy, copy.size, output) }
+                            } catch (error: Exception) {
+                                // executor đã đóng trong lúc service dừng
+                            }
+                        }
                     }
                 }
             }
@@ -126,7 +135,7 @@ class AdultDnsVpnService : VpnService() {
         val answer = if (AdultFilter.blockedBy(name, domains)) {
             AdultFilter.nxdomain(query)
         } else {
-            askUpstream(query.payload) ?: answerOrGiveUp(query)
+            askUpstream(AdultFilter.clampEdns(query.payload)) ?: answerOrGiveUp(query)
         } ?: return
         val reply = AdultFilter.replyPacket(query, answer) ?: return
         try {
@@ -141,9 +150,12 @@ class AdultDnsVpnService : VpnService() {
 
     private fun answerOrGiveUp(query: AdultFilter.Query): ByteArray? {
         val now = SystemClock.elapsedRealtime()
-        misses.addLast(now)
-        while (misses.isNotEmpty() && now - misses.first() > FAILURE_WINDOW_MS) misses.removeFirst()
-        if (misses.size >= FAILURE_LIMIT) {
+        val tooMany = synchronized(misses) {
+            misses.addLast(now)
+            while (misses.isNotEmpty() && now - misses.first() > FAILURE_WINDOW_MS) misses.removeFirst()
+            misses.size >= FAILURE_LIMIT
+        }
+        if (tooMany) {
             giveUp("Không gọi được máy chủ DNS nên bộ lọc tự tắt")
             return null
         }
@@ -196,6 +208,7 @@ class AdultDnsVpnService : VpnService() {
             // đóng hai lần thì bỏ qua
         }
         Runtime.adultFilter = false
+        workers.shutdownNow()
         try {
             manager().cancel(STILL)
             manager().cancel(WENT)

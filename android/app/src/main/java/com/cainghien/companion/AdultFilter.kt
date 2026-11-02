@@ -9,6 +9,7 @@ package com.cainghien.companion
 object AdultFilter {
     const val DNS_PORT = 53
     const val MAX_ANSWER = 1472
+    const val EDNS_UDP_SIZE = 1232
 
     class Query(
         val payload: ByteArray,
@@ -63,6 +64,46 @@ object AdultFilter {
             if (dot < 0) return false
             start = dot + 1
         }
+    }
+
+    /**
+     * Hạ cỡ EDNS0 của client xuống 1232 byte để câu trả lời vừa một gói UDP.
+     * Client nhận câu trả lời lớn hơn sẽ chuyển sang TCP, mà đường hầm này chỉ
+     * nhận UDP, nên YouTube và các tên miền nhiều bản ghi bị treo.
+     */
+    fun clampEdns(payload: ByteArray): ByteArray {
+        if (payload.size < 12) return payload
+        var index = 12
+        repeat(u16(payload, 4)) {
+            val end = skipName(payload, index) ?: return payload
+            index = end + 4
+            if (index > payload.size) return payload
+        }
+        repeat(u16(payload, 6) + u16(payload, 8)) {
+            index = skipRecord(payload, index) ?: return payload
+        }
+        repeat(u16(payload, 10)) {
+            val end = skipName(payload, index) ?: return payload
+            if (end + 10 > payload.size) return payload
+            val type = u16(payload, end)
+            val klass = u16(payload, end + 2)
+            val rdlength = u16(payload, end + 8)
+            index = end + 10 + rdlength
+            if (index > payload.size) return payload
+            if (type == 41 && klass > EDNS_UDP_SIZE) {
+                val copy = payload.copyOf()
+                put16(copy, end + 2, EDNS_UDP_SIZE)
+                return copy
+            }
+        }
+        return payload
+    }
+
+    private fun skipRecord(data: ByteArray, from: Int): Int? {
+        val end = skipName(data, from) ?: return null
+        if (end + 10 > data.size) return null
+        val next = end + 10 + u16(data, end + 8)
+        return if (next <= data.size) next else null
     }
 
     fun nxdomain(query: Query): ByteArray? = respond(query, 3)

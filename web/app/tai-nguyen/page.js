@@ -31,7 +31,7 @@ export default function Page() {
                 <span className="ico"><Icon name="desktop" /></span>
                 <div>
                   <h3>Windows 10 và 11, bản 64-bit</h3>
-                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.6.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
+                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.7.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '10px' }}>
@@ -127,6 +127,16 @@ export default function Page() {
                   <tr><th scope="col">Bản</th><th scope="col">Ngày</th><th scope="col">Thay đổi</th></tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td className="yes">Windows 1.7</td>
+                    <td>02/11/2026</td>
+                    <td>Danh sách 18+ mở rộng lên 204.935 tên miền (nguồn BlockNSFW, MIT), thêm nút <strong>Kiểm tra chặn thử</strong> và lệnh <code>adult test</code>.</td>
+                  </tr>
+                  <tr>
+                    <td className="yes">Android 3.11</td>
+                    <td>02/11/2026</td>
+                    <td>Cùng danh sách lớn; sửa đường hầm DNS để không làm hỏng YouTube: xử lý truy vấn song song và hạ EDNS về 1232 để tránh chuyển sang TCP.</td>
+                  </tr>
                   <tr>
                     <td className="yes">Android 3.10</td>
                     <td>02/11/2026</td>

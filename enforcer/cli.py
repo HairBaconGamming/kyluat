@@ -153,7 +153,7 @@ def cmd_status(args) -> int:
     )
     net_enabled = store.get_state(NET_ENABLED_KEY) == "1"
     print(f"Chặn web    : {'bật' if net_enabled else 'tắt'}")
-    print(f"Chặn 18+    : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS)} tên miền")
+    print(f"Chặn 18+    : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS):,} tên miền")
     print(f"Daemon      : {_daemon_status()}")
     print(f"Tự chạy     : {_task_status()}")
     print(f"Hôm nay     : {store.blocks_today()} lần chặn")
@@ -761,6 +761,10 @@ def cmd_net_status(args) -> int:
 
 def cmd_adult(args) -> int:
     action = getattr(args, "adult_command", "status")
+    if action == "test":
+        blocked, safe, message = net.adult_selftest()
+        print(message)
+        return 0 if blocked and safe else 1
     store = Store(DB_PATH)
     try:
         approved = rules.approved_config(store)
@@ -769,7 +773,7 @@ def cmd_adult(args) -> int:
             if approved is None:
                 print("Chưa có luật, chưa bật 18+.")
                 return 1
-            print(f"Chặn 18+  : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS)} tên miền chọn tay")
+            print(f"Chặn 18+  : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS):,} tên miền")
             print(f"Upstream  : {'94.140.14.14 (AdGuard Family)' if approved.adult_block else '1.1.1.1 / 8.8.8.8'}")
             print(f"Chặn web  : {'bật, DNS đã trỏ về máy này' if net_enabled else 'tắt, chưa có gì đi qua sinkhole'}")
             return 0
@@ -828,7 +832,7 @@ def cmd_doctor(args) -> int:
     print(f"Tự chạy     : {_task_status()}")
     print(f"Daemon      : {daemon}")
     print(f"Chặn web    : {'bật' if net_enabled else 'tắt'}")
-    print(f"Chặn 18+    : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS)} tên miền")
+    print(f"Chặn 18+    : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS):,} tên miền")
     if net_enabled:
         wiring = net.current_wiring()
         if wiring is not None:
@@ -1108,6 +1112,7 @@ def main(argv: list[str] | None = None) -> int:
     adult_sub.add_parser("on", help="bật chặn 18+").set_defaults(func=cmd_adult)
     adult_sub.add_parser("off", help="tắt chặn 18+ (chờ 24 giờ)").set_defaults(func=cmd_adult)
     adult_sub.add_parser("status", help="xem trạng thái và upstream đang dùng").set_defaults(func=cmd_adult)
+    adult_sub.add_parser("test", help="hỏi thử sinkhole bằng một tên miền mẫu").set_defaults(func=cmd_adult)
     install_parser = sub.add_parser("install", help="tạo Scheduled Task: tự chạy + watchdog mỗi phút")
     install_parser.add_argument("--elevated", action="store_true", help="chạy daemon bằng quyền admin")
     install_parser.set_defaults(func=cmd_install)

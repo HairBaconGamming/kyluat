@@ -966,6 +966,14 @@ class MainWindow(QMainWindow):
         self.web_row.add(self.web_pill)
         self.web_row.setCursor(Qt.CursorShape.PointingHandCursor)
         adult_group.add(self.web_row)
+        adult_group.add(
+            _link_row(
+                "Kiểm tra chặn thử",
+                "Hỏi bộ lọc bằng một tên miền mẫu",
+                self.test_adult_filter,
+                icon="search",
+            )
+        )
         left.addWidget(adult_group)
         left.addWidget(
             _note(
@@ -1583,18 +1591,27 @@ class MainWindow(QMainWindow):
             self.web_row.handler = self._offer_web_blocking
             self.web_row.setCursor(Qt.CursorShape.PointingHandCursor)
 
+    def test_adult_filter(self) -> None:
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            _, _, message = net.adult_selftest()
+        finally:
+            QApplication.restoreOverrideCursor()
+        QMessageBox.information(self, "Kiểm tra chặn thử", message)
+
     def sync_adult(self, approved: Config | None, net_enabled: bool) -> None:
         self.sync_web_row(net_enabled)
         active = bool(approved and approved.adult_block)
         self.adult_switch.blockSignals(True)
         self.adult_switch.setChecked(active)
         self.adult_switch.blockSignals(False)
+        count = f"{len(ADULT_DOMAINS):,}".replace(",", ".")
         if not active:
-            self.adult_status.setText(f"{len(ADULT_DOMAINS)} tên miền · đang tắt")
+            self.adult_status.setText(f"{count} tên miền · đang tắt")
         elif not net_enabled:
             self.adult_status.setText("Đã bật luật · máy chưa bật chặn web nên chưa có tác dụng")
         else:
-            self.adult_status.setText(f"{len(ADULT_DOMAINS)} tên miền · chạy suốt ngày đêm")
+            self.adult_status.setText(f"{count} tên miền · chạy suốt ngày đêm")
 
     def toggle_adult(self, checked: bool) -> None:
         store = self._store()

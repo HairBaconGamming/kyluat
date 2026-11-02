@@ -73,7 +73,7 @@ export default function Page() {
                   <ul>
                     <li>App trên máy tính và trên điện thoại.</li>
                     <li>Trang web theo tên miền, tính cả các trang con.</li>
-                    <li>81 trang người lớn có sẵn, chặn cả ngày lẫn đêm trên cả hai máy.</li>
+                    <li>Hơn 200.000 tên miền người lớn có sẵn, chặn cả ngày lẫn đêm trên cả hai máy.</li>
                   </ul>
                 </div>
                 <figure className="shot step-media">
@@ -298,7 +298,7 @@ export default function Page() {
                 <span className="ico"><Icon name="shield" /></span>
                 <div>
                   <h3>Nội dung 18+ chặn riêng, suốt ngày đêm</h3>
-                  <p>Công tắc <strong>Chặn trang người lớn</strong> ở tab Bảo vệ mở một đường hầm chỉ đọc DNS: tên trong danh sách 81 tên miền bị trả lời là không tồn tại, trang khác đi qua bộ lọc gia đình AdGuard. Không cần phiên tập trung, không ghi lại truy vấn, và tắt được bằng một chạm.</p>
+                  <p>Công tắc <strong>Chặn trang người lớn</strong> ở tab Bảo vệ mở một đường hầm chỉ đọc DNS: tên trong danh sách hơn 200.000 tên miền bị trả lời là không tồn tại, trang khác đi qua bộ lọc gia đình AdGuard. Không cần phiên tập trung, không ghi lại truy vấn, và tắt được bằng một chạm.</p>
                 </div>
               </div>
             </div>
@@ -322,11 +322,11 @@ export default function Page() {
                   <span className="ico"><Icon name="desktop" /></span>
                   <div>
                     <h3>Windows 10 và 11 (64-bit)</h3>
-                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài v1.6, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
+                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài v1.7, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
                   </div>
                 </div>
                 <ul>
-                  <li>Chặn app trong giờ tập trung, chặn trang web theo tên miền, và chặn 81 trang người lớn suốt ngày đêm.</li>
+                  <li>Chặn app trong giờ tập trung, chặn trang web theo tên miền, và chặn hơn 200.000 tên miền người lớn suốt ngày đêm.</li>
                   <li>Công tắc 18+ tắt được sau 60 giây suy nghĩ, không cần gõ cam kết.</li>
                   <li>Cài vào thư mục của riêng bạn, gỡ bằng Add or remove programs.</li>
                   <li>File chưa có chữ ký số, Windows sẽ hỏi bạn một lần.</li>
@@ -433,8 +433,15 @@ export default function Page() {
               <details id="faq-18">
                 <summary>Bộ lọc 18+ chặn những gì và chặn kiểu gì?</summary>
                 <div className="body">
-                  <p>Một danh sách 81 tên miền dùng chung cho cả hai máy, chặn suốt ngày đêm, không liên quan giờ tập trung. Trên Windows nó đi qua trình phân giải cục bộ; trên Android nó đi qua một đường hầm chỉ đọc DNS.</p>
+                  <p>Một danh sách hơn 200.000 tên miền dùng chung cho cả hai máy, chặn suốt ngày đêm, không liên quan giờ tập trung. Trên Windows nó đi qua trình phân giải cục bộ; trên Android nó đi qua một đường hầm chỉ đọc DNS.</p>
                   <p>Tên bị chặn nhận trả lời "không tồn tại", còn mọi tên khác được hỏi sang bộ lọc gia đình AdGuard, nên lớp lọc nằm luôn ở máy chủ phân giải. Tắt trên Windows phải chờ 24 giờ vì đó là nới lỏng luật; tắt trên Android có hiệu lực ngay.</p>
+                </div>
+              </details>
+              <details id="faq-18-youtube">
+                <summary>Có chặn được nội dung 18+ nằm trong YouTube không?</summary>
+                <div className="body">
+                  <p>Không. Bộ lọc chỉ đọc tên miền, nên nội dung nằm trong YouTube hoặc trong một trang được phép không đi qua nó. Trình duyệt tự bật DNS-over-HTTPS cũng đi vòng được.</p>
+                  <p>Bản này tập trung chặn đúng tên miền và sửa lỗi đường hầm từng làm hỏng YouTube. Chặn tầng hình ảnh hoặc chữ trên màn hình là một lớp khác, chưa có trong bản này.</p>
                 </div>
               </details>
               <details id="faq-vpn-android">

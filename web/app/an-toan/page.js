@@ -168,7 +168,7 @@ export default function Page() {
             <p className="lede">Chạy sau khi cài để xem app đã để lại những gì. Mở PowerShell thường, không cần quyền quản trị.</p>
           </div>
           <pre className="code"><code>{`# 1. Dung lượng và dấu vân tay của bộ cài
-certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.6.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.7.exe" SHA256
 
 # 2. App cài ở đâu, trong đó có những file nào
 Get-ChildItem "$env:LOCALAPPDATA\\Programs\\Kyluat"
@@ -209,6 +209,10 @@ Get-DnsClientServerAddress -AddressFamily IPv4`}</code></pre>
               <p>Bốn lần hỏi trong nửa phút mà không máy chủ nào trả lời thì đường hầm bị tháo, DNS máy về bình thường và app không tự bật lại. Thà chưa chặn còn hơn mất mạng.</p>
             </div>
           </div>
+          <p className="note">
+            <Icon name="info" />
+            <span>Đây là lớp lọc tên miền: nội dung nằm trong YouTube hoặc trong một trang được phép, hoặc trình duyệt tự bật DoH, không đi qua bộ lọc. Danh sách mở rộng tham khảo BlockNSFW (MIT).</span>
+          </p>
           <p className="note warn">
             <Icon name="alert" />
             <span>Tắt bằng một chạm: nút <strong>Tắt bộ lọc</strong> trên thông báo, công tắc ở tab <strong>Bảo vệ</strong>, hoặc màn <strong>Tắt bảo vệ</strong> trong app. Muốn kiểm từ hệ thống, mở Cài đặt → Mạng và Internet → VPN và tắt Kỷ luật ở đó. Cần Android 8.1 trở lên.</span>

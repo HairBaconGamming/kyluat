@@ -9,7 +9,10 @@ a = Analysis(
     [str(ROOT / "packaging" / "kyluat.py")],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[(str(ROOT / "enforcer" / "static"), "static")],
+    datas=[
+        (str(ROOT / "enforcer" / "static"), "static"),
+        (str(ROOT / "enforcer" / "data" / "adult_domains.txt"), "enforcer/data"),
+    ],
     hiddenimports=[
         "enforcer.adult_list",
         "enforcer.catalog",

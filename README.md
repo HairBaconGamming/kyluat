@@ -17,7 +17,7 @@ Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình n
 | Thêm ràng buộc mới | có hiệu lực ngay |
 | Tắt hẳn bảo vệ | màn Nâng cao, gõ lại đoạn cam kết và chờ 60 giây |
 | Chặn trang web | chỉ trên Windows, theo tên miền, tính cả trang con, chỉ trong giờ tập trung |
-| Chặn nội dung 18+ | 81 tên miền có sẵn, chạy suốt ngày đêm trên cả Windows và Android, không phụ thuộc giờ tập trung |
+| Chặn nội dung 18+ | hơn 200.000 tên miền (nhập từ BlockNSFW, MIT), chạy suốt ngày đêm trên cả Windows và Android, không phụ thuộc giờ tập trung |
 
 Danh sách app bị chặn không tự sinh ra. Máy không tự đoán cái nào gây nghiện.
 
@@ -25,9 +25,9 @@ Danh sách app bị chặn không tự sinh ra. Máy không tự đoán cái nà
 
 Bản phát hành có ba file trên GitHub Releases:
 
-- `KYLUAT-Setup-v1.6.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
-- `KYLUAT-windows-x64-v1.6.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
-- `kyluat-android-v3.10.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
+- `KYLUAT-Setup-v1.7.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
+- `KYLUAT-windows-x64-v1.7.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
+- `kyluat-android-v3.11.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
 
@@ -51,7 +51,7 @@ Cảnh báo cho người review: `net install` sửa cấu hình mạng của m�
 
 ### Luật 18+ chạy suốt ngày đêm
 
-`enforcer/adult_list.py` là nguồn duy nhất của 81 tên miền. `python tools/sync_adult_list.py` sinh `android/app/src/main/res/raw/adult_domains.txt` từ đúng danh sách đó, `--check` chỉ in khi hai bên lệch; `tests/test_adult_list.py` so từng byte nên quên sync là test đỏ ngay.
+`enforcer/adult_list.py` đọc `enforcer/data/adult_domains.txt`, danh sách hơn 200.000 tên miền nhập từ BlockNSFW data/HOSTS.txt (MIT, snapshot bee0db2). `python tools/sync_adult_list.py` sinh `android/app/src/main/res/raw/adult_domains.txt` từ đúng danh sách đó, `--check` chỉ in khi hai bên lệch; `tests/test_adult_list.py` so từng byte nên quên sync là test đỏ ngay. Lệnh `Kyluat-cli.exe adult test` và nút **Kiểm tra chặn thử** trong app hỏi thẳng sinkhole bằng một tên mẫu.
 
 Bật luật: gạt **Chặn trang người lớn** ở màn Bảo vệ, chạy `python -m enforcer adult on`, hoặc đặt `adult = true` trong `[web]` của `config.toml` rồi `apply`. Trên Windows luật này cần chặn web đã bật (`net install`) vì nó đi qua chính cái sinkhole ở trên; `adult status` cho biết luật bật hay tắt và đang hỏi DNS nào.
 
@@ -115,7 +115,7 @@ pytest
 
 56 test, chạy được mà không cần quyền Administrator và không đụng tới hệ thống thật. `tests/test_proc_gate.py` giữ hai chuyện: mọi lời gọi tiến trình con trong `enforcer/` phải đi qua `enforcer/proc.py`, và cửa đó vẫn chạy được khi tiến trình không có console hoặc bị mất stdin. `tests/test_packaging_entry.py` đọc luôn header PE của hai file exe đã build để chắc `Kyluat.exe` là subsystem GUI. `tests/test_turn_off.py` kẹp hai nhánh của lệnh tắt bảo vệ: chưa từng đổi DNS thì không đòi quyền admin, còn đổi rồi mà khôi phục thất bại thì từ chối gỡ và bật lại task để máy không mất mạng. `tests/test_adult_list.py` giữ định dạng danh sách 18+ và so từng byte với file asset của Android.
 
-Codec DNS và bộ kiểm tra cập nhật của Android có 11 unit test chạy trên JVM, không cần thiết bị:
+Codec DNS và bộ kiểm tra cập nhật của Android có 13 unit test chạy trên JVM, không cần thiết bị:
 
 ```bash
 cd android
@@ -129,7 +129,7 @@ pip install -r requirements-dev.txt
 python tools/build_windows.py
 ```
 
-Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.6.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.6.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
+Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.7.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.7.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
 
 Thư mục exe có hai file, giống cặp `pythonw`/`python` trong source:
 
@@ -161,7 +161,7 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 15 tương ứng `versionName` 3.10. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 16 tương ứng `versionName` 3.11. APK build ra nằm ở `android/app/build/` và không được commit.
 
 Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
 
@@ -223,7 +223,7 @@ Mạch mạng đi ra ngoài chỉ có DNS và một lần kiểm tra bản mới
 File chưa mua chứng chỉ chữ ký số nên SmartScreen báo "Unknown publisher", và PyInstaller là định dạng hay bị ăn báo nhầm. Muốn tự kiểm:
 
 ```powershell
-certutil -hashfile "$env:USERPROFILE\Downloads\KYLUAT-Setup-v1.6.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\Downloads\KYLUAT-Setup-v1.7.exe" SHA256
 schtasks /Query /TN CaiNghienEnforcer
 netsh advfirewall firewall show rule name=CaiNghienPhone8766
 Get-DnsClientServerAddress -AddressFamily IPv4
@@ -243,7 +243,8 @@ Không có telemetry. Không có tài khoản. File phát hành để trên GitH
 - Android chặn ứng dụng bằng màn khoá, còn trang web thì chỉ lọc được nội dung 18+ qua DNS; chưa chặn tên miền tuỳ ý như Windows.
 - Không có gì là không thể vượt qua. Người quyết định gỡ vẫn là bạn, và lối gỡ luôn còn: màn Nâng cao trong app, `Kyluat-cli.exe turn-off`, hoặc nhấp đúp `Tat_Enforcer_Admin.cmd`. Trên Android, nếu đã bật bước cản gỡ cài đặt thì tắt quyền quản lý thiết bị trong Cài đặt trước khi gỡ; quyền đó luôn tắt được.
 - Chặn web phụ thuộc DNS của máy. Trình duyệt bật DoH, ví dụ Firefox trong Settings → Privacy & Security, thì vẫn vượt được; app tự trỏ tới một máy chủ phân giải riêng cũng vậy. Trên Android, Chrome bật DoH là đi vòng qua bộ lọc 18+.
-- Bộ lọc 18+ trên Android cần Android 8.1 trở lên và chưa được kiểm chứng trên máy thật. Bộ thiết lập lần đầu, tự cập nhật và bước cản gỡ cài đặt cũng mới kiểm bằng unit test, ảnh chụp Qt và cơ sở dữ liệu tạm, chưa chạy trọn trên thiết bị thật. Luồng xin quyền Administrator của bản Windows chưa được bấm thử trong phiên phát hành này.
+- Bộ lọc 18+ trên Android cần Android 8.1 trở lên và chưa được kiểm chứng trên máy thật.
+- DNS chỉ chặn được tên miền. Nội dung 18+ nằm trong YouTube hoặc trong một trang được phép, hoặc trình duyệt tự bật DoH, thì không đi qua bộ lọc. Nút **Kiểm tra chặn thử** và `adult test` chỉ xác nhận lớp DNS đang chặn tên mẫu, không xác nhận nội dung bên trong trang. Bộ thiết lập lần đầu, tự cập nhật và bước cản gỡ cài đặt cũng mới kiểm bằng unit test, ảnh chụp Qt và cơ sở dữ liệu tạm, chưa chạy trọn trên thiết bị thật. Luồng xin quyền Administrator của bản Windows chưa được bấm thử trong phiên phát hành này.
 
 ## Giấy phép và bảo hành
 

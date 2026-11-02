@@ -123,6 +123,44 @@ class AdultFilterTest {
         assertEquals(1500, fits!!.size)
     }
 
+    @Test
+    fun `edns udp size is capped to 1232`() {
+        val dns = query("example.com").also { put16(it, 10, 1) }
+        val opt = ByteArrayOutputStream().apply {
+            write(0)
+            write16(this, 41)
+            write16(this, 4096)
+            write16(this, 0)
+            write16(this, 0)
+            write16(this, 0)
+        }.toByteArray()
+        val payload = dns + opt
+        val classOffset = dns.size + 3
+        assertEquals(4096, bits(payload, classOffset))
+        val clamped = AdultFilter.clampEdns(payload)
+        assertEquals(1232, bits(clamped, classOffset))
+        assertEquals(4096, bits(payload, classOffset))
+        assertEquals(payload.size, clamped.size)
+        sameBytes(payload.copyOfRange(12, dns.size), clamped.copyOfRange(12, dns.size))
+    }
+
+    @Test
+    fun `edns already small and plain queries are left alone`() {
+        val plain = query("example.com")
+        sameBytes(plain, AdultFilter.clampEdns(plain))
+        val small = query("example.com").also { put16(it, 10, 1) }
+        val opt = ByteArrayOutputStream().apply {
+            write(0)
+            write16(this, 41)
+            write16(this, 512)
+            write16(this, 0)
+            write16(this, 0)
+            write16(this, 0)
+        }.toByteArray()
+        val payload = small + opt
+        assertTrue(payload === AdultFilter.clampEdns(payload))
+    }
+
     private fun query(name: String, id: Int = 0x1234): ByteArray {
         val out = ByteArrayOutputStream()
         write16(out, id)

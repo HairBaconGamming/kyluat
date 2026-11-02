@@ -1,4 +1,4 @@
-"""Sinh danh sách domain 18+ cho Android từ nguồn Python duy nhất.
+"""Sinh danh sách domain 18+ cho Android từ enforcer/data/adult_domains.txt.
 
     python tools/sync_adult_list.py
 

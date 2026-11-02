@@ -37,8 +37,63 @@ def domain_matches(qname: str, domain: str) -> bool:
     return name == base or name.endswith("." + base)
 
 
+_ADULT_SET = frozenset(ADULT_DOMAINS)
+
+
 def adult_blocked(qname: str) -> bool:
-    return any(domain_matches(qname, domain) for domain in ADULT_DOMAINS)
+    name = qname.rstrip(".").lower()
+    start = 0
+    while True:
+        if name[start:] in _ADULT_SET:
+            return True
+        dot = name.find(".", start)
+        if dot < 0:
+            return False
+        start = dot + 1
+
+
+def local_query(name: str, timeout: float = 2.0) -> list[str] | None:
+    """Hỏi đúng sinkhole ở 127.0.0.1, không đi qua DNS hệ thống."""
+    sock = None
+    try:
+        from dnslib import DNSRecord
+
+        query = DNSRecord.question(name, "A")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+        sock.sendto(query.pack(), ("127.0.0.1", 53))
+        data, _ = sock.recvfrom(4096)
+        reply = DNSRecord.parse(data)
+        if reply.header.rcode == 3:
+            return ["NXDOMAIN"]
+        return [str(rr.rdata) for rr in reply.rr]
+    except Exception:
+        return None
+    finally:
+        if sock is not None:
+            sock.close()
+
+
+def adult_selftest() -> tuple[bool, bool, str]:
+    adult = local_query("pornhub.com")
+    safe = local_query("example.com")
+    if adult is None or safe is None:
+        return False, False, (
+            "Không thấy bộ lọc DNS ở 127.0.0.1:53. Bấm Bật chặn web trước, rồi thử lại."
+        )
+    blocked = any(value in ("0.0.0.0", "::", "NXDOMAIN") for value in adult)
+    safe_ok = any(value not in ("0.0.0.0", "::", "NXDOMAIN") for value in safe)
+    if blocked and safe_ok:
+        return True, True, (
+            "Bộ lọc đang chặn đúng: tên mẫu người lớn không phân giải được, tên an toàn vẫn mở.\n\n"
+            "Lưu ý: trình duyệt tự bật DNS-over-HTTPS hoặc một VPN khác vẫn có thể đi vòng qua lớp này."
+        )
+    if not blocked:
+        return False, safe_ok, (
+            "Bộ lọc chưa chặn tên mẫu. Kiểm tra xem đã bật chặn web chưa, DNS card mạng có trỏ về "
+            "127.0.0.1 không, và trình duyệt có đang bật DoH không."
+        )
+    return True, False, "Bộ lọc đang chặn cả tên miền an toàn; kiểm tra lại cấu hình DNS."
 
 
 def upstreams_for(config: Config) -> tuple[str, ...]:
