@@ -179,7 +179,7 @@ export default function Page() {
                 <figcaption>Hộp thoại Tắt bảo vệ</figcaption>
               </figure>
             </div>
-            <h3 style={{ margin: '32px 0 14px', fontSize: '17px' }}>Trên điện thoại</h3>
+            <h3 className="subhead">Trên điện thoại</h3>
             <div className="gallery phones">
               <figure className="shot phone-shot">
                 <img src="/assets/img/android-hom-nay.png" alt="Màn Hôm nay trên điện thoại: đồng hồ phiên tập trung, vòng quỹ mạng xã hội còn 42 phút và ba ô số liệu" width="1080" height="2608" loading="lazy" />
@@ -198,11 +198,11 @@ export default function Page() {
                 <figcaption>Màn khoá lúc hết quỹ</figcaption>
               </figure>
             </div>
-            <p className="note" style={{ marginTop: '16px' }}>
+            <p className="note below">
               <Icon name="info" />
               <span>Ảnh điện thoại dựng lại bằng code từ đúng màu, chữ và số đo trong mã giao diện, không phải ảnh chụp thiết bị, và icon ứng dụng để dạng ô trung tính.</span>
             </p>
-            <p className="note" style={{ marginTop: '10px' }}>
+            <p className="note below">
               <Icon name="info" />
               <span>Phần kỹ thuật nằm riêng ở màn Nâng cao. Bạn không cần mở nó vẫn dùng được.</span>
             </p>
@@ -265,7 +265,7 @@ export default function Page() {
                 </figure>
               </div>
             </div>
-            <div className="grid two" style={{ marginTop: '40px' }}>
+            <div className="grid two below-lg">
               <div className="card principle">
                 <span className="ico"><Icon name="phone" /></span>
                 <div>
@@ -303,7 +303,7 @@ export default function Page() {
                 </div>
               </div>
             </div>
-            <p className="note warn" style={{ marginTop: '16px' }}>
+            <p className="note warn below">
               <Icon name="alert" />
               <span>Ảnh điện thoại dựng lại bằng code từ màu, chữ và số đo trong mã giao diện, không phải ảnh chụp từ máy thật.</span>
             </p>
@@ -323,7 +323,7 @@ export default function Page() {
                   <span className="ico"><Icon name="desktop" /></span>
                   <div>
                     <h3>Windows 10 và 11 (64-bit)</h3>
-                    <p className="lede" style={{ fontSize: '14px' }}>Bộ cài v1.8, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
+                    <p className="lede sm">Bộ cài v1.8, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
                   </div>
                 </div>
                 <ul>
@@ -340,7 +340,7 @@ export default function Page() {
                   <span className="ico"><Icon name="phone" /></span>
                   <div>
                     <h3>Android 8.0 trở lên</h3>
-                    <p className="lede" style={{ fontSize: '14px' }}>File <code>APK</code>, cài thủ công.</p>
+                    <p className="lede sm">File <code>APK</code>, cài thủ công.</p>
                   </div>
                 </div>
                 <ul>
@@ -491,21 +491,53 @@ export default function Page() {
               <p className="eyebrow">Quyền riêng tư</p>
               <h2>Có và không, nói thẳng</h2>
             </div>
-            <div className="block" style={{ overflowX: 'auto' }}>
-              <table>
+            <div className="block table-wrap">
+              <table className="stack">
                 <caption>Đối chiếu những gì dự án có và không có ở bản phát hành này.</caption>
                 <thead>
                   <tr><th scope="col">Nội dung</th><th scope="col">Kỷ luật</th><th scope="col">Ghi chú</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>Tài khoản đăng nhập</td><td className="no">Không có</td><td className="no">Mở là dùng, không định danh ai.</td></tr>
-                  <tr><td>Máy chủ riêng của dự án</td><td className="no">Không có</td><td className="no">File phát hành để trên GitHub.</td></tr>
-                  <tr><td>Phân tích truy cập trong app</td><td className="no">Không có</td><td className="no">Không gửi số liệu dùng ra ngoài.</td></tr>
-                  <tr><td>Đọc nội dung màn hình</td><td className="no">Không</td><td className="no">Chỉ ghi nhận tên app đang mở.</td></tr>
-                  <tr><td>Lịch sử chặn và check-in</td><td className="yes">Có, trên máy bạn</td><td className="no">Một file SQLite, bạn xoá được.</td></tr>
-                  <tr><td>Mã hoá dữ liệu</td><td className="no">Không</td><td className="no">File nằm mở, ai dùng máy bạn đọc được.</td></tr>
-                  <tr><td>Mã ghép nối điện thoại</td><td className="yes">Có</td><td className="no">Key trong Android Keystore, chỉ dùng trong mạng nội bộ.</td></tr>
-                  <tr><td>Sao lưu tự động</td><td className="yes">Có</td><td className="no">Giữ 7 bản gần nhất trong thư mục backups.</td></tr>
+                  <tr>
+                    <td>Tài khoản đăng nhập</td>
+                    <td className="no" data-label="Kỷ luật">Không có</td>
+                    <td className="no" data-label="Ghi chú">Mở là dùng, không định danh ai.</td>
+                  </tr>
+                  <tr>
+                    <td>Máy chủ riêng của dự án</td>
+                    <td className="no" data-label="Kỷ luật">Không có</td>
+                    <td className="no" data-label="Ghi chú">File phát hành để trên GitHub.</td>
+                  </tr>
+                  <tr>
+                    <td>Phân tích truy cập trong app</td>
+                    <td className="no" data-label="Kỷ luật">Không có</td>
+                    <td className="no" data-label="Ghi chú">Không gửi số liệu dùng ra ngoài.</td>
+                  </tr>
+                  <tr>
+                    <td>Đọc nội dung màn hình</td>
+                    <td className="no" data-label="Kỷ luật">Không</td>
+                    <td className="no" data-label="Ghi chú">Chỉ ghi nhận tên app đang mở.</td>
+                  </tr>
+                  <tr>
+                    <td>Lịch sử chặn và check-in</td>
+                    <td className="yes" data-label="Kỷ luật">Có, trên máy bạn</td>
+                    <td className="no" data-label="Ghi chú">Một file SQLite, bạn xoá được.</td>
+                  </tr>
+                  <tr>
+                    <td>Mã hoá dữ liệu</td>
+                    <td className="no" data-label="Kỷ luật">Không</td>
+                    <td className="no" data-label="Ghi chú">File nằm mở, ai dùng máy bạn đọc được.</td>
+                  </tr>
+                  <tr>
+                    <td>Mã ghép nối điện thoại</td>
+                    <td className="yes" data-label="Kỷ luật">Có</td>
+                    <td className="no" data-label="Ghi chú">Key trong Android Keystore, chỉ dùng trong mạng nội bộ.</td>
+                  </tr>
+                  <tr>
+                    <td>Sao lưu tự động</td>
+                    <td className="yes" data-label="Kỷ luật">Có</td>
+                    <td className="no" data-label="Ghi chú">Giữ 7 bản gần nhất trong thư mục backups.</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -519,7 +551,7 @@ export default function Page() {
               <h2>Mười phút là xong một tuần bảo vệ</h2>
               <p className="lede">Tải về, khai ba cái tên bạn ghét nhất, đặt một khung giờ. Ngày mai máy sẽ nhắc bạn bằng cách im lặng chặn app.</p>
             </div>
-            <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div className="actions">
               <a className="btn primary" href="/tai-nguyen">Tải về</a>
               <a className="btn" href="/huong-dan">Đọc hướng dẫn cài đặt</a>
             </div>

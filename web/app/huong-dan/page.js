@@ -11,15 +11,17 @@ export const metadata = {
 export default function Page() {
   return (
     <main id="main">
-      <section className="hero" style={{ paddingBottom: '32px' }}>
-          <div className="wrap" style={{ display: 'block' }}>
-            <p className="eyebrow">Hướng dẫn</p>
-            <h1>Mười phút là vào nền nếp</h1>
-            <p className="lede" style={{ marginTop: '12px' }}>Bạn chỉ cần làm phần Windows. Phần Android là tuỳ chọn, dùng khi bạn muốn quản luôn điện thoại.</p>
+      <section className="hero compact">
+          <div className="wrap">
+            <div>
+              <p className="eyebrow">Hướng dẫn</p>
+              <h1>Mười phút là vào nền nếp</h1>
+              <p className="lede below">Bạn chỉ cần làm phần Windows. Phần Android là tuỳ chọn, dùng khi bạn muốn quản luôn điện thoại.</p>
+            </div>
           </div>
         </section>
 
-        <section className="alt" id="windows" style={{ paddingTop: '48px' }}>
+        <section className="alt tight" id="windows">
           <div className="wrap prose">
             <h2>Windows</h2>
 
@@ -36,7 +38,7 @@ export default function Page() {
               <p>Cùng màn hình đó có mục <strong>Trang web</strong> cho tên miền. Thêm tên miền là chặn luôn các trang con.</p>
               <p>Ngay đầu màn là khối <strong>Nội dung 18+</strong>. Gạt <strong>Chặn trang người lớn</strong> là chặn hơn 200.000 tên miền có sẵn suốt ngày đêm, không chờ giờ tập trung. Luật này cần bật chặn web: bấm nút <strong>Bật chặn web</strong> ngay dưới công tắc (cần Administrator), hoặc làm ở bước 4. Tắt công tắc thì chờ 60 giây suy nghĩ, không cần gõ cam kết.</p>
               <p>Bên dưới là công tắc <strong>Chặn ảnh 18+ trên trình duyệt</strong>. Bật thì daemon chụp cửa sổ trình duyệt đang mở khoảng 4 giây một lần, chấm bằng mô hình ngay trên máy; thấy nội dung thì thu nhỏ cửa sổ và báo. Ảnh không được lưu hay gửi đi, tắt công tắc là dừng ngay. Có thể nhận nhầm ảnh bơi lội hoặc em bé.</p>
-              <figure className="shot" style={{ marginTop: '14px' }}>
+              <figure className="shot below">
                 <img src="/assets/img/desktop-them-app.png" alt="Hộp thoại Thêm app với danh sách ứng dụng đang cài trên máy, có ô tìm kiếm" width="580" height="620" loading="lazy" />
                 <figcaption>Hộp thoại Thêm app: chọn từ danh sách cài thật, không có gợi ý tự động.</figcaption>
               </figure>
@@ -185,30 +187,30 @@ export default function Page() {
             <div className="grid two">
               <div className="card">
                 <h3>Trang web không bị chặn</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Kiểm tra <code>Kyluat-cli.exe net status</code>. Firefox tắt DoH thủ công trong Settings → Privacy &amp; Security.</p>
+                <p className="muted">Kiểm tra <code>Kyluat-cli.exe net status</code>. Firefox tắt DoH thủ công trong Settings → Privacy &amp; Security.</p>
               </div>
               <div className="card">
                 <h3>Điện thoại không tìm thấy máy tính</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Mở firewall bằng PowerShell Administrator: <code>.\Kyluat-cli.exe phone firewall</code>. Router bật cách ly thiết bị thì không ghép được.</p>
+                <p className="muted">Mở firewall bằng PowerShell Administrator: <code>.\Kyluat-cli.exe phone firewall</code>. Router bật cách ly thiết bị thì không ghép được.</p>
               </div>
               <div className="card">
                 <h3>Màn khoá Android không hiện lên app</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Kiểm tra hai quyền ở màn <strong>Cài đặt</strong> → <strong>Quyền</strong>, rồi mở tab <strong>Bảo vệ</strong> xác nhận app đó đã được gạt công tắc. Thiếu một trong hai thì không có màn khoá.</p>
+                <p className="muted">Kiểm tra hai quyền ở màn <strong>Cài đặt</strong> → <strong>Quyền</strong>, rồi mở tab <strong>Bảo vệ</strong> xác nhận app đó đã được gạt công tắc. Thiếu một trong hai thì không có màn khoá.</p>
               </div>
               <div className="card">
                 <h3>Bộ lọc 18+ trên Android chưa chặn được</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Tab <strong>Bảo vệ</strong> phải ghi <strong>Đang lọc từng truy vấn DNS của máy</strong>. Máy dưới Android 8.1 không hiện công tắc này. Công tắc tự tắt nghĩa là không mở được đường hầm hoặc không gọi được máy chủ phân giải, lý do nằm trong thông báo. App tự tra DNS riêng, ví dụ Chrome bật DoH, thì đi vòng qua bộ lọc.</p>
+                <p className="muted">Tab <strong>Bảo vệ</strong> phải ghi <strong>Đang lọc từng truy vấn DNS của máy</strong>. Máy dưới Android 8.1 không hiện công tắc này. Công tắc tự tắt nghĩa là không mở được đường hầm hoặc không gọi được máy chủ phân giải, lý do nằm trong thông báo. App tự tra DNS riêng, ví dụ Chrome bật DoH, thì đi vòng qua bộ lọc.</p>
               </div>
               <div className="card">
                 <h3>Mạng bị mất sau khi tắt máy đột ngột</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>DNS còn trỏ về máy bạn. Chạy <code>.\Kyluat-cli.exe net uninstall</code> bằng quyền Administrator là về cũ.</p>
+                <p className="muted">DNS còn trỏ về máy bạn. Chạy <code>.\Kyluat-cli.exe net uninstall</code> bằng quyền Administrator là về cũ.</p>
               </div>
               <div className="card">
                 <h3>Muốn biết hôm nay máy đã chặn gì</h3>
-                <p style={{ margin: '0', color: 'var(--ink-2)' }}>Màn <strong>Nâng cao</strong> → <strong>Nhật ký gần đây</strong>. Lịch sử nằm trong <code>data\enforcer.db</code>.</p>
+                <p className="muted">Màn <strong>Nâng cao</strong> → <strong>Nhật ký gần đây</strong>. Lịch sử nằm trong <code>data\enforcer.db</code>.</p>
               </div>
             </div>
-            <p className="note" style={{ marginTop: '16px' }}>
+            <p className="note below">
               <Icon name="info" />
               <span>Đây là dự án cá nhân, không có kênh hỗ trợ. Bạn tự đọc lỗi và tự sửa là chính.</span>
             </p>
@@ -226,7 +228,7 @@ export default function Page() {
               <li>Bộ lọc 18+ trên Android cần Android 8.1 trở lên.</li>
               <li>Không có gì là không thể vượt qua. Người quyết định gỡ vẫn là bạn.</li>
             </ul>
-            <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px' }}>
+            <div className="actions below">
               <a className="btn primary" href="/tai-nguyen">Tải về</a>
               <a className="btn" href="/?q=faq-tat#hoi-dap">Cách tắt hẳn bảo vệ</a>
             </div>

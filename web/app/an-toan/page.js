@@ -16,16 +16,18 @@ export default function Page() {
   return (
     <main id="main">
       <section className="hero">
-        <div className="wrap" style={{ display: "block" }}>
-          <p className="eyebrow">Vì sao an toàn</p>
-          <h1>Không phải virus, và bạn kiểm tra được từng câu</h1>
-          <p className="lede" style={{ marginTop: "12px" }}>
-            Trang này liệt kê mọi thứ Kỷ luật đụng vào trên Windows, cái nào cần quyền quản trị, và cách hoàn tác từng cái.
-          </p>
-          <p className="note" style={{ marginTop: "18px" }}>
-            <Icon name="shield" />
-            <span>Toàn bộ mã nguồn mở nằm ở <a href="https://github.com/HairBaconGamming/kyluat">github.com/HairBaconGamming/kyluat</a>. Không có mã nào chỉ chạy trên máy chủ người bán.</span>
-          </p>
+        <div className="wrap">
+          <div>
+            <p className="eyebrow">Vì sao an toàn</p>
+            <h1>Không phải virus, và bạn kiểm tra được từng câu</h1>
+            <p className="lede below">
+              Trang này liệt kê mọi thứ Kỷ luật đụng vào trên Windows, cái nào cần quyền quản trị, và cách hoàn tác từng cái.
+            </p>
+            <p className="note below">
+              <Icon name="shield" />
+              <span>Toàn bộ mã nguồn mở nằm ở <a href="https://github.com/HairBaconGamming/kyluat">github.com/HairBaconGamming/kyluat</a>. Không có mã nào chỉ chạy trên máy chủ người bán.</span>
+            </p>
+          </div>
         </div>
       </section>
 
@@ -55,8 +57,8 @@ export default function Page() {
             <h2>Tám thứ thay đổi, và cách hoàn tác</h2>
             <p className="lede">Phần mềm chặn xao nhãng phải đụng vào hệ thống nhiều hơn một app ghi chú. Nên danh sách này là đủ, không có mục ẩn.</p>
           </div>
-          <div className="block" style={{ overflowX: "auto" }}>
-            <table>
+          <div className="block table-wrap">
+            <table className="stack">
               <caption>Mặc định app chỉ ghi trong thư mục của riêng bạn. Chỉ mục DNS và registry cần quyền Administrator, và chỉ bật khi bạn chủ động chọn chặn web.</caption>
               <thead>
                 <tr><th scope="col">Thành phần</th><th scope="col">Khi nào có</th><th scope="col">Hoàn tác</th></tr>
@@ -64,43 +66,43 @@ export default function Page() {
               <tbody>
                 <tr>
                   <td>Thư mục <code>%LOCALAPPDATA%\Programs\Kyluat</code></td>
-                  <td>Khi chạy bộ cài</td>
-                  <td>Add or remove programs, không đòi quyền quản trị</td>
+                  <td data-label="Khi nào có">Khi chạy bộ cài</td>
+                  <td data-label="Hoàn tác">Add or remove programs, không đòi quyền quản trị</td>
                 </tr>
                 <tr>
                   <td><code>data\enforcer.db</code> và <code>data\backups\</code></td>
-                  <td>Lần chạy đầu, rồi mỗi ngày</td>
-                  <td>Xóa thư mục <code>data</code> là mất hết lịch sử</td>
+                  <td data-label="Khi nào có">Lần chạy đầu, rồi mỗi ngày</td>
+                  <td data-label="Hoàn tác">Xóa thư mục <code>data</code> là mất hết lịch sử</td>
                 </tr>
                 <tr>
                   <td>Scheduled Task <code>CaiNghienEnforcer</code></td>
-                  <td>Khi bạn bấm giữ cho app tự bật lại</td>
-                  <td>Nút Tắt bảo vệ, hoặc <code>Kyluat-cli.exe turn-off</code></td>
+                  <td data-label="Khi nào có">Khi bạn bấm giữ cho app tự bật lại</td>
+                  <td data-label="Hoàn tác">Nút Tắt bảo vệ, hoặc <code>Kyluat-cli.exe turn-off</code></td>
                 </tr>
                 <tr>
                   <td>DNS của card mạng trỏ về <code>127.0.0.1</code></td>
-                  <td>Chỉ khi bật chặn web (cần Administrator)</td>
-                  <td>Tắt bảo vệ khôi phục đúng DNS cũ đã sao lưu; <code>net repair</code> nếu đứt</td>
+                  <td data-label="Khi nào có">Chỉ khi bật chặn web (cần Administrator)</td>
+                  <td data-label="Hoàn tác">Tắt bảo vệ khôi phục đúng DNS cũ đã sao lưu; <code>net repair</code> nếu đứt</td>
                 </tr>
                 <tr>
                   <td>Chính sách DoH của Chrome và Edge trong registry</td>
-                  <td>Chỉ khi bật chặn web (cần Administrator)</td>
-                  <td>Tắt bảo vệ trả về giá trị cũ của từng trình duyệt</td>
+                  <td data-label="Khi nào có">Chỉ khi bật chặn web (cần Administrator)</td>
+                  <td data-label="Hoàn tác">Tắt bảo vệ trả về giá trị cũ của từng trình duyệt</td>
                 </tr>
                 <tr>
                   <td>Rule tường lửa <code>CaiNghienPhone8766</code></td>
-                  <td>Chỉ khi ghép nối điện thoại, áp dụng cho mạng riêng tư</td>
-                  <td>Tắt bảo vệ xóa rule này</td>
+                  <td data-label="Khi nào có">Chỉ khi ghép nối điện thoại, áp dụng cho mạng riêng tư</td>
+                  <td data-label="Hoàn tác">Tắt bảo vệ xóa rule này</td>
                 </tr>
                 <tr>
                   <td>Ảnh màn hình, chỉ trong bộ nhớ</td>
-                  <td>Chỉ khi bật <strong>Chặn ảnh 18+</strong>, mặc định tắt</td>
-                  <td>Tắt công tắc là dừng ngay; không có ảnh nào được ghi ra đĩa</td>
+                  <td data-label="Khi nào có">Chỉ khi bật <strong>Chặn ảnh 18+</strong>, mặc định tắt</td>
+                  <td data-label="Hoàn tác">Tắt công tắc là dừng ngay; không có ảnh nào được ghi ra đĩa</td>
                 </tr>
                 <tr>
                   <td>Lối tắt Start Menu và màn hình nền</td>
-                  <td>Khi chạy bộ cài</td>
-                  <td>Bộ gỡ xóa cả hai</td>
+                  <td data-label="Khi nào có">Khi chạy bộ cài</td>
+                  <td data-label="Hoàn tác">Bộ gỡ xóa cả hai</td>
                 </tr>
               </tbody>
             </table>
@@ -133,7 +135,7 @@ export default function Page() {
             <Icon name="alert" />
             <span>Vì đường đó tồn tại, bật chặn web đồng nghĩa nhà cung cấp DNS của bạn chuyển từ nhà mạng sang Cloudflare hoặc Google, và sang AdGuard Family khi luật 18+ bật. Tắt chặn web là trả về cũ.</span>
           </p>
-          <div className="block" style={{ marginTop: "18px" }}>
+          <div className="block below">
             <h3>Tự kiểm tra bản mới gửi gì</h3>
             <p>Bản Android đọc danh sách bản phát hành công khai trên GitHub, giống mở trang release bằng trình duyệt. GitHub thấy địa chỉ IP và tên app gửi kèm; không có mã thiết bị, không danh sách app, không số liệu sử dụng.</p>
             <p>Khi bạn bấm Cập nhật, app tải đúng file <code>kyluat-android-vX.apk</code> của repo này. Android kiểm tra chữ ký trước khi cài nên file ký bằng key khác bị từ chối, và bạn vẫn phải xác nhận trong hộp thoại cài đặt của hệ thống.</p>
@@ -301,7 +303,7 @@ Get-DnsClientServerAddress -AddressFamily IPv4`}</code></pre>
               <p>Dự án cá nhân, không nhà hỗ trợ, không cam kết tương thích với mọi bản Windows. Có lỗi thì mở issue trên GitHub.</p>
             </div>
           </div>
-          <div className="actions" style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "26px" }}>
+          <div className="actions below-lg">
             <a className="btn primary" href="/tai-nguyen">Tải về</a>
             <a className="btn" href="/huong-dan">Hướng dẫn cài đặt</a>
           </div>

@@ -16,25 +16,27 @@ export const metadata = {
 export default function Page() {
   return (
     <main id="main">
-      <section className="hero" style={{ paddingBottom: '40px' }}>
-          <div className="wrap" style={{ display: 'block' }}>
-            <p className="eyebrow">Tải về</p>
-            <h1>Ba file, có số để kiểm tra</h1>
-            <p className="lede" style={{ marginTop: '12px' }}>File phát hành nằm trên GitHub. Sau khi tải, chạy <code>certutil -hashfile ten_file SHA256</code> rồi so với dãy bên dưới.</p>
+      <section className="hero compact">
+          <div className="wrap">
+            <div>
+              <p className="eyebrow">Tải về</p>
+              <h1>Ba file, có số để kiểm tra</h1>
+              <p className="lede below">File phát hành nằm trên GitHub. Sau khi tải, chạy <code>certutil -hashfile ten_file SHA256</code> rồi so với dãy bên dưới.</p>
+            </div>
           </div>
         </section>
 
-        <section className="alt" id="windows" style={{ paddingTop: '48px' }}>
+        <section className="alt tight" id="windows">
           <div className="wrap">
             <div className="panel">
               <div className="top">
                 <span className="ico"><Icon name="desktop" /></span>
                 <div>
                   <h3>Windows 10 và 11, bản 64-bit</h3>
-                  <p className="lede" style={{ fontSize: '14px' }}>Chạy <code>KYLUAT-Setup-v1.8.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
+                  <p className="lede sm">Chạy <code>KYLUAT-Setup-v1.8.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
                 </div>
               </div>
-              <div style={{ display: 'grid', gap: '10px' }}>
+              <div className="files">
                 <div className="file">
                   <span className="name">{WINDOWS.file}</span>
                   <span className="meta">{`${WINDOWS.size} · ${WINDOWS.note}`}</span>
@@ -61,10 +63,10 @@ export default function Page() {
                 </div>
                 <div className="card">
                   <h3>Windows sẽ cảnh báo một lần</h3>
-                  <p style={{ margin: '0', color: 'var(--ink-2)', fontSize: '14px' }}>File chưa mua chứng chỉ chữ ký số nên SmartScreen hiện "Unknown publisher". Chọn <strong>More info</strong> rồi <strong>Run anyway</strong> sau khi đã so SHA-256 ở trên. Vì sao file này không phải virus thì giải thích từng câu ở <a href="/an-toan">trang an toàn</a>.</p>
+                  <p className="muted">File chưa mua chứng chỉ chữ ký số nên SmartScreen hiện "Unknown publisher". Chọn <strong>More info</strong> rồi <strong>Run anyway</strong> sau khi đã so SHA-256 ở trên. Vì sao file này không phải virus thì giải thích từng câu ở <a href="/an-toan">trang an toàn</a>.</p>
                 </div>
               </div>
-              <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div className="actions">
                 <a className="btn primary" href={WINDOWS.url}>Tải bộ cài .exe</a>
                 <a className="btn" href={WINDOWS_ZIP.url}>Tải bản nén .zip</a>
                 <a className="btn" href="/huong-dan#windows">Xem hướng dẫn cài</a>
@@ -80,7 +82,7 @@ export default function Page() {
                 <span className="ico"><Icon name="phone" /></span>
                 <div>
                   <h3>Android 8.0 trở lên</h3>
-                  <p className="lede" style={{ fontSize: '14px' }}>Cài file APK thủ công. Không lên CH Play.</p>
+                  <p className="lede sm">Cài file APK thủ công. Không lên CH Play.</p>
                 </div>
               </div>
               <div className="file">
@@ -104,10 +106,10 @@ export default function Page() {
                 </div>
                 <div className="card">
                   <h3>Play Protect có thể hỏi bạn một lần</h3>
-                  <p style={{ margin: '0', color: 'var(--ink-2)', fontSize: '14px' }}>File được ký bằng key phát hành riêng, không phải chữ ký debug, nhưng app không lên CH Play nên Google vẫn chưa nhận ra người gửi. Nếu máy báo "ứng dụng chưa được xác minh", so SHA-256 ở trên rồi chọn cài tiếp.</p>
+                  <p className="muted">File được ký bằng key phát hành riêng, không phải chữ ký debug, nhưng app không lên CH Play nên Google vẫn chưa nhận ra người gửi. Nếu máy báo "ứng dụng chưa được xác minh", so SHA-256 ở trên rồi chọn cài tiếp.</p>
                 </div>
               </div>
-              <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div className="actions">
                 <a className="btn primary" href={ANDROID.url}>Tải file .apk</a>
                 <a className="btn" href="/huong-dan#android">Xem hướng dẫn cài</a>
               </div>
@@ -121,8 +123,8 @@ export default function Page() {
               <p className="eyebrow">Phiên bản</p>
               <h2>Lịch sử phát hành</h2>
             </div>
-            <div className="block" style={{ overflowX: 'auto' }}>
-              <table>
+            <div className="block table-wrap">
+              <table className="stack timeline">
                 <caption>Bản Windows 1.1 là bản đầu tiên có bộ cài đặt.</caption>
                 <thead>
                   <tr><th scope="col">Bản</th><th scope="col">Ngày</th><th scope="col">Thay đổi</th></tr>

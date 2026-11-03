@@ -7,6 +7,11 @@ const PATHS = {
     </>
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  close: (
+    <>
+      <path d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5" />
+    </>
+  ),
   download: (
     <>
       <path d="M12 4.5v11" />
