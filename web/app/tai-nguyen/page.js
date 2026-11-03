@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.14</td>
+                    <td>03/11/2026</td>
+                    <td>Lịch focus trên máy tính không còn khoá điện thoại: chỉ phiên bật tay mới chặn app và cấm tiêu quỹ, nên <strong>Nghỉ có kiểm soát</strong> mở được bình thường; khi vẫn bị chặn thì hộp thoại nêu đúng nguyên nhân. Nút <strong>Tắt bảo vệ</strong> thay bằng công tắc <strong>Bảo vệ</strong>, tắt vẫn phải qua 3 bước cản. Tự cập nhật lấy bản APK lớn nhất trong release và kiểm tra mỗi 12 giờ dù không mở app. Sửa icon bị ẩn trong ô app.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Windows 1.8</td>
                     <td>03/11/2026</td>
                     <td>Thêm công tắc <strong>Chặn ảnh 18+ trên trình duyệt</strong>: mô hình chạy trên máy đọc cửa sổ trình duyệt đang mở, thu nhỏ cửa sổ khi phát hiện. Ảnh không lưu, không gửi đi; lệnh kiểm tra <code>adult visual</code>.</td>
