@@ -82,7 +82,7 @@ export default function Page() {
                 <tr>
                   <td>DNS của card mạng trỏ về <code>127.0.0.1</code></td>
                   <td data-label="Khi nào có">Chỉ khi bật chặn web (cần Administrator)</td>
-                  <td data-label="Hoàn tác">Tắt bảo vệ khôi phục đúng DNS cũ đã sao lưu; <code>net repair</code> nếu đứt</td>
+                  <td data-label="Hoàn tác">Tắt bảo vệ đọc thẳng card mạng rồi trả DNS về máy; nếu bộ lọc chết giữa chừng, app tự trả DNS trong khoảng hai phút</td>
                 </tr>
                 <tr>
                   <td>Chính sách DoH của Chrome và Edge trong registry</td>
@@ -175,7 +175,7 @@ export default function Page() {
             <p className="lede">Chạy sau khi cài để xem app đã để lại những gì. Mở PowerShell thường, không cần quyền quản trị.</p>
           </div>
           <pre className="code"><code>{`# 1. Dung lượng và dấu vân tay của bộ cài
-certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.8.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\\Downloads\\KYLUAT-Setup-v1.9.exe" SHA256
 
 # 2. App cài ở đâu, trong đó có những file nào
 Get-ChildItem "$env:LOCALAPPDATA\\Programs\\Kyluat"

@@ -33,7 +33,7 @@ export default function Page() {
                 <span className="ico"><Icon name="desktop" /></span>
                 <div>
                   <h3>Windows 10 và 11, bản 64-bit</h3>
-                  <p className="lede sm">Chạy <code>KYLUAT-Setup-v1.8.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
+                  <p className="lede sm">Chạy <code>KYLUAT-Setup-v1.9.exe</code>: app cài vào thư mục của riêng bạn, có lối tắt trong Start Menu, gỡ bằng Add or remove programs. Không đòi quyền quản trị, không cần cài Python.</p>
                 </div>
               </div>
               <div className="files">
@@ -130,6 +130,11 @@ export default function Page() {
                   <tr><th scope="col">Bản</th><th scope="col">Ngày</th><th scope="col">Thay đổi</th></tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td className="yes">Windows 1.9</td>
+                    <td>04/11/2026</td>
+                    <td><strong>Không để mất mạng vì bộ lọc chết.</strong> Máy chỉ trỏ DNS về bộ lọc khi bộ lọc đã trả lời được, và nếu bộ lọc dừng giữa chừng thì app tự trả DNS về máy trong khoảng hai phút rồi báo cho bạn biết. Nút <strong>Tắt bảo vệ</strong> và lệnh gỡ đọc thẳng card mạng, nên cứu được máy kể cả khi dữ liệu app bị mất dấu; màn hình hiện ô đỏ khi mạng đang bị chặn. Chạy nhầm bản Python giờ hiện câu hướng dẫn thay vì lỗi kỹ thuật.</td>
+                  </tr>
                   <tr>
                     <td className="yes">Android 3.14</td>
                     <td>03/11/2026</td>

@@ -323,7 +323,7 @@ export default function Page() {
                   <span className="ico"><Icon name="desktop" /></span>
                   <div>
                     <h3>Windows 10 và 11 (64-bit)</h3>
-                    <p className="lede sm">Bộ cài v1.8, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
+                    <p className="lede sm">Bộ cài v1.9, không đòi quyền quản trị. Lần mở đầu tiên có bộ thiết lập sáu bước.</p>
                   </div>
                 </div>
                 <ul>

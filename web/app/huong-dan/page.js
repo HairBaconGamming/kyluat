@@ -27,7 +27,7 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Chạy bộ cài</h3>
-              <p>Mở <code>KYLUAT-Setup-v1.8.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
+              <p>Mở <code>KYLUAT-Setup-v1.9.exe</code>. App đặt vào <code>%LOCALAPPDATA%\Programs\Kyluat</code> và có lối tắt trong Start Menu; bộ cài không đòi quyền Administrator.</p>
               <p>Không muốn cài gì thì tải bản <code>.zip</code>, giải nén thư mục <code>Kyluat</code> vào nơi bạn muốn rồi mở <code>Kyluat.exe</code>. Ở cách nào, dữ liệu cũng nằm trong <code>data\</code> cạnh file exe, chép cả thư mục là chuyển được máy.</p>
               <p>Lần mở đầu tiên, app hiện bộ thiết lập sáu bước: chọn app và trang web, đặt lịch, mục tiêu, tuỳ chọn chặn web và ghép điện thoại. Bước chọn mục chặn là bắt buộc, các bước còn lại bỏ qua được. Mở lại bằng <strong>Cài đặt</strong> → <strong>Chạy lại thiết lập</strong>.</p>
             </div>

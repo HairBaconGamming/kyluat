@@ -25,8 +25,8 @@ Danh sách app bị chặn không tự sinh ra. Máy không tự đoán cái nà
 
 Bản phát hành có ba file trên GitHub Releases:
 
-- `KYLUAT-Setup-v1.8.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
-- `KYLUAT-windows-x64-v1.8.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
+- `KYLUAT-Setup-v1.9.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
+- `KYLUAT-windows-x64-v1.9.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
 - `kyluat-android-v3.14.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
@@ -90,7 +90,7 @@ DNS không thấy được nội dung bên trong một trang hay một video đ�
 
 Mô hình lấy từ [Déchaîner](https://github.com/warleysr/dechainer), giấy phép Apache-2.0; văn bản giấy phép đi kèm ở `enforcer/data/NOTICE-nsfw-model.txt` và được đóng gói vào cả APK lẫn bản Windows. `Kyluat-cli.exe adult visual` nạp thử mô hình và chấm một ảnh xám, dùng để kiểm tra bản cài mà không cần nội dung thật.
 
-Phần này có trong bản phát hành Windows 1.8 và Android 3.14.
+Phần này có trong bản phát hành Windows 1.9 và Android 3.14.
 
 ## Chạy từ mã nguồn
 
@@ -146,7 +146,7 @@ pip install -r requirements-dev.txt
 python tools/build_windows.py
 ```
 
-Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.8.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.8.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
+Lệnh này chạy PyInstaller theo `packaging/Kyluat.spec`, nén ra `dist\KYLUAT-windows-x64-v1.9.zip`, rồi biên dịch `packaging/kyluat.iss` thành `dist\KYLUAT-Setup-v1.9.exe` và in dung lượng cùng SHA-256 theo đúng định dạng của `web/lib/site.js`.
 
 Thư mục exe có hai file, giống cặp `pythonw`/`python` trong source:
 
@@ -241,7 +241,7 @@ Mạch mạng đi ra ngoài chỉ có DNS và một lần kiểm tra bản mới
 File chưa mua chứng chỉ chữ ký số nên SmartScreen báo "Unknown publisher", và PyInstaller là định dạng hay bị ăn báo nhầm. Muốn tự kiểm:
 
 ```powershell
-certutil -hashfile "$env:USERPROFILE\Downloads\KYLUAT-Setup-v1.8.exe" SHA256
+certutil -hashfile "$env:USERPROFILE\Downloads\KYLUAT-Setup-v1.9.exe" SHA256
 schtasks /Query /TN CaiNghienEnforcer
 netsh advfirewall firewall show rule name=CaiNghienPhone8766
 Get-DnsClientServerAddress -AddressFamily IPv4
