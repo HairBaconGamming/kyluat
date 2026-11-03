@@ -30,14 +30,19 @@ object UpdateChecker {
         return pick(candidates)
     }
 
-    /** Chỉ nhận file APK đúng tên trong release của repo này, bỏ qua mọi thứ khác. */
+    /**
+     * Một release có thể mang theo nhiều file APK (các bản cũ không xoá đi). Chọn bản có số lớn
+     * nhất thay vì file đầu tiên, nếu không máy luôn báo bản cũ nhất trong danh sách.
+     */
     fun pick(candidates: List<Pair<String, String>>): Release? {
+        var best: Release? = null
         for ((name, url) in candidates) {
             val version = APK_NAME.find(name)?.groupValues?.get(1) ?: continue
             if (!url.startsWith(DOWNLOAD_PREFIX)) continue
-            return Release(version, url)
+            val current = best
+            if (current == null || isNewer(version, current.version)) best = Release(version, url)
         }
-        return null
+        return best
     }
 
     fun isNewer(remote: String, current: String): Boolean {

@@ -31,6 +31,22 @@ class UpdateCheckerTest {
         assertEquals(prefix + "kyluat-android-v3.8.apk", release?.url)
     }
 
+    /** Release đang có chứa nhiều APK của các bản cũ; lấy file đầu danh sách là luôn ra bản cũ nhất. */
+    @Test
+    fun `asset pick returns the newest apk when a release ships several`() {
+        val prefix = "https://github.com/HairBaconGamming/kyluat/releases/download/v1.0/"
+        val release = UpdateChecker.pick(
+            listOf(
+                "kyluat-android-v3.10.apk" to prefix + "kyluat-android-v3.10.apk",
+                "KYLUAT-Setup-v1.7.exe" to prefix + "KYLUAT-Setup-v1.7.exe",
+                "kyluat-android-v3.12.apk" to prefix + "kyluat-android-v3.12.apk",
+                "kyluat-android-v3.11.apk" to prefix + "kyluat-android-v3.11.apk",
+            )
+        )
+        assertEquals("3.12", release?.version)
+        assertEquals(prefix + "kyluat-android-v3.12.apk", release?.url)
+    }
+
     @Test
     fun `asset pick rejects foreign hosts and malformed names`() {
         assertNull(

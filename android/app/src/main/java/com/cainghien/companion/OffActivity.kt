@@ -223,6 +223,9 @@ class OffActivity : Activity() {
         finished = true
         prefs.protectionEnabled = false
         prefs.adultFilterEnabled = false
+        prefs.clearLocalFocus()
+        Runtime.remoteManualFocus = false
+        Runtime.focusActive = false
         stopService(Intent(this, AdultDnsVpnService::class.java))
         QuotaManager(prefs).stopBreak()
         releaseUninstallGuard()

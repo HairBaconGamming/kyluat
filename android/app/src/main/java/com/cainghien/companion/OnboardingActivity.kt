@@ -33,7 +33,7 @@ class OnboardingActivity : Activity() {
     private lateinit var secure: SecureStore
     private lateinit var quota: QuotaManager
     private val executor = Executors.newSingleThreadExecutor()
-    private val icons = LruCache<String, Drawable>(80)
+    private val icons = LruCache<String, Drawable.ConstantState>(80)
     private var apps: List<AppEntry>? = null
     private var step = 0
     private var quotaChoice = 60
@@ -296,6 +296,7 @@ class OnboardingActivity : Activity() {
         })
         body.addView(rows)
         addTop(body, note("Android luôn cho bạn thu hồi hai quyền này trong Cài đặt. Kỷ luật không đọc nội dung màn hình."), 14)
+        if (!accessibilityGranted()) addTop(body, Ui.restrictedCard(this) { Apps.openAppInfo(this) }, 6)
     }
 
     private fun permissionRow(
@@ -564,7 +565,7 @@ class OnboardingActivity : Activity() {
         val pair = secure.load() != null
         val pc = Ui.row(this, Ui.tile(this, R.drawable.ic_desktop, Tone.ACCENT))
         pc.title("Kết nối máy tính")
-        pc.subtitle("Bắt đầu phiên tập trung và nhìn chung lịch học")
+        pc.subtitle("Đồng bộ lịch học và phiên focus với máy tính · không bắt buộc")
         pc.status(if (pair) "Đã ghép" else "Chưa ghép", if (pair) Ui.ACCENT else Ui.TEXT_3)
         pc.trailing(Ui.chevron(this))
         pc.setPadding(dp(13), dp(12), dp(13), dp(12))
@@ -652,7 +653,11 @@ class OnboardingActivity : Activity() {
         addSummaryRow(card, "Quỹ mỗi ngày", "${quota.limitMinutes} phút", false, 3)
         addSummaryRow(card, "App tập gym", Apps.label(this, prefs.gymPackage), false, 3)
         val pair = secure.load() != null
-        addSummaryRow(card, "Máy tính", if (pair) "Đã ghép" else "Chưa ghép", !pair, 4)
+        addSummaryRow(
+            card, "Máy tính",
+            if (pair) "Đã ghép" else "Chưa ghép · chỉ để đồng bộ",
+            false, 4,
+        )
         addSummaryRow(card, "Lọc 18+", if (prefs.adultFilterEnabled) "Bật" else "Tắt", !prefs.adultFilterEnabled, 4)
         addTop(body, card, 16)
 
@@ -837,10 +842,10 @@ class OnboardingActivity : Activity() {
     }
 
     private fun iconFor(packageName: String): Drawable? {
-        icons.get(packageName)?.let { return it }
+        icons.get(packageName)?.let { return it.newDrawable(resources).mutate() }
         val drawable = Apps.icon(this, packageName) ?: return null
-        icons.put(packageName, drawable)
-        return drawable
+        drawable.constantState?.let { icons.put(packageName, it) }
+        return drawable.mutate()
     }
 
     private fun overlayGranted(): Boolean = Settings.canDrawOverlays(this)

@@ -316,6 +316,46 @@ object Ui {
         return box
     }
 
+    /**
+     * Android gắn nhãn "nguồn chưa được tin" cho app cài từ file APK nên xám công tắc Trợ năng.
+     * Menu "Cho phép cài đặt bị hạn chế" chỉ hiện sau khi người dùng đã chạm vào công tắc một lần.
+     */
+    fun restrictedCard(context: Context, onOpenAppInfo: () -> Unit): LinearLayout {
+        val box = card(context, padDp = 13)
+        box.addView(eyebrow(context, "Android đang khoá công tắc Trợ năng", WARN))
+        val lede = label(
+            context,
+            "App cài từ file APK bị hệ thống coi là nguồn chưa được tin. Làm đúng thứ tự:",
+            12f,
+            TEXT_2,
+        )
+        lede.setLineSpacing(0f, 1.45f)
+        box.addView(lede, match(context, topMarginDp = 7))
+        listOf(
+            "Chạm Trợ năng ở trên, rồi bấm OK khi Android hỏi.",
+            "Ở trang vừa mở: ba chấm góc phải → Cho phép cài đặt bị hạn chế.",
+            "Quay lại Trợ năng và bật Kỷ luật.",
+        ).forEachIndexed { index, text ->
+            val line = LinearLayout(context)
+            line.orientation = LinearLayout.HORIZONTAL
+            val number = label(context, "${index + 1}", 11f, ACCENT, true)
+            number.gravity = Gravity.CENTER
+            number.background = rounded(ACCENT_SOFT, 999, context, ACCENT_LINE)
+            line.addView(number, LinearLayout.LayoutParams(dp(context, 19), dp(context, 19)).apply {
+                rightMargin = dp(context, 8)
+                topMargin = dp(context, 2)
+            })
+            val body = label(context, text, 12f, TEXT_2)
+            body.setLineSpacing(0f, 1.45f)
+            line.addView(body, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            box.addView(line, match(context, topMarginDp = 8))
+        }
+        val open = button(context, "Mở trang app Kỷ luật", Variant.QUIET)
+        open.setOnClickListener { onOpenAppInfo() }
+        box.addView(open, match(context, topMarginDp = 10))
+        return box
+    }
+
     fun quote(context: Context, text: String): TextView {
         val view = TextView(context)
         view.text = text
@@ -707,6 +747,8 @@ class UiTile(context: Context, private val sizeDp: Int, iconRes: Int, tone: Tone
     // UiRow thêm tile bằng WRAP_CONTENT, nên phải tự giữ kích thước thay vì để icon MATCH_PARENT phình ra.
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val size = Ui.dp(context, sizeDp)
+        val exact = MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY)
+        super.onMeasure(exact, exact)
         setMeasuredDimension(size, size)
     }
 
@@ -744,6 +786,7 @@ class UiTile(context: Context, private val sizeDp: Int, iconRes: Int, tone: Tone
             width = LayoutParams.MATCH_PARENT
             height = LayoutParams.MATCH_PARENT
         }
+        image.requestLayout()
     }
 }
 

@@ -32,6 +32,8 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 
+internal fun hasManualSession(sessionLabel: String?): Boolean = !sessionLabel.isNullOrBlank()
+
 class MainActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var quota: QuotaManager
@@ -50,6 +52,7 @@ class MainActivity : Activity() {
 
     private lateinit var setupCard: LinearLayout
     private lateinit var setupText: TextView
+    private lateinit var setupButton: UiButton
     private lateinit var dateLabel: TextView
     private lateinit var statusPill: UiPill
     private lateinit var heroEyebrow: TextView
@@ -59,6 +62,8 @@ class MainActivity : Activity() {
     private lateinit var idleBox: LinearLayout
     private lateinit var activeBox: LinearLayout
     private lateinit var sessionBar: UiBar
+    private lateinit var sessionButtons: LinearLayout
+    private lateinit var sessionNote: TextView
     private lateinit var startButton: UiButton
     private lateinit var stopButton: UiButton
     private lateinit var cancelButton: UiButton
@@ -88,10 +93,12 @@ class MainActivity : Activity() {
     private lateinit var syncRow: UiRow
     private lateinit var overlayRow: UiRow
     private lateinit var accessibilityRow: UiRow
+    private var restrictedCard: View? = null
     private lateinit var notificationRow: UiRow
     private lateinit var gymSettingRow: UiRow
     private lateinit var quotaSettingRow: UiRow
     private lateinit var protectionRow: UiRow
+    private lateinit var protectionToggle: UiToggle
     private lateinit var guardRow: UiRow
     private lateinit var guardToggle: UiToggle
     private lateinit var autoUpdateRow: UiRow
@@ -99,6 +106,8 @@ class MainActivity : Activity() {
     private lateinit var checkUpdateRow: UiRow
     private lateinit var versionRow: UiRow
     private var updateBusy = false
+    private var pendingRelease: UpdateChecker.Release? = null
+    private val offerUpdateRunnable = Runnable { maybeOfferUpdate() }
     private val appVersion: String by lazy {
         try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
@@ -217,8 +226,16 @@ class MainActivity : Activity() {
         setupText = Ui.label(this, "", 13f, Ui.TEXT, true)
         setupHead.addView(setupText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         setupCard.addView(setupHead)
-        val setupButton = Ui.button(this, "Hoàn tất thiết lập", Variant.PRIMARY)
-        setupButton.setOnClickListener { startActivity(Intent(this, SetupActivity::class.java)) }
+        setupButton = Ui.button(this, "Hoàn tất thiết lập", Variant.PRIMARY)
+        setupButton.setOnClickListener {
+            if (prefs.protectionEnabled || permissionsReady()) {
+                startActivity(Intent(this, SetupActivity::class.java))
+            } else {
+                prefs.protectionEnabled = true
+                Toast.makeText(this, "Đã bật bảo vệ", Toast.LENGTH_SHORT).show()
+                refreshAll()
+            }
+        }
         setupCard.addView(setupButton, Ui.match(this, topMarginDp = 10))
         page.addView(setupCard, Ui.match(this, bottomMarginDp = 11))
 
@@ -262,18 +279,18 @@ class MainActivity : Activity() {
         activeBox.addView(sessionBar, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 6)
         ).apply { topMargin = Ui.dp(this@MainActivity, 14) })
-        val activeButtons = LinearLayout(this)
-        activeButtons.orientation = LinearLayout.HORIZONTAL
+        sessionButtons = LinearLayout(this)
+        sessionButtons.orientation = LinearLayout.HORIZONTAL
         stopButton = Ui.button(this, "Dừng sớm", Variant.GHOST)
         stopButton.setOnClickListener { sessionAction("stop") }
         cancelButton = Ui.button(this, "Hủy yêu cầu", Variant.QUIET)
         cancelButton.setOnClickListener { sessionAction("cancel_stop") }
-        activeButtons.addView(stopButton, Ui.weight(this, 1f))
-        activeButtons.addView(cancelButton, Ui.weight(this, 1f, leftMarginDp = 8))
-        activeBox.addView(activeButtons, Ui.match(this, topMarginDp = 11))
-        val stopNote = Ui.label(this, "Dừng sớm vẫn khóa đến hết thời gian chờ đã cam kết.", 11f, Ui.TEXT_3)
-        stopNote.gravity = Gravity.CENTER
-        activeBox.addView(stopNote, Ui.match(this, topMarginDp = 8))
+        sessionButtons.addView(stopButton, Ui.weight(this, 1f))
+        sessionButtons.addView(cancelButton, Ui.weight(this, 1f, leftMarginDp = 8))
+        activeBox.addView(sessionButtons, Ui.match(this, topMarginDp = 11))
+        sessionNote = Ui.label(this, "Dừng sớm vẫn khóa đến hết thời gian chờ đã cam kết.", 11f, Ui.TEXT_3)
+        sessionNote.gravity = Gravity.CENTER
+        activeBox.addView(sessionNote, Ui.match(this, topMarginDp = 8))
         hero.addView(activeBox)
         page.addView(hero)
 
@@ -649,6 +666,11 @@ class MainActivity : Activity() {
         permissions.addView(notificationRow)
         page.addView(permissions)
 
+        val restricted = Ui.restrictedCard(this) { Apps.openAppInfo(this) }
+        restricted.visibility = View.GONE
+        restrictedCard = restricted
+        page.addView(restricted)
+
         page.addView(Ui.section(this, "Mục tiêu"))
         val goals = Ui.group(this)
         quotaSettingRow = Ui.row(this, Ui.tile(this, R.drawable.ic_clock, Tone.ACCENT))
@@ -670,10 +692,12 @@ class MainActivity : Activity() {
         page.addView(Ui.section(this, "An toàn"))
         val safety = Ui.group(this)
         protectionRow = Ui.row(this, Ui.tile(this, R.drawable.ic_power, Tone.WARN))
-        protectionRow.title("Tắt bảo vệ")
-        protectionRow.subtitle("Đọc cảnh báo · gõ cam kết · chờ 60 giây")
-        protectionRow.trailing(Ui.chevron(this))
-        protectionRow.makeClickable { onProtectionButton() }
+        protectionRow.title("Bảo vệ")
+        protectionRow.subtitle("Đang chặn app trong danh sách · tắt phải xác nhận 3 bước")
+        protectionToggle = UiToggle(this)
+        protectionToggle.onChange = { checked -> onProtectionToggle(checked) }
+        protectionRow.trailing(protectionToggle, leftMarginDp = 10)
+        protectionRow.makeClickable { protectionToggle.setChecked(!protectionToggle.checked, notify = true) }
         safety.addView(protectionRow)
         guardRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield_alert, Tone.WARN))
         guardRow.title("Chặn gỡ cài đặt")
@@ -694,7 +718,7 @@ class MainActivity : Activity() {
         val updates = Ui.group(this)
         autoUpdateRow = Ui.row(this, Ui.tile(this, R.drawable.ic_refresh, Tone.ACCENT))
         autoUpdateRow.title("Tự kiểm tra bản mới")
-        autoUpdateRow.subtitle("Hỏi GitHub mỗi ngày một lần")
+        autoUpdateRow.subtitle("Hỏi GitHub 12 giờ một lần")
         autoUpdateToggle = UiToggle(this)
         autoUpdateToggle.onChange = { checked ->
             prefs.autoUpdate = checked
@@ -707,7 +731,9 @@ class MainActivity : Activity() {
         checkUpdateRow.title("Kiểm tra ngay")
         checkUpdateRow.subtitle("Chưa kiểm tra lần nào")
         checkUpdateRow.trailing(Ui.chevron(this))
-        checkUpdateRow.makeClickable { checkUpdate(manual = true) }
+        checkUpdateRow.makeClickable {
+            if (prefs.updateAvailableVersion.isNotBlank()) maybeOfferUpdate() else checkUpdate(manual = true)
+        }
         updates.addView(checkUpdateRow)
         page.addView(updates)
 
@@ -770,51 +796,120 @@ class MainActivity : Activity() {
         return ((sessionEndElapsed - SystemClock.elapsedRealtime()) / 1000).toInt().coerceAtLeast(0)
     }
 
+    private fun isLocalFocusActive(): Boolean = localFocusActive(
+        prefs.localFocusEndMs,
+        prefs.localFocusStopAfterMs,
+        System.currentTimeMillis(),
+    )
+
+    private fun manualRemainingSeconds(): Int = if (isLocalFocusActive()) {
+        localFocusRemainingSeconds(
+            prefs.localFocusEndMs,
+            prefs.localFocusStopAfterMs,
+            System.currentTimeMillis(),
+        )
+    } else {
+        sessionRemainingSeconds()
+    }
+
+    private fun updateRuntimeFocus() {
+        val local = isLocalFocusActive()
+        if (local && !Runtime.remoteManualFocus) {
+            Runtime.focusText = localFocusText(
+                prefs.localFocusEndMs,
+                prefs.localFocusStopAfterMs,
+                System.currentTimeMillis(),
+            )
+        }
+        Runtime.focusActive = manualFocusActive(prefs.protectionEnabled, Runtime.remoteManualFocus, local)
+    }
+
+    private fun maybeExpireLocalFocus() {
+        val now = System.currentTimeMillis()
+        if (localFocusFinished(prefs.localFocusEndMs, prefs.localFocusStopAfterMs, now)) {
+            prefs.clearLocalFocus()
+        }
+    }
+
     private fun refreshAll() {
         quota.resetIfNeeded()
         refreshAdult()
+        maybeExpireLocalFocus()
+        updateRuntimeFocus()
         val paired = secure.load() != null
         val overlay = Settings.canDrawOverlays(this)
         val accessibility = accessibilityEnabled()
         val notifications = notificationsEnabled()
-        val ready = listOf(paired, overlay, accessibility).count { it }
+        val ready = listOf(overlay, accessibility).count { it }
         val remaining = quota.remainingSeconds()
         val protectionOn = prefs.protectionEnabled
 
-        setupCard.visibility = if (ready == 3 && protectionOn) View.GONE else View.VISIBLE
+        setupCard.visibility = if (ready == 2 && protectionOn) View.GONE else View.VISIBLE
+        setupButton.text = if (!protectionOn && ready == 2) "Bật bảo vệ" else "Hoàn tất thiết lập"
         setupText.text = when {
             !protectionOn -> "Bảo vệ đang tắt — bật lại để tiếp tục giữ cam kết."
-            !paired -> "Chưa kết nối máy tính nên chưa bắt đầu được phiên focus."
             !overlay -> "Cần quyền Hiển thị trên ứng dụng khác để phủ cảnh báo."
             else -> "Cần bật Trợ năng để nhận biết ứng dụng đang mở."
         }
 
-        val sessionActive = protectionOn && (Runtime.focusActive || summary?.sessionLabel != null)
-        if (sessionActive) {
-            val left = sessionRemainingSeconds()
-            heroEyebrow.text = "Đang tập trung"
-            heroTime.text = Ui.clockText(left)
-            heroCaption.text = summary?.let {
-                listOf(it.sessionLabel ?: it.focusLabel, it.focusDetail)
-                    .filter { part -> part.isNotBlank() }
-                    .distinct()
-                    .joinToString(" · ")
-            }?.ifBlank { Runtime.focusText } ?: Runtime.focusText.ifBlank { "Phiên đang chạy trên máy tính." }
-            val total = if (sessionTotalSeconds > 0) sessionTotalSeconds else (left + 1)
-            sessionBar.setProgress(1f - (left.toFloat() / total), Ui.ACCENT)
+        val localSessionActive = protectionOn && isLocalFocusActive()
+        val remoteSessionActive = protectionOn && hasManualSession(summary?.sessionLabel)
+        val focusActive = localSessionActive || remoteSessionActive
+        val scheduled = summary?.scheduledActive == true
+        if (focusActive) {
             idleBox.visibility = View.GONE
             activeBox.visibility = View.VISIBLE
+            val left = manualRemainingSeconds()
+            heroEyebrow.text = "Đang tập trung"
+            heroTime.text = Ui.clockText(left)
+            heroCaption.text = if (localSessionActive) {
+                localFocusText(
+                    prefs.localFocusEndMs,
+                    prefs.localFocusStopAfterMs,
+                    System.currentTimeMillis(),
+                ).ifBlank { Runtime.focusText.ifBlank { "Phiên đang chạy trên điện thoại." } }
+            } else {
+                summary?.let {
+                    listOf(it.sessionLabel ?: it.focusLabel, it.focusDetail)
+                        .filter { part -> part.isNotBlank() }
+                        .distinct()
+                        .joinToString(" · ")
+                }?.ifBlank { Runtime.focusText } ?: Runtime.focusText.ifBlank { "Phiên đang chạy trên máy tính." }
+            }
+            val total = if (localSessionActive) {
+                prefs.localFocusTotalSeconds.coerceAtLeast(1)
+            } else {
+                if (sessionTotalSeconds > 0) sessionTotalSeconds else (left + 1)
+            }
+            sessionBar.setProgress(1f - (left.toFloat() / total), Ui.ACCENT)
+            sessionBar.visibility = View.VISIBLE
+            sessionButtons.visibility = View.VISIBLE
+            sessionNote.text = if (localSessionActive) {
+                "Dừng sớm không mở khóa ngay; bạn vẫn phải chờ hết hạn dừng đã hẹn."
+            } else {
+                "Dừng sớm không mở khóa ngay; bạn vẫn phải chờ như đã cam kết."
+            }
         } else {
             heroEyebrow.text = "Tập trung"
             heroTime.text = Ui.clockText(selectedMinutes * 60)
-            heroCaption.text = if (paired) {
+            heroCaption.text = if (scheduled) {
+                val detail = listOf(summary?.focusLabel, summary?.focusDetail)
+                    .filterNotNull()
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+                if (detail.isBlank()) {
+                    "Đang trong khung giờ trên máy tính · điện thoại không bị khoá"
+                } else {
+                    "$detail · lịch máy tính, điện thoại không bị khoá"
+                }
+            } else if (paired) {
                 "Khóa app và web gây xao nhãng trên cả hai thiết bị"
             } else {
-                "Kết nối máy tính để bắt đầu phiên"
+                "Bắt đầu phiên trực tiếp trên điện thoại, không cần máy tính"
             }
             idleBox.visibility = View.VISIBLE
             activeBox.visibility = View.GONE
-            startButton.isEnabled = paired && protectionOn
+            startButton.isEnabled = protectionOn && overlay && accessibility
         }
 
         val studyDone = summary?.studyToday ?: 0
@@ -868,14 +963,12 @@ class MainActivity : Activity() {
         statusPill.set(
             when {
                 !protectionOn -> "Bảo vệ đang tắt"
-                !paired -> "Chưa kết nối"
                 !overlay || !accessibility -> "Cần cấp quyền"
-                sessionActive -> "Đang tập trung"
+                focusActive -> "Đang tập trung"
                 else -> "Đang bảo vệ"
             },
             when {
                 !protectionOn -> Tone.DANGER
-                !paired -> Tone.NEUTRAL
                 !overlay || !accessibility -> Tone.WARN
                 else -> Tone.ACCENT
             },
@@ -889,12 +982,15 @@ class MainActivity : Activity() {
         )
 
         settingsPill.set(
-            if (ready == 3) "Sẵn sàng 3/3" else "Cần $ready/3",
-            if (ready == 3) Tone.ACCENT else Tone.WARN,
+            if (ready == 2) "Sẵn sàng 2/2" else "Cần $ready/2",
+            if (ready == 2) Tone.ACCENT else Tone.WARN,
             showDot = false,
         )
         val pair = secure.load()
-        pcRow.status(if (pair == null) "Chưa nối" else "Đã nối", if (pair == null) Ui.DANGER else Ui.ACCENT)
+        pcRow.status(
+            if (pair == null) "Không bắt buộc" else "Đã nối",
+            if (pair == null) Ui.TEXT_3 else Ui.ACCENT,
+        )
         pcRow.subtitle(pair?.baseUrl?.removePrefix("http://") ?: "Chạm để kết nối với máy tính")
         syncRow.subtitle(
             if (Runtime.lastSyncElapsed == 0L) "Chưa có dữ liệu" else "Lần cuối ${sinceSync()} · ${summary?.date ?: ""}".trim()
@@ -903,6 +999,7 @@ class MainActivity : Activity() {
 
         overlayRow.status(if (overlay) "Đã cấp" else "Cấp quyền", if (overlay) Ui.ACCENT else Ui.DANGER)
         accessibilityRow.status(if (accessibility) "Đã bật" else "Bật", if (accessibility) Ui.ACCENT else Ui.DANGER)
+        restrictedCard?.visibility = if (accessibility) View.GONE else View.VISIBLE
         notificationRow.status(if (notifications) "Đã bật" else "Tắt", if (notifications) Ui.ACCENT else Ui.TEXT_3)
         gymSettingRow.subtitle(Apps.label(this, prefs.gymPackage))
         quotaSettingRow.subtitle(
@@ -911,15 +1008,11 @@ class MainActivity : Activity() {
         )
         protectQuotaRow.subtitle("Mở tạm thời bằng quỹ ${quota.limitMinutes} phút mỗi ngày")
 
-        if (protectionOn) {
-            protectionRow.title("Tắt bảo vệ")
-            protectionRow.titleColor(Ui.DANGER)
-            protectionRow.subtitle("Đọc cảnh báo · gõ cam kết · chờ 60 giây")
-        } else {
-            protectionRow.title("Bật lại bảo vệ")
-            protectionRow.titleColor(Ui.ACCENT)
-            protectionRow.subtitle("Bảo vệ đang tắt từ lúc bạn chủ động tắt")
-        }
+        if (protectionToggle.checked != protectionOn) protectionToggle.setChecked(protectionOn)
+        protectionRow.subtitle(
+            if (protectionOn) "Đang chặn app trong danh sách · tắt phải xác nhận 3 bước"
+            else "Đang tắt do bạn chủ động dừng · bật lại khi sẵn sàng"
+        )
 
         socialToggles.forEach { (pkg, toggle) ->
             val checked = prefs.socialPackages.contains(pkg)
@@ -942,6 +1035,8 @@ class MainActivity : Activity() {
 
     private fun accessibilityEnabled(): Boolean = Apps.accessibilityEnabled(this)
 
+    private fun permissionsReady(): Boolean = Settings.canDrawOverlays(this) && accessibilityEnabled()
+
     private fun notificationsEnabled(): Boolean {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         return manager.areNotificationsEnabled()
@@ -950,18 +1045,21 @@ class MainActivity : Activity() {
     private fun refreshNetwork() {
         val pair = secure.load() ?: run {
             summary = null
+            Runtime.remoteManualFocus = false
+            updateRuntimeFocus()
             sessionEndElapsed = 0L
             return
         }
         executor.execute {
             try {
                 val result = Api.summary(pair.baseUrl, pair.token)
-                Runtime.focusActive = result.focusActive
-                Runtime.focusText = result.focusText
                 Runtime.lastSyncElapsed = SystemClock.elapsedRealtime()
                 runOnUiThread {
                     summary = result
-                    if (result.focusActive || result.sessionLabel != null) {
+                    Runtime.remoteManualFocus = hasManualSession(result.sessionLabel)
+                    if (result.focusActive) Runtime.focusText = result.focusText
+                    updateRuntimeFocus()
+                    if (hasManualSession(result.sessionLabel)) {
                         val minutes = result.sessionRemaining.coerceAtLeast(1)
                         sessionTotalSeconds = minutes * 60
                         sessionEndElapsed = SystemClock.elapsedRealtime() + minutes * 60_000L
@@ -973,36 +1071,78 @@ class MainActivity : Activity() {
                 }
             } catch (error: Exception) {
                 // Giữ dữ liệu cũ; quỹ và chặn cục bộ vẫn hoạt động.
+                runOnUiThread { updateRuntimeFocus(); refreshAll() }
             }
         }
     }
 
     private fun startSession() {
-        val pair = secure.load()
-        if (pair == null) {
+        if (!prefs.protectionEnabled || !Settings.canDrawOverlays(this) || !accessibilityEnabled()) {
             startActivity(Intent(this, SetupActivity::class.java))
             return
         }
-        sessionTotalSeconds = selectedMinutes * 60
-        sessionEndElapsed = SystemClock.elapsedRealtime() + selectedMinutes * 60_000L
+        if (isLocalFocusActive() || hasManualSession(summary?.sessionLabel)) {
+            Toast.makeText(this, "Đang có phiên focus chạy.", Toast.LENGTH_SHORT).show()
+            refreshAll()
+            return
+        }
+        val now = System.currentTimeMillis()
+        prefs.localFocusEndMs = now + selectedMinutes * 60_000L
+        prefs.localFocusStopAfterMs = 0L
+        prefs.localFocusTotalSeconds = selectedMinutes * 60
+        updateRuntimeFocus()
+        refreshAll()
+        Toast.makeText(this, "Đã bắt đầu phiên $selectedMinutes phút trên điện thoại", Toast.LENGTH_SHORT).show()
+
+        val pair = secure.load() ?: return
         executor.execute {
             try {
                 Api.session(pair.baseUrl, pair.token, "start", selectedMinutes, "Phone focus")
-                runOnUiThread {
-                    Toast.makeText(this, "Đã bắt đầu phiên $selectedMinutes phút", Toast.LENGTH_SHORT).show()
-                    handler.postDelayed({ refreshNetwork() }, 1200)
-                }
+                runOnUiThread { handler.postDelayed({ refreshNetwork() }, 1200) }
             } catch (error: Exception) {
                 runOnUiThread {
-                    sessionEndElapsed = 0L
-                    sessionTotalSeconds = 0
-                    Toast.makeText(this, "Không bắt đầu được: ${error.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this,
+                        "Phiên vẫn chạy trên điện thoại; chưa đồng bộ được máy tính.",
+                        Toast.LENGTH_LONG,
+                    ).show()
                 }
             }
         }
     }
 
     private fun sessionAction(action: String) {
+        maybeExpireLocalFocus()
+        val local = isLocalFocusActive()
+        val remote = hasManualSession(summary?.sessionLabel)
+        if (!local && !remote) {
+            Toast.makeText(this, "Không có phiên thủ công đang chạy để thực hiện thao tác này.", Toast.LENGTH_SHORT).show()
+            refreshNetwork()
+            return
+        }
+
+        if (local) {
+            val now = System.currentTimeMillis()
+            when (action) {
+                "stop" -> if (prefs.localFocusStopAfterMs == 0L) {
+                    val delay = (summary?.sessionStopDelayMinutes ?: 10).coerceAtLeast(1)
+                    prefs.localFocusStopAfterMs = now + delay * 60_000L
+                }
+                "cancel_stop" -> prefs.localFocusStopAfterMs = 0L
+            }
+            updateRuntimeFocus()
+            refreshAll()
+        }
+
+        if (!remote) {
+            Toast.makeText(
+                this,
+                if (action == "stop") "Đã hẹn dừng phiên trên điện thoại" else "Đã hủy hẹn dừng phiên",
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+
         val pair = secure.load() ?: return
         executor.execute {
             try {
@@ -1010,36 +1150,32 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     Toast.makeText(
                         this,
-                        if (action == "stop") "Đã yêu cầu dừng (có trễ)" else "Đã hủy yêu cầu dừng",
-                        Toast.LENGTH_SHORT
+                        if (action == "stop") {
+                            if (local) "Đã hẹn dừng · đồng bộ với máy tính" else "Đã yêu cầu dừng (có trễ)"
+                        } else {
+                            if (local) "Đã hủy hẹn dừng · đồng bộ với máy tính" else "Đã hủy yêu cầu dừng"
+                        },
+                        Toast.LENGTH_SHORT,
                     ).show()
                     handler.postDelayed({ refreshNetwork() }, 1200)
                 }
             } catch (error: Exception) {
                 runOnUiThread {
-                    Toast.makeText(this, "Không thực hiện được: ${error.message}", Toast.LENGTH_LONG).show()
+                    if (local) {
+                        Toast.makeText(
+                            this,
+                            "Thao tác đã áp dụng trên điện thoại; chưa đồng bộ được máy tính.",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    } else {
+                        Toast.makeText(this, "Không thực hiện được: ${error.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }
     }
 
     private fun onBreak() {
-        if (quota.isExhausted()) {
-            AlertDialog.Builder(this)
-                .setTitle("Đã hết quỹ hôm nay")
-                .setMessage("Quỹ mạng xã hội làm mới lúc 0:00. Bạn vẫn dùng được các ứng dụng khác.")
-                .setPositiveButton("Đã hiểu", null)
-                .show()
-            return
-        }
-        if (Runtime.focusActive) {
-            AlertDialog.Builder(this)
-                .setTitle("Không dùng quỹ trong phiên focus")
-                .setMessage("Hoàn thành phiên focus trước, hoặc dừng phiên theo cơ chế chờ.")
-                .setPositiveButton("Đã hiểu", null)
-                .show()
-            return
-        }
         if (quota.isBreakActive()) {
             AlertDialog.Builder(this)
                 .setTitle("Đang nghỉ có kiểm soát")
@@ -1052,6 +1188,35 @@ class MainActivity : Activity() {
                 .show()
             return
         }
+        val exhausted = quota.isExhausted()
+        val blocked = when {
+            !prefs.protectionEnabled -> "Bảo vệ đang tắt" to
+                "Không tính quỹ khi bảo vệ tắt. Bật lại bảo vệ rồi mới nghỉ có kiểm soát."
+            Runtime.focusActive -> "Không dùng quỹ trong phiên focus" to
+                if (isLocalFocusActive()) {
+                    "Phiên trên điện thoại còn ${Ui.clockText(manualRemainingSeconds())}. Dừng phiên trước hoặc chờ hết phiên."
+                } else {
+                    "Phiên «${summary?.sessionLabel ?: "máy tính"}» đang chạy. Hoàn thành phiên trên máy tính trước."
+                }
+            !accessibilityEnabled() || !Settings.canDrawOverlays(this) ->
+                "Chưa đủ quyền để trừ quỹ" to
+                    "Cần bật Trợ năng và Hiển thị trên ứng dụng khác thì mới nhận diện được lúc bạn đang lướt mạng xã hội."
+            exhausted -> "Đã hết quỹ hôm nay" to
+                "Đã dùng hết ${quota.limitMinutes} phút. Quỹ làm mới sau ${resetCountdown()} (0:00). Bạn vẫn dùng được các ứng dụng khác."
+            else -> null
+        }
+        if (blocked != null) {
+            val builder = AlertDialog.Builder(this)
+                .setTitle(blocked.first)
+                .setMessage(blocked.second)
+            if (exhausted) {
+                builder.setNeutralButton("Đổi mức quỹ") { _, _ ->
+                    startActivity(Intent(this, QuotaActivity::class.java))
+                }
+            }
+            builder.setPositiveButton("Đã hiểu", null).show()
+            return
+        }
         val options = arrayOf("10 phút", "15 phút", "30 phút")
         AlertDialog.Builder(this)
             .setTitle("Nghỉ có kiểm soát")
@@ -1061,20 +1226,35 @@ class MainActivity : Activity() {
                 if (quota.startBreak(minutes)) {
                     refreshAll()
                     Toast.makeText(this, "Đã bắt đầu nghỉ $minutes phút", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Không mở được kỳ nghỉ, thử lại sau giây lát.", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Hủy", null)
             .show()
     }
 
-    private fun onProtectionButton() {
-        if (prefs.protectionEnabled) {
-            startActivity(Intent(this, OffActivity::class.java))
-        } else {
-            prefs.protectionEnabled = true
-            Toast.makeText(this, "Đã bật lại bảo vệ", Toast.LENGTH_SHORT).show()
-            refreshAll()
+    private fun resetCountdown(): String {
+        val seconds = quota.secondsUntilReset()
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
+        return when {
+            hours <= 0 -> "$minutes phút"
+            minutes == 0 -> "$hours giờ"
+            else -> "$hours giờ $minutes phút"
         }
+    }
+
+    private fun onProtectionToggle(checked: Boolean) {
+        if (checked) {
+            prefs.protectionEnabled = true
+            Toast.makeText(this, "Đã bật bảo vệ", Toast.LENGTH_SHORT).show()
+            refreshAll()
+            return
+        }
+        // Công tắc chỉ thực sự tắt sau khi người dùng qua đủ 3 bước cản.
+        protectionToggle.setChecked(true, animate = true)
+        startActivityForResult(Intent(this, OffActivity::class.java), PROTECTION_REQUEST)
     }
 
     private fun showCrashLog() {
@@ -1110,6 +1290,10 @@ class MainActivity : Activity() {
             if (resultCode == RESULT_OK) startAdultFilter() else prefs.adultFilterEnabled = false
             refreshAdult()
         }
+        if (requestCode == PROTECTION_REQUEST) {
+            refreshAll()
+            refreshUpdateRows()
+        }
     }
 
     /** Hệ thống có thể thu hồi đường hầm khi đổi mạng hoặc hết pin. Mở Kỷ luật là lúc duy nhất
@@ -1129,6 +1313,8 @@ class MainActivity : Activity() {
         refreshAll()
         refreshNetwork()
         refreshUpdateRows()
+        handler.removeCallbacks(offerUpdateRunnable)
+        handler.postDelayed(offerUpdateRunnable, 600)
     }
 
     private fun openUrl(url: String) {
@@ -1143,12 +1329,16 @@ class MainActivity : Activity() {
         if (::autoUpdateToggle.isInitialized) {
             autoUpdateToggle.setChecked(prefs.autoUpdate)
             autoUpdateRow.subtitle(
-                if (prefs.autoUpdate) "Hỏi GitHub mỗi ngày một lần, không có telemetry"
+                if (prefs.autoUpdate) "Hỏi GitHub 12 giờ một lần, không có telemetry"
                 else "Tắt · chỉ kiểm tra khi bạn bấm"
             )
+            val available = prefs.updateAvailableVersion
             checkUpdateRow.subtitle(
-                if (prefs.updateLastCheckMs == 0L) "Chưa kiểm tra lần nào"
-                else "Lần cuối ${timeAgo(prefs.updateLastCheckMs)} · đang dùng $appVersion"
+                when {
+                    available.isNotBlank() -> "Có bản mới $available · chạm để tải"
+                    prefs.updateLastCheckMs == 0L -> "Chưa kiểm tra lần nào · đang dùng $appVersion"
+                    else -> "Lần cuối ${timeAgo(prefs.updateLastCheckMs)} · đang dùng $appVersion"
+                }
             )
         }
         if (::versionRow.isInitialized) {
@@ -1253,16 +1443,22 @@ class MainActivity : Activity() {
             } catch (error: Exception) {
                 null
             }
-            prefs.updateLastCheckMs = System.currentTimeMillis()
+            val newer = release != null && UpdateChecker.isNewer(release.version, appVersion)
+            if (release != null) {
+                // Chỉ ghi mốc khi lấy được dữ liệu; mất mạng thì lần mở sau được thử lại ngay.
+                prefs.updateLastCheckMs = System.currentTimeMillis()
+                prefs.updateAvailableVersion = if (newer) release.version else ""
+            }
+            val offer = if (newer) release else null
             runOnUiThread {
                 updateBusy = false
+                pendingRelease = offer
                 refreshUpdateRows()
                 when {
+                    offer != null -> offerUpdate(offer)
                     release == null -> if (manual) {
                         Toast.makeText(this, "Không kiểm tra được, thử lại khi có mạng.", Toast.LENGTH_LONG).show()
                     }
-                    UpdateChecker.isNewer(release.version, appVersion) ->
-                        offerUpdate(release, manual)
                     manual -> AlertDialog.Builder(this)
                         .setTitle("Bản mới nhất")
                         .setMessage("Bạn đang dùng bản $appVersion.")
@@ -1273,14 +1469,28 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun offerUpdate(release: UpdateChecker.Release, manual: Boolean) {
-        if (!manual && prefs.updatePromptedVersion == release.version) return
-        prefs.updatePromptedVersion = release.version
+    /** Notification từ service chỉ mang số bản; mở app là lúc duy nhất hợp lý để hỏi và tải. */
+    private fun maybeOfferUpdate() {
+        val version = prefs.updateAvailableVersion
+        if (version.isBlank()) return
+        if (!UpdateChecker.isNewer(version, appVersion)) {
+            prefs.updateAvailableVersion = ""
+            refreshUpdateRows()
+            return
+        }
+        val release = pendingRelease?.takeIf { it.version == version }
+        if (release == null) checkUpdate(manual = false) else offerUpdate(release)
+    }
+
+    private fun offerUpdate(release: UpdateChecker.Release) {
         AlertDialog.Builder(this)
             .setTitle("Đã có bản ${release.version}")
             .setMessage("Bản đang dùng: $appVersion. Tải bản mới rồi mở trình cài đặt? Dữ liệu và mã kết nối được giữ nguyên.")
             .setPositiveButton("Cập nhật") { _, _ -> downloadUpdate(release) }
-            .setNegativeButton("Để sau", null)
+            .setNegativeButton("Để sau") { _, _ ->
+                prefs.updateAvailableVersion = ""
+                refreshUpdateRows()
+            }
             .show()
     }
 
@@ -1350,6 +1560,7 @@ class MainActivity : Activity() {
     companion object {
         private const val ADULT_REQUEST = 71
         private const val GUARD_REQUEST = 72
-        private const val UPDATE_INTERVAL_MS = 24L * 60 * 60 * 1000
+        private const val UPDATE_INTERVAL_MS = 12L * 60 * 60 * 1000
+        private const val PROTECTION_REQUEST = 73
     }
 }

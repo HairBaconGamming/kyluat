@@ -6,12 +6,14 @@ import java.net.URL
 
 data class Summary(
     val focusActive: Boolean,
+    val scheduledActive: Boolean,
     val focusText: String,
     val focusLabel: String,
     val focusDetail: String,
     val date: String,
     val sessionLabel: String?,
     val sessionRemaining: Int,
+    val sessionStopDelayMinutes: Int = 10,
     val studyToday: Int,
     val studyGoal: Int,
     val studyStreak: Int,
@@ -30,16 +32,22 @@ object Api {
         val gym = habits.getJSONObject("gym")
         val blocks = root.getJSONObject("blocks")
         val session = root.optJSONObject("session")
+        val rules = root.optJSONObject("rules")
         val label = focus.optString("text", "")
         val detail = focus.optString("detail", "")
+        val active = focus.getBoolean("active")
+        val sessionLabel = session?.optString("label")?.takeIf { it.isNotBlank() }
         return Summary(
-            focusActive = focus.getBoolean("active"),
+            focusActive = active,
+            // Khung giờ theo lịch chỉ là thông tin trên điện thoại; chỉ phiên thủ công mới cấm dùng quỹ.
+            scheduledActive = active && sessionLabel == null,
             focusText = (label + " " + detail).trim(),
             focusLabel = label,
             focusDetail = detail,
             date = root.optString("date", ""),
-            sessionLabel = session?.optString("label"),
+            sessionLabel = sessionLabel,
             sessionRemaining = session?.optInt("remaining_minutes", 0) ?: 0,
+            sessionStopDelayMinutes = (rules?.optInt("stop_delay", 10) ?: 10).coerceIn(0, 120),
             studyToday = study.getInt("today"),
             studyGoal = study.getInt("goal"),
             studyStreak = study.optInt("streak", 0),

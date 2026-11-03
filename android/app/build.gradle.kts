@@ -37,8 +37,8 @@ android {
         applicationId = "com.cainghien.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 17
-        versionName = "3.12"
+        versionCode = 19
+        versionName = "3.14"
         // Chỉ máy thật ARM; bỏ x86 để APK không mang thêm thư viện không ai dùng.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

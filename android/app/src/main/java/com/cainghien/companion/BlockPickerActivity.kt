@@ -36,7 +36,7 @@ class BlockPickerActivity : Activity() {
     private lateinit var list: ListView
     private lateinit var doneButton: UiButton
     private val executor = Executors.newSingleThreadExecutor()
-    private val iconCache = LruCache<String, Drawable>(80)
+    private val iconCache = LruCache<String, Drawable.ConstantState>(80)
     private val apps = mutableListOf<AppEntry>()
     private val shown = mutableListOf<AppEntry>()
     private var query = ""
@@ -199,10 +199,10 @@ class BlockPickerActivity : Activity() {
     }
 
     private fun iconFor(packageName: String): Drawable? {
-        iconCache.get(packageName)?.let { return it }
+        iconCache.get(packageName)?.let { return it.newDrawable(resources).mutate() }
         val drawable = Apps.icon(this, packageName) ?: return null
-        iconCache.put(packageName, drawable)
-        return drawable
+        drawable.constantState?.let { iconCache.put(packageName, it) }
+        return drawable.mutate()
     }
 
     override fun onDestroy() {

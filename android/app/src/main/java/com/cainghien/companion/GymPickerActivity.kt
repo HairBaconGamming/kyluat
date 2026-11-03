@@ -40,7 +40,7 @@ class GymPickerActivity : Activity() {
     private lateinit var loadingBox: LinearLayout
     private lateinit var list: ListView
     private val executor = Executors.newSingleThreadExecutor()
-    private val iconCache = LruCache<String, Drawable>(80)
+    private val iconCache = LruCache<String, Drawable.ConstantState>(80)
     private val allApps = mutableListOf<AppEntry>()
     private val rows = mutableListOf<Row>()
     private var query = ""
@@ -203,10 +203,10 @@ class GymPickerActivity : Activity() {
     }
 
     private fun iconFor(packageName: String): Drawable? {
-        iconCache.get(packageName)?.let { return it }
+        iconCache.get(packageName)?.let { return it.newDrawable(resources).mutate() }
         val drawable = Apps.icon(this, packageName) ?: return null
-        iconCache.put(packageName, drawable)
-        return drawable
+        drawable.constantState?.let { iconCache.put(packageName, it) }
+        return drawable.mutate()
     }
 
     override fun onDestroy() {

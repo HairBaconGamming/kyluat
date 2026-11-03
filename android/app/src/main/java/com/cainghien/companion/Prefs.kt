@@ -3,6 +3,30 @@ package com.cainghien.companion
 import android.content.Context
 import android.os.Build
 
+internal fun localFocusActive(endMs: Long, stopAfterMs: Long, nowMs: Long): Boolean =
+    endMs > 0L && endMs > nowMs && (stopAfterMs == 0L || stopAfterMs > nowMs)
+
+/** Lịch máy tính không nằm ở đây: chỉ phiên thủ công mới khoá app và cấm dùng quỹ. */
+internal fun manualFocusActive(protection: Boolean, remoteManual: Boolean, localActive: Boolean): Boolean =
+    protection && (remoteManual || localActive)
+
+internal fun localFocusRemainingSeconds(endMs: Long, stopAfterMs: Long, nowMs: Long): Int {
+    if (!localFocusActive(endMs, stopAfterMs, nowMs)) return 0
+    val until = if (stopAfterMs in 1 until endMs) stopAfterMs else endMs
+    return (((until - nowMs) + 999) / 1000).toInt().coerceAtLeast(0)
+}
+
+internal fun localFocusFinished(endMs: Long, stopAfterMs: Long, nowMs: Long): Boolean =
+    endMs > 0L && (endMs <= nowMs || (stopAfterMs > 0L && stopAfterMs <= nowMs))
+
+internal fun localFocusText(endMs: Long, stopAfterMs: Long, nowMs: Long): String {
+    if (!localFocusActive(endMs, stopAfterMs, nowMs)) return ""
+    val pendingStop = stopAfterMs > 0L && stopAfterMs < endMs
+    val until = if (pendingStop) stopAfterMs else endMs
+    val clock = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(java.util.Date(until))
+    return if (pendingStop) "Đang chờ dừng · mở khóa lúc $clock" else "Đang focus «Điện thoại» · đến $clock"
+}
+
 class Prefs(context: Context) {
     private val store = context.getSharedPreferences("cainghien", Context.MODE_PRIVATE)
 
@@ -50,6 +74,18 @@ class Prefs(context: Context) {
         get() = store.getLong("break_until_ms", 0L)
         set(value) = store.edit().putLong("break_until_ms", value).apply()
 
+    var localFocusEndMs: Long
+        get() = store.getLong("local_focus_end_ms", 0L)
+        set(value) = store.edit().putLong("local_focus_end_ms", value).apply()
+
+    var localFocusStopAfterMs: Long
+        get() = store.getLong("local_focus_stop_after_ms", 0L)
+        set(value) = store.edit().putLong("local_focus_stop_after_ms", value).apply()
+
+    var localFocusTotalSeconds: Int
+        get() = store.getInt("local_focus_total_seconds", 0)
+        set(value) = store.edit().putInt("local_focus_total_seconds", value).apply()
+
     var pendingGymCheckin: Boolean
         get() = store.getBoolean("pending_gym_checkin", false)
         set(value) = store.edit().putBoolean("pending_gym_checkin", value).apply()
@@ -62,9 +98,15 @@ class Prefs(context: Context) {
         get() = store.getLong("update_last_check", 0L)
         set(value) = store.edit().putLong("update_last_check", value).apply()
 
-    var updatePromptedVersion: String
-        get() = store.getString("update_prompted", "") ?: ""
-        set(value) = store.edit().putString("update_prompted", value).apply()
+    /** Bản mới hơn bản đang cài, đã phát hiện nhưng người dùng chưa quyết định. "" = không có. */
+    var updateAvailableVersion: String
+        get() = store.getString("update_available", "") ?: ""
+        set(value) = store.edit().putString("update_available", value).apply()
+
+    /** Bản đã hiện thông báo rồi, để không nhắc lại cùng một lần cập nhật. */
+    var updateNotifiedVersion: String
+        get() = store.getString("update_notified", "") ?: ""
+        set(value) = store.edit().putString("update_notified", value).apply()
 
     var uninstallGuard: Boolean
         get() = store.getBoolean("uninstall_guard", false)
@@ -85,6 +127,12 @@ class Prefs(context: Context) {
     var deviceName: String
         get() = store.getString("device_name", Build.MODEL) ?: Build.MODEL
         set(value) = store.edit().putString("device_name", value).apply()
+
+    fun clearLocalFocus() {
+        localFocusEndMs = 0L
+        localFocusStopAfterMs = 0L
+        localFocusTotalSeconds = 0
+    }
 
     fun setSocialPackage(packageName: String, enabled: Boolean) {
         val current = socialPackages.toMutableSet()

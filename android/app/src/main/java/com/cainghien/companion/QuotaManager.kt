@@ -124,6 +124,9 @@ class QuotaManager(private val prefs: Prefs) {
 
 object Runtime {
     @Volatile var focusActive = false
+
+    /** Phiên thủ công do máy tính báo về. Chỉ loại này mới khoá app và cấm dùng quỹ. */
+    @Volatile var remoteManualFocus = false
     @Volatile var focusText = ""
     @Volatile var lastSyncElapsed = 0L
     @Volatile var currentPackage = ""

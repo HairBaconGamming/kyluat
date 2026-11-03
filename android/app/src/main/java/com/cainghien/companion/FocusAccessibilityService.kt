@@ -54,6 +54,15 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private var neverBlocked: Set<String> = emptySet()
     private val launchable = HashMap<String, Boolean>()
+    private var lastUpdateAttemptElapsed = 0L
+
+    private val appVersion: String by lazy {
+        try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+        } catch (error: Exception) {
+            ""
+        }
+    }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -98,15 +107,42 @@ class FocusAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        updateRuntimeFocus()
         Toast.makeText(this, "Kỷ luật đã bật bảo vệ", Toast.LENGTH_SHORT).show()
         reassertBlockedWindow()
         evaluate()
+    }
+
+    private fun localFocusActive(): Boolean = localFocusActive(
+        prefs.localFocusEndMs,
+        prefs.localFocusStopAfterMs,
+        System.currentTimeMillis(),
+    )
+
+    private fun updateRuntimeFocus() {
+        val now = System.currentTimeMillis()
+        if (localFocusFinished(prefs.localFocusEndMs, prefs.localFocusStopAfterMs, now)) {
+            prefs.clearLocalFocus()
+        }
+        val local = localFocusActive()
+        val protection = prefs.protectionEnabled
+        if (!protection) Runtime.remoteManualFocus = false
+        val manual = manualFocusActive(protection, Runtime.remoteManualFocus, local)
+        if (local && !Runtime.remoteManualFocus) {
+            Runtime.focusText = localFocusText(
+                prefs.localFocusEndMs,
+                prefs.localFocusStopAfterMs,
+                now,
+            )
+        }
+        Runtime.focusActive = manual
     }
 
     private val tick = object : Runnable {
         override fun run() {
             try {
                 if (prefs.protectionEnabled) {
+                    updateRuntimeFocus()
                     quota.resetIfNeeded()
                     val social = Runtime.currentPackage in prefs.socialPackages
                     if (
@@ -127,6 +163,9 @@ class FocusAccessibilityService : AccessibilityService() {
                     updateGym()
                     if (Build.VERSION.SDK_INT >= 30) maybeScanVisual()
                 } else {
+                    Runtime.remoteManualFocus = false
+                    Runtime.focusActive = false
+                    prefs.clearLocalFocus()
                     removeOverlay()
                     removeQuotaPill()
                     finishGym()
@@ -141,30 +180,45 @@ class FocusAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * Máy tính gộp "đang focus" thành một cờ. Điện thoại chỉ khoá app và cấm dùng quỹ khi
+     * đó là phiên thủ công; khung giờ theo lịch không có quyền khoá gì cả.
+     */
+    private fun applyRemoteFocus(summary: Summary) {
+        Runtime.remoteManualFocus = summary.sessionLabel != null
+        if (summary.focusActive) Runtime.focusText = summary.focusText
+    }
+
     private val poll = object : Runnable {
         override fun run() {
             network.execute {
                 try {
+                    maybeCheckUpdate()
                     if (!prefs.protectionEnabled) {
+                        Runtime.remoteManualFocus = false
                         Runtime.focusActive = false
+                        prefs.clearLocalFocus()
                         return@execute
                     }
+                    updateRuntimeFocus()
                     val pair = secure.load()
                     if (pair == null) {
-                        Runtime.focusActive = false
+                        Runtime.remoteManualFocus = false
+                        updateRuntimeFocus()
                         handler.post { evaluate() }
                         return@execute
                     }
                     val summary = Api.summary(pair.baseUrl, pair.token)
-                    Runtime.focusActive = summary.focusActive
-                    Runtime.focusText = summary.focusText
+                    applyRemoteFocus(summary)
+                    updateRuntimeFocus()
                     Runtime.lastSyncElapsed = SystemClock.elapsedRealtime()
                     if (prefs.pendingGymCheckin) postGymCheckin()
                     handler.post { evaluate() }
                 } catch (error: Exception) {
                     val last = Runtime.lastSyncElapsed
                     if (last > 0 && SystemClock.elapsedRealtime() - last > 15 * 60 * 1000L) {
-                        Runtime.focusActive = false
+                        Runtime.remoteManualFocus = false
+                        updateRuntimeFocus()
                         handler.post { evaluate() }
                     }
                 }
@@ -681,7 +735,7 @@ class FocusAccessibilityService : AccessibilityService() {
         }
         if (quota.isBreakActive()) {
             val left = quota.breakRemainingSeconds()
-            notify(41, "Đang nghỉ có kiểm soát", "Quỹ còn ${Ui.clockText(left)} hôm nay")
+            notify(41, "Đang nghỉ có kiểm soát", "Đang trừ quỹ · còn ${Ui.clockText(left)} hôm nay")
         } else {
             cancelBreakNotification()
         }
@@ -690,6 +744,54 @@ class FocusAccessibilityService : AccessibilityService() {
     private fun cancelBreakNotification() {
         try {
             notifications.cancel(41)
+        } catch (error: Exception) {
+        }
+    }
+
+    /**
+     * Trợ năng là tiến trình sống lâu nhất của app, nên việc hỏi GitHub bản mới đặt ở đây:
+     * máy tính tắt, app không mở thì điện thoại vẫn biết có bản mới và tự nhắc.
+     */
+    private fun maybeCheckUpdate() {
+        if (!prefs.autoUpdate) return
+        val now = System.currentTimeMillis()
+        if (now - prefs.updateLastCheckMs < UPDATE_CHECK_INTERVAL_MS) return
+        if (SystemClock.elapsedRealtime() - lastUpdateAttemptElapsed < UPDATE_RETRY_INTERVAL_MS) return
+        lastUpdateAttemptElapsed = SystemClock.elapsedRealtime()
+        val release = try {
+            UpdateChecker.latest()
+        } catch (error: Exception) {
+            null
+        } ?: return
+        // Chỉ ghi mốc khi lấy được dữ liệu; mất mạng thì lần chạy sau được thử lại ngay.
+        prefs.updateLastCheckMs = now
+        val version = release.version
+        if (!UpdateChecker.isNewer(version, appVersion)) {
+            if (prefs.updateAvailableVersion.isNotBlank()) prefs.updateAvailableVersion = ""
+            return
+        }
+        prefs.updateAvailableVersion = version
+        if (prefs.updateNotifiedVersion == version) return
+        prefs.updateNotifiedVersion = version
+        notifyUpdate(version)
+    }
+
+    private fun notifyUpdate(version: String) {
+        try {
+            val intent = Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val pending = PendingIntent.getActivity(
+                this, 43, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val notification = Notification.Builder(this, "update")
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle("Có bản Kỷ luật mới $version")
+                .setContentText("Chạm để tải và cài. Dữ liệu và mã kết nối giữ nguyên.")
+                .setAutoCancel(true)
+                .setContentIntent(pending)
+                .build()
+            notifications.notify(43, notification)
         } catch (error: Exception) {
         }
     }
@@ -717,6 +819,9 @@ class FocusAccessibilityService : AccessibilityService() {
         notifications.createNotificationChannel(
             NotificationChannel("protection", "Bảo vệ", NotificationManager.IMPORTANCE_LOW)
         )
+        notifications.createNotificationChannel(
+            NotificationChannel("update", "Cập nhật", NotificationManager.IMPORTANCE_DEFAULT)
+        )
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -743,6 +848,8 @@ class FocusAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val HIDE_DELAY_MS = 800L
+        private const val UPDATE_CHECK_INTERVAL_MS = 12L * 60 * 60 * 1000
+        private const val UPDATE_RETRY_INTERVAL_MS = 60L * 60 * 1000
         private val OVERLAY_ACCENT = Color.parseColor("#3D8B74")
         private val PILL_BG = Color.parseColor("#E6151A1E")
         private val PILL_LINE = Color.parseColor("#2E363C")

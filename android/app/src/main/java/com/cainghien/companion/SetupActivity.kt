@@ -145,6 +145,13 @@ class SetupActivity : Activity() {
             Ui.match(this, topMarginDp = 9)
         )
         container.addView(advanced)
+
+        val skip = Ui.button(this, "Bỏ qua, chỉ dùng trên điện thoại", Variant.QUIET)
+        skip.setOnClickListener {
+            step = 2
+            render()
+        }
+        container.addView(skip, Ui.match(this, topMarginDp = 10))
     }
 
     private fun renderDiscovered(note: String? = null) {
@@ -225,15 +232,19 @@ class SetupActivity : Activity() {
         group.addView(notifyRow)
         container.addView(group)
 
-        val note = Ui.card(this, padDp = 13)
-        note.addView(
-            Ui.note(
-                this,
-                "Nếu Android chặn quyền Trợ năng: vào Cài đặt ứng dụng → ba chấm → Cho phép cài đặt bị hạn chế.",
-                R.drawable.ic_info,
+        if (!accessibility) {
+            container.addView(Ui.restrictedCard(this) { Apps.openAppInfo(this) })
+        } else {
+            val note = Ui.card(this, padDp = 13)
+            note.addView(
+                Ui.note(
+                    this,
+                    "Trợ năng chỉ đọc tên ứng dụng đang mở. Android luôn cho bạn tắt lại trong Cài đặt.",
+                    R.drawable.ic_info,
+                )
             )
-        )
-        container.addView(note)
+            container.addView(note)
+        }
 
         val next = Ui.button(this, "Tiếp tục", Variant.PRIMARY, big = true)
         next.isEnabled = overlay && accessibility
@@ -267,15 +278,23 @@ class SetupActivity : Activity() {
             FrameLayout.LayoutParams(Ui.dp(this, 26), Ui.dp(this, 26), Gravity.CENTER)
         )
         hero.addView(glyph, LinearLayout.LayoutParams(Ui.dp(this, 58), Ui.dp(this, 58)))
-        val title = Ui.label(this, "Đã kết nối và đủ quyền", 17f, Ui.TEXT, true)
+        val title = Ui.label(
+            this,
+            if (pair == null) "Đã đủ quyền" else "Đã kết nối và đủ quyền",
+            17f,
+            Ui.TEXT,
+            true,
+        )
         title.gravity = Gravity.CENTER
         hero.addView(title, Ui.match(this, topMarginDp = 11))
         val sub = Ui.label(
             this,
-            if (prefs.protectionEnabled) {
-                "Quỹ ${QuotaManager(prefs).limitMinutes} phút và phiên focus đã hoạt động trên điện thoại này."
-            } else {
-                "Bảo vệ đang tắt. Bật lại trong Cài đặt khi bạn sẵn sàng."
+            when {
+                !prefs.protectionEnabled -> "Bảo vệ đang tắt. Bật lại trong Cài đặt khi bạn sẵn sàng."
+                pair == null ->
+                    "Quỹ ${QuotaManager(prefs).limitMinutes} phút và phiên focus chạy ngay trên điện thoại, không cần máy tính."
+                else ->
+                    "Quỹ ${QuotaManager(prefs).limitMinutes} phút và phiên focus đã hoạt động trên điện thoại này."
             },
             12.5f,
             Ui.TEXT_3
@@ -285,10 +304,10 @@ class SetupActivity : Activity() {
         container.addView(hero)
 
         val group = Ui.group(this)
-        val pcRow = Ui.row(this, Ui.tile(this, R.drawable.ic_desktop, Tone.ACCENT))
+        val pcRow = Ui.row(this, Ui.tile(this, R.drawable.ic_desktop, if (pair == null) Tone.NEUTRAL else Tone.ACCENT))
         pcRow.title("Máy tính")
-        pcRow.subtitle(pair?.baseUrl?.removePrefix("http://") ?: "Chưa kết nối")
-        pcRow.status(if (pair == null) "—" else "Đã nối", Ui.ACCENT)
+        pcRow.subtitle(pair?.baseUrl?.removePrefix("http://") ?: "Chưa kết nối · chỉ cần khi đồng bộ lịch")
+        pcRow.status(if (pair == null) "Tùy chọn" else "Đã nối", if (pair == null) Ui.TEXT_3 else Ui.ACCENT)
         group.addView(pcRow)
         val shieldRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield_check, Tone.ACCENT))
         shieldRow.title("Bảo vệ điện thoại")
@@ -304,11 +323,17 @@ class SetupActivity : Activity() {
         home.setOnClickListener { finish() }
         container.addView(home, Ui.match(this, topMarginDp = 4))
 
-        val again = Ui.button(this, "Kết nối máy tính khác", Variant.QUIET)
+        val again = Ui.button(
+            this,
+            if (pair == null) "Kết nối máy tính để đồng bộ" else "Kết nối máy tính khác",
+            Variant.QUIET,
+        )
         again.setOnClickListener {
-            secure.clear()
-            found.clear()
-            selectedPc = null
+            if (pair != null) {
+                secure.clear()
+                found.clear()
+                selectedPc = null
+            }
             step = 1
             render()
         }

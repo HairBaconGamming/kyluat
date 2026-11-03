@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.provider.Settings
 import android.provider.Telephony
 
@@ -72,6 +73,16 @@ object Apps {
             val parsed = ComponentName.unflattenFromString(raw.trim()) ?: return@any false
             parsed.packageName == context.packageName && parsed.className.endsWith(simpleName)
         }
+    }
+
+    /** Trang thông tin app — nơi có menu "Cho phép cài đặt bị hạn chế" của Android 12+. */
+    fun openAppInfo(context: Context) {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${context.packageName}"),
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 
     fun neverBlocked(context: Context): Set<String> {
