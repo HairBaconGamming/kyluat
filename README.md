@@ -49,6 +49,8 @@ Thay vì cấu hình router hay hosts, máy tính tự chạy một DNS server n
 
 Cảnh báo cho người review: `net install` sửa cấu hình mạng của máy. Nó cần PowerShell Administrator, ghi DNS của card mạng về `127.0.0.1`, và đặt policy tắt DoH trong registry để trình duyệt không đi vòng qua sinkhole; DNS cũ cùng giá trị registry cũ được lưu trong DB ngay trước khi sửa. Lệnh này thuận nghịch: `net uninstall` khôi phục đúng DNS cũ và dựng lại từng policy DoH về trạng thái trước (xoá nếu trước đó không đặt), `net repair` dùng khi router làm lại DNS sau khi đổi Wi-Fi, còn `turn-off` gom ba bước tắt bảo vệ. Bước khôi phục còn fail-safe: nếu DNS chưa về cũ được thì daemon vẫn chạy và task được bật lại, để bạn không mất internet giữa chừng. Nếu máy tắt đột ngột, `net uninstall` vẫn đưa mọi thứ về cũ.
 
+Bất biến an toàn mạng: máy không được phép ở trạng thái "DNS trỏ về `127.0.0.1` mà không có gì nghe cổng 53", vì trạng thái đó làm mất phân giải tên miền của cả máy. Bộ lọc DNS chỉ được bật khi cổng 53 đã tự trả lời được (`net install` và `net repair` từ chối đổi DNS khi sinkhole chết). Watchdog trong daemon hỏi cổng 53 mỗi 60 giây; hai lần liên tiếp im lặng là nó trả DNS về giá trị cũ — hoặc DHCP nếu giá trị cũ bị ô nhiễm — rồi báo bằng toast và ghi sự kiện `net_failopen`. Bản thân daemon chết thì task mỗi phút dựng lại, và nếu bind cổng 53 thất bại thì chính thread DNS cũng gọi fail-open trước khi tắt. `net status` và `doctor` in dòng CẢNH BÁO kèm lệnh cứu khi phát hiện máy đang bị nhốt, màn hình desktop hiện ô đỏ "Mạng đang bị chặn". `turn-off` và `net uninstall` đọc thẳng card mạng chứ không chỉ tin DB, vì DB có thể sạch dấu vết sau một lần cài dở; `net uninstall` cũng xoá policy DoH của Chrome/Edge kể cả khi DB mất backup.
+
 ### Luật 18+ chạy suốt ngày đêm
 
 `enforcer/adult_list.py` đọc `enforcer/data/adult_domains.txt`, danh sách hơn 200.000 tên miền nhập từ BlockNSFW data/HOSTS.txt (MIT, snapshot bee0db2). `python tools/sync_adult_list.py` sinh `android/app/src/main/res/raw/adult_domains.txt` từ đúng danh sách đó, `--check` chỉ in khi hai bên lệch; `tests/test_adult_list.py` so từng byte nên quên sync là test đỏ ngay. Lệnh `Kyluat-cli.exe adult test` và nút **Kiểm tra chặn thử** trong app hỏi thẳng sinkhole bằng một tên mẫu.
@@ -102,6 +104,8 @@ Môi trường đã chạy thật, tuỳ theo phần bạn cần:
 
 Python và Node thấp hơn phần khai báo ở trên thì chưa ai chạy thử, kể cả `npm run build` trên Node 20.9: tôi build trên Node v24.12.0.
 
+Máy nào cài nhiều bản Python thì chú ý: `py` và `pip` có thể trỏ vào bản chưa cài thư viện của app (trên máy tôi, `py` mặc định là 3.14 ở `D:\Python`, còn thư viện nằm ở 3.12). App sẽ nói rõ đang thiếu gì và nên chạy bằng trình nào thay vì ném traceback; muốn chắc thì gọi thẳng `& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m enforcer doctor`.
+
 ```powershell
 pip install -r requirements.txt
 copy config.example.toml config.toml
@@ -126,7 +130,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-60 test, chạy được mà không cần quyền Administrator và không đụng tới hệ thống thật. `tests/test_proc_gate.py` giữ hai chuyện: mọi lời gọi tiến trình con trong `enforcer/` phải đi qua `enforcer/proc.py`, và cửa đó vẫn chạy được khi tiến trình không có console hoặc bị mất stdin. `tests/test_packaging_entry.py` đọc luôn header PE của hai file exe đã build để chắc `Kyluat.exe` là subsystem GUI. `tests/test_turn_off.py` kẹp hai nhánh của lệnh tắt bảo vệ: chưa từng đổi DNS thì không đòi quyền admin, còn đổi rồi mà khôi phục thất bại thì từ chối gỡ và bật lại task để máy không mất mạng. `tests/test_adult_list.py` giữ định dạng danh sách 18+ và so từng byte với file asset của Android.
+86 test, chạy được mà không cần quyền Administrator và không đụng tới hệ thống thật. `tests/test_proc_gate.py` giữ hai chuyện: mọi lời gọi tiến trình con trong `enforcer/` phải đi qua `enforcer/proc.py`, và cửa đó vẫn chạy được khi tiến trình không có console hoặc bị mất stdin. `tests/test_packaging_entry.py` đọc luôn header PE của hai file exe đã build để chắc `Kyluat.exe` là subsystem GUI. `tests/test_turn_off.py` kẹp hai nhánh của lệnh tắt bảo vệ: chưa từng đổi DNS thì không đòi quyền admin, còn đổi rồi mà khôi phục thất bại thì từ chối gỡ và bật lại task để máy không mất mạng. `tests/test_net_failopen.py` chốt từng cửa từng để máy chết mạng hôm 03/11/2026: không đường nào được trả DNS về loopback, uninstall cứu máy cả khi DB mất backup, turn-off nhìn card mạng thay vì tin DB, repair không được trỏ DNS về sinkhole chết, và status/doctor phải in lời cảnh báo. `tests/test_bootstrap.py` giữ cửa khởi động: chạy nhầm bản Python thì app phải nói rõ thiếu gì và nên dùng trình nào, daemon không nạp được module thì ghi `data/startup.log` và chỉ hiện hộp thoại một lần mỗi giờ. `tests/test_adult_list.py` giữ định dạng danh sách 18+ và so từng byte với file asset của Android.
 
 Codec DNS, bộ kiểm tra cập nhật và phần chia vùng ảnh của Android có 16 unit test chạy trên JVM, không cần thiết bị:
 
@@ -222,7 +226,7 @@ App này là phần mềm chặn xao nhãng nên phải đụng vào hệ thốn
 | `%LOCALAPPDATA%\Programs\Kyluat` | chạy bộ cài | Add or remove programs, không cần quyền quản trị |
 | `data\enforcer.db`, `data\backups\` | lần chạy đầu và mỗi ngày | xóa thư mục `data` |
 | Scheduled Task `CaiNghienEnforcer` | bấm giữ cho app tự bật lại | `Kyluat-cli.exe turn-off`, bộ gỡ tự xóa |
-| DNS card mạng trỏ về `127.0.0.1` | chỉ khi bật chặn web, cần Administrator | `net uninstall` khôi phục đúng DNS đã sao lưu |
+| DNS card mạng trỏ về `127.0.0.1` | chỉ khi bật chặn web, cần Administrator | `net uninstall` khôi phục DNS đã sao lưu; bộ lọc chết thì watchdog tự trả DNS về máy |
 | Policy DoH của Chrome và Edge trong registry | chỉ khi bật chặn web, cần Administrator | tắt bảo vệ trả về giá trị cũ từng trình duyệt |
 | Rule tường lửa `CaiNghienPhone8766` | chỉ khi ghép nối điện thoại, profile private | `turn-off` xóa rule |
 | Đường hầm VPN lọc DNS trên Android | chỉ khi gạt **Chặn trang người lớn** ở tab Bảo vệ | tắt công tắc, nút **Tắt bộ lọc** trên thông báo, hoặc màn Tắt bảo vệ |

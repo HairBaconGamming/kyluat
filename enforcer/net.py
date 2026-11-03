@@ -25,6 +25,8 @@ UPSTREAMS = ("1.1.1.1", "8.8.8.8")
 # nên phần việc của danh sách chọn tay chỉ là những nền tảng bị bộ lọc bỏ sót.
 ADULT_UPSTREAMS = ("94.140.14.14", "94.140.14.15")
 SELF_NAME = "enforcer.local"
+LOOPBACK_V4 = "127.0.0.1"
+LOOPBACK_V6 = "::1"
 DOH_POLICIES = (
     (r"SOFTWARE\Policies\Google\Chrome", "DnsOverHttpsMode"),
     (r"SOFTWARE\Policies\Microsoft\Edge", "DnsOverHttpsMode"),
@@ -226,6 +228,7 @@ def start_sinkhole(
     get_blocking: Callable[[], bool],
     db_path: Path,
     port: int = 53,
+    on_dead: Callable[[OSError], None] | None = None,
 ) -> threading.Thread:
     def runner() -> None:
         sinkhole = Sinkhole(get_config, get_blocking, db_path, port)
@@ -237,6 +240,12 @@ def start_sinkhole(
             except sqlite3.Error:
                 pass
             print(f"[net] {exc}", flush=True)
+            # Máy vẫn đang trỏ DNS về đây, nên thread chết là mạng chết.
+            if on_dead is not None:
+                try:
+                    on_dead(exc)
+                except Exception as other:
+                    print(f"[net] fail-open lỗi: {other}", flush=True)
 
     thread = threading.Thread(target=runner, name="enforcer-dns", daemon=True)
     thread.start()
@@ -322,6 +331,25 @@ def set_dns(index: int, v4: list[str], v6: list[str]) -> None:
         _run_ps(f"Set-DnsClientServerAddress -InterfaceIndex {index} -ServerAddresses @({joined})")
 
 
+def without_loopback(addresses: list[str], loopback: str) -> list[str]:
+    return [address for address in addresses if address != loopback]
+
+
+def rescue_dns(index: int, backup: dict | None) -> tuple[str, list[str], list[str]]:
+    """Trả card mạng về DNS thật, không bao giờ để nó trỏ tiếp về máy.
+
+    Backup có thể được ghi đúng lúc máy đang bị nhốt ở 127.0.0.1; khôi phục value đó là
+    nhốt mạng vĩnh viễn. Không có giá trị thật nào thì mặc định trả về DHCP.
+    """
+    v4 = without_loopback(list((backup or {}).get("v4") or []), LOOPBACK_V4)
+    v6 = without_loopback(list((backup or {}).get("v6") or []), LOOPBACK_V6)
+    if v4 or v6:
+        set_dns(index, v4, v6)
+        return "backup", v4, v6
+    set_dns(index, [], [])
+    return "dhcp", [], []
+
+
 def reg_get(key: str, name: str) -> str | None:
     result = proc.run(["reg", "query", rf"HKLM\{key}", "/v", name], capture_output=True)
     if result.returncode != 0:
@@ -360,11 +388,12 @@ def current_wiring() -> dict | None:
         if index is None:
             return None
         dns = get_dns(index)
-    except RuntimeError:
+    except Exception:
+        # PowerShell có thể fail vì quyền hoặc card mạng vừa rút; caller luôn có nhánh None.
         return None
     return {
         "index": index,
         "v4": dns["v4"],
         "v6": dns["v6"],
-        "loopback": dns["v4"] == ["127.0.0.1"],
+        "loopback": LOOPBACK_V4 in dns["v4"] or LOOPBACK_V6 in dns["v6"],
     }

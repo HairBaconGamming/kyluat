@@ -1600,6 +1600,21 @@ class MainWindow(QMainWindow):
         if not hasattr(self, "web_row"):
             return
         if net_enabled:
+            # Luật bật mà cổng 53 không ai trả lời nghĩa là DNS vẫn trỏ về máy và cả máy không
+            # phân giải được tên miền nào — phải nói rõ chứ không được để hiện "đang bật" êm ru.
+            if net.probe() is None:
+                self.web_row.set_text(
+                    "Chặn web đang bật nhưng bộ lọc chết",
+                    f"DNS trỏ về {net.LOOPBACK_V4}, không ai nghe cổng 53 → chưa vào được web. "
+                    f"Bấm Tắt bảo vệ, hoặc chạy PowerShell Administrator: {CLI_HINT} net uninstall",
+                )
+                self.web_row.title.setStyleSheet(
+                    f"background:transparent;color:{DANGER};font-size:14px;font-weight:600;"
+                )
+                self.web_pill.set_state("Mạng đang bị chặn", "danger")
+                self.web_row.handler = None
+                self.web_row.setCursor(Qt.CursorShape.ArrowCursor)
+                return
             self.web_row.set_text("Chặn web đang bật", "DNS máy trỏ về 127.0.0.1 · tắt bằng Tắt bảo vệ")
             self.web_row.title.setStyleSheet(
                 f"background:transparent;color:{INK};font-size:14px;font-weight:600;"

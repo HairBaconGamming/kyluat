@@ -112,7 +112,12 @@ def cmd_run(args) -> int:
         config = Config.from_json(approved_json)
         store.backup(DB_PATH.parent / "backups")
         guard = Guard(store, config, CONFIG_PATH)
-        net.start_sinkhole(lambda: guard.config, lambda: guard.focus_active, DB_PATH)
+        net.start_sinkhole(
+            lambda: guard.config,
+            lambda: guard.focus_active,
+            DB_PATH,
+            on_dead=lambda exc: _rescue_dns(f"không bind được cổng 53: {exc}"),
+        )
         threading.Thread(target=_net_watch, args=(DB_PATH,), daemon=True).start()
         threading.Thread(target=_dns_health_watch, args=(DB_PATH,), daemon=True).start()
         if phone_api.start_if_paired(DB_PATH, CONFIG_PATH, LOCK_PATH) is not None:
@@ -413,6 +418,10 @@ def cmd_net_repair(args) -> int:
             print("Không đọc được card mạng đang hoạt động.")
             return 1
         if wiring["loopback"]:
+            if net.probe() is None:
+                print("DNS đang trỏ về 127.0.0.1 nhưng không có bộ lọc nào nghe cổng 53 — máy sẽ không vào được web.")
+                print(f"Trả DNS về máy: {CLI_HINT} net uninstall (quyền Administrator).")
+                return 1
             print("DNS đang trỏ đúng về sinkhole, không cần sửa.")
             return 0
         store.event("net_repair_manual", f"adapter {wiring['index']}")
@@ -571,6 +580,10 @@ def cmd_turn_off(args) -> int:
         dns_touched = store.get_state(NET_ENABLED_KEY) == "1" or bool(store.get_state(NET_BACKUP_KEY))
     finally:
         store.close()
+    # DB có thể sạch dấu vết (data bị xoá, lần cài dở dang, task chạy ở bản khác) trong khi card mạng
+    # vẫn bị trỏ về 127.0.0.1. Chỉ nhìn DB thì tắt bảo vệ xong máy vẫn không vào được web.
+    trapped = net.current_wiring()
+    dns_touched = dns_touched or bool(trapped and trapped["loopback"])
 
     if dns_touched:
         code = cmd_net_uninstall(args)
@@ -650,16 +663,21 @@ def cmd_net_install(args) -> int:
         {"key": key, "name": name, "previous": net.reg_get(key, name)}
         for key, name in net.DOH_POLICIES
     ]
-    backup = {"interface_index": index, "v4": old_dns["v4"], "v6": old_dns["v6"], "doh": doh_backup}
+    backup = {
+        "interface_index": index,
+        "v4": net.without_loopback(old_dns["v4"], net.LOOPBACK_V4),
+        "v6": net.without_loopback(old_dns["v6"], net.LOOPBACK_V6),
+        "doh": doh_backup,
+    }
     try:
         store.set_state(NET_BACKUP_KEY, json.dumps(backup, ensure_ascii=False))
-        net.set_dns(index, ["127.0.0.1"], ["::1"])
+        net.set_dns(index, [net.LOOPBACK_V4], [net.LOOPBACK_V6])
         for key, name in net.DOH_POLICIES:
             net.reg_set(key, name, "off")
         net.flush_dns()
     except Exception as exc:
         try:
-            net.set_dns(index, old_dns["v4"], old_dns["v6"])
+            net.rescue_dns(index, backup)
         except Exception:
             pass
         store.del_state(NET_BACKUP_KEY)
@@ -695,32 +713,42 @@ def cmd_net_uninstall(args) -> int:
         print("Cần quyền Administrator. Mở PowerShell bằng quyền Administrator rồi chạy lại.")
         return 1
     store = Store(DB_PATH)
-    backup_text = store.get_state(NET_BACKUP_KEY)
-    if backup_text:
+    wiring = net.current_wiring()
+    backup = _net_backup(store)
+    index = backup.get("interface_index") or (wiring or {}).get("index")
+    stuck = bool(wiring and wiring["loopback"])
+    mode = None
+    if index is None:
+        print("Không đọc được card mạng nào đang có internet — để nguyên DNS.")
+    elif backup or stuck:
+        # stuck = máy đang trỏ về 127.0.0.1 dù DB không còn dấu vết: phải cứu mạng trước khi bàn tới luật.
         try:
-            backup = json.loads(backup_text)
-        except ValueError:
-            backup = None
-        if backup:
-            try:
-                net.set_dns(backup["interface_index"], backup.get("v4", []), backup.get("v6", []))
-            except Exception as exc:
-                print(f"Khôi phục DNS lỗi: {exc}")
-            for item in backup.get("doh", []):
-                try:
-                    if item.get("previous") is None:
-                        net.reg_delete(item["key"], item["name"])
-                    else:
-                        net.reg_set(item["key"], item["name"], item["previous"])
-                except RuntimeError as exc:
-                    print(f"Không khôi phục được policy {item.get('name')}: {exc}")
+            mode, v4, v6 = net.rescue_dns(index, backup)
+        except Exception as exc:
+            print(f"Khôi phục DNS lỗi: {exc}")
+            store.close()
+            return 1
+        print(f"Đã khôi phục DNS adapter {index}: {', '.join(v4 or v6) or 'DHCP'} ({mode}).")
     else:
-        print("Không có bản backup DNS — bỏ qua phần DNS.")
+        print("DNS không trỏ về máy và không có backup — để nguyên card mạng.")
+    # Policy trình duyệt là thay đổi của chính app, nên gỡ nó kể cả khi DB mất dấu backup.
+    doh = backup.get("doh") or [
+        {"key": key, "name": name, "previous": None} for key, name in net.DOH_POLICIES
+    ]
+    for item in doh:
+        try:
+            if item.get("previous") is None:
+                net.reg_delete(item["key"], item["name"])
+            else:
+                net.reg_set(item["key"], item["name"], item["previous"])
+        except RuntimeError as exc:
+            print(f"Không khôi phục được policy {item.get('name')}: {exc}")
     store.del_state(NET_ENABLED_KEY)
     store.del_state(NET_BACKUP_KEY)
-    store.event("net_uninstall", "")
+    store.event("net_uninstall", f"adapter {index}: {mode or 'giu nguyen DNS'}")
+    store.close()
     net.flush_dns()
-    print("Đã tắt chặn web và khôi phục DNS.")
+    print("Đã tắt chặn web.")
     return 0
 
 
@@ -733,18 +761,15 @@ def cmd_net_status(args) -> int:
     print(f"Trạng thái  : {'bật' if enabled else 'tắt'} · {domains} domain")
     print(f"18+         : {'bật, chặn suốt ngày, upstream AdGuard Family' if approved and approved.adult_block else 'tắt'}")
     print(f"Quyền admin : {'có' if net.is_admin() else 'không'}")
-    try:
-        index = net.active_interface_index()
-        if index is None:
-            print("Card mạng   : không tìm thấy card đang có internet")
-        else:
-            dns = net.get_dns(index)
-            print(f"Card mạng   : {index} · DNS v4 {dns['v4'] or 'DHCP'} · v6 {dns['v6'] or 'trống'}")
-    except RuntimeError as exc:
-        print(f"Card mạng   : không đọc được ({exc})")
-    if enabled:
-        wiring = net.current_wiring()
-        if wiring is not None:
+    wiring = net.current_wiring()
+    if wiring is None:
+        print("Card mạng   : không đọc được hoặc chưa có card vào internet")
+    else:
+        print(
+            f"Card mạng   : {wiring['index']} · DNS v4 {wiring['v4'] or 'DHCP'} "
+            f"· v6 {wiring['v6'] or 'trống'}"
+        )
+        if enabled:
             print(f"DNS khớp    : {'có' if wiring['loopback'] else 'KHÔNG (Admin: net repair)'}")
     reply = net.probe()
     if reply:
@@ -752,10 +777,17 @@ def cmd_net_status(args) -> int:
     else:
         hint = "daemon chưa chạy" if _daemon_pid() is None else f"xem: {CLI_HINT} log"
         print(f"Sinkhole    : không phản hồi ({hint})")
+    _warn_if_trapped(bool(reply), wiring)
     for key, name in net.DOH_POLICIES:
-        browser = "Chrome" if "Chrome" in key else "Edge"
+        browser = "Chrome" if "Google" in key else "Edge"
         value = net.reg_get(key, name)
-        print(f"DoH {browser:<8}: {value if value is not None else 'không đặt'}")
+        if value is None:
+            text = "không đặt"
+        elif enabled or value != "off":
+            text = value
+        else:
+            text = f"{value} · tàn dư chặn web, xoá bằng: {CLI_HINT} net uninstall"
+        print(f"DoH {browser:<8}: {text}")
     return 0
 
 
@@ -839,7 +871,8 @@ def cmd_doctor(args) -> int:
         blocks = store.blocks_today()
     finally:
         store.close()
-    if net.probe():
+    alive = net.probe()
+    if alive:
         sinkhole = "phản hồi"
     elif daemon.startswith("không"):
         sinkhole = "daemon chưa chạy"
@@ -855,12 +888,12 @@ def cmd_doctor(args) -> int:
     print(f"Tự chạy     : {_task_status()}")
     print(f"Daemon      : {daemon}")
     print(f"Chặn web    : {'bật' if net_enabled else 'tắt'}")
-    print(f"Chặn 18+    : {'bật' if approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS):,} tên miền")
-    if net_enabled:
-        wiring = net.current_wiring()
-        if wiring is not None:
-            print(f"DNS khớp    : {'có' if wiring['loopback'] else 'KHÔNG (Admin: net repair)'}")
+    print(f"Chặn 18+    : {'bật' if approved and approved.adult_block else 'tắt'} · {len(ADULT_DOMAINS):,} tên miền")
+    wiring = net.current_wiring()
+    if net_enabled and wiring is not None:
+        print(f"DNS khớp    : {'có' if wiring['loopback'] else 'KHÔNG (Admin: net repair)'}")
     print(f"Sinkhole    : {sinkhole}")
+    _warn_if_trapped(bool(alive), wiring)
     if approved is not None:
         print(
             f"Luật        : {len(approved.processes)} app · {len(approved.web_domains)} domain · "
@@ -937,6 +970,60 @@ def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
+def _warn_if_trapped(sinkhole_alive: bool, wiring: dict | None = None) -> None:
+    """Nói to rõ ca lỗi nguy hiểm nhất: DNS trỏ về máy trong khi cổng 53 không ai nghe."""
+    if sinkhole_alive:
+        return
+    wiring = net.current_wiring() if wiring is None else wiring
+    if wiring is None or not wiring["loopback"]:
+        return
+    print(
+        f"CẢNH BÁO : DNS adapter {wiring['index']} trỏ về {net.LOOPBACK_V4} "
+        "nhưng không có bộ lọc nào nghe cổng 53 → máy không vào được web."
+    )
+    print(f"          Mở PowerShell quyền Administrator rồi chạy: {CLI_HINT} net uninstall")
+
+
+def _net_backup(store: Store) -> dict:
+    text = store.get_state(NET_BACKUP_KEY)
+    if not text:
+        return {}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _fail_open_dns(store: Store, reason: str) -> bool:
+    """Kéo card mạng về DNS thật khi bộ lọc chết mà DNS vẫn trỏ về máy này.
+
+    Đây là cửa thoát duy nhất giữa "lọc được" và "vào được web": thà mất chặn còn hơn
+    nhốt máy trong trạng thái không phân giải nổi tên miền nào.
+    """
+    wiring = net.current_wiring()
+    if wiring is None or not wiring["loopback"]:
+        return False
+    backup = _net_backup(store)
+    index = backup.get("interface_index") or wiring["index"]
+    mode, v4, v6 = net.rescue_dns(index, backup)
+    store.event("net_failopen", f"{reason}; adapter {index} → {mode} {v4 or v6 or ['DHCP']}")
+    net.flush_dns()
+    notify.toast_async(
+        "Đã trả DNS về máy",
+        f"Bộ lọc DNS chết ({reason[:90]}). Mạng đi tiếp bình thường; muốn lọc lại thì bấm Bật chặn web.",
+    )
+    return True
+
+
+def _rescue_dns(reason: str) -> bool:
+    store = Store(DB_PATH)
+    try:
+        return _fail_open_dns(store, reason)
+    finally:
+        store.close()
+
+
 def _dns_health_watch(db_path: Path) -> None:
     failures = 0
     while True:
@@ -953,7 +1040,9 @@ def _dns_health_watch(db_path: Path) -> None:
             failures += 1
             if failures < 2:
                 continue
-            store.event("net_watchdog", "DNS sinkhole không phản hồi — khởi động lại daemon")
+            # Trả DNS về máy trước khi làm gì khác: mạng không được chết chỉ vì bộ lọc chết.
+            _fail_open_dns(store, "sinkhole không phản hồi")
+            store.event("net_watchdog", "DNS sinkhole không phản hồi — khôi phục DNS rồi mới thử chạy lại daemon")
             store.close()
             store = None
             if _task_status().startswith("có"):
@@ -988,23 +1077,23 @@ def _net_watch(db_path: Path) -> None:
 
 
 def _repair_wiring(store: Store, wiring: dict) -> bool:
-    backup_text = store.get_state(NET_BACKUP_KEY)
-    try:
-        backup = json.loads(backup_text) if backup_text else {}
-    except ValueError:
-        backup = {}
+    if net.probe() is None:
+        # Trỏ DNS về máy khi không có gì nghe cổng 53 là cắt mạng cả máy, không phải khôi phục luật.
+        _warn_wiring(store, "sinkhole không phản hồi")
+        return False
+    backup = _net_backup(store)
     if backup.get("interface_index") != wiring["index"]:
         backup = {
             "interface_index": wiring["index"],
-            "v4": wiring["v4"],
-            "v6": wiring["v6"],
+            "v4": net.without_loopback(wiring["v4"], net.LOOPBACK_V4),
+            "v6": net.without_loopback(wiring["v6"], net.LOOPBACK_V6),
             "doh": backup.get("doh", []),
         }
         store.set_state(NET_BACKUP_KEY, json.dumps(backup, ensure_ascii=False))
     try:
-        net.set_dns(wiring["index"], ["127.0.0.1"], ["::1"])
+        net.set_dns(wiring["index"], [net.LOOPBACK_V4], [net.LOOPBACK_V6])
     except Exception:
-        _warn_wiring(store)
+        _warn_wiring(store, "không đổi được DNS")
         return False
     net.flush_dns()
     store.event("net_repair", f"adapter {wiring['index']}")
@@ -1012,7 +1101,7 @@ def _repair_wiring(store: Store, wiring: dict) -> bool:
     return True
 
 
-def _warn_wiring(store: Store) -> None:
+def _warn_wiring(store: Store, reason: str = "DNS lệch khỏi sinkhole") -> None:
     last = store.get_state("net_warn_at")
     now = datetime.now()
     if last:
@@ -1022,8 +1111,8 @@ def _warn_wiring(store: Store) -> None:
         except ValueError:
             pass
     store.set_state("net_warn_at", now.isoformat(timespec="seconds"))
-    store.event("net_warning", "DNS không trỏ về 127.0.0.1; chạy net repair")
-    notify.toast_async("Chặn web đang lệch DNS", f"Chạy PowerShell Admin: {CLI_HINT} net repair")
+    store.event("net_warning", f"{reason}; chạy net repair khi muốn lọc lại")
+    notify.toast_async("Chặn web đang lệch DNS", f"{reason}. Chạy PowerShell Admin: {CLI_HINT} net repair")
 
 
 def _daemon_pid() -> int | None:
