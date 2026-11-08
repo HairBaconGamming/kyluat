@@ -85,7 +85,7 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Cài file APK</h3>
-              <p>Tải <code>kyluat-android-v3.14.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Tải <code>kyluat-android-v3.15.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
               <p>Lần mở đầu tiên có bộ thiết lập: cấp hai quyền cốt lõi, chọn app cần chặn, đặt quỹ và app gym, rồi tuỳ chọn ghép máy tính và lọc 18+. Sau đó app tự kiểm tra bản mới hằng ngày khi bạn để bật; tắt trong <strong>Cài đặt</strong> → <strong>Cập nhật</strong>.</p>
               <p>Android 8.0 trở lên. Không lên CH Play.</p>
               <p>File phát hành trên GitHub nên Google không nhận ra người gửi và hiện cảnh báo <strong>Ứng dụng chưa được xác minh</strong>; trên vài máy phải bấm <strong>Chi tiết khác</strong> rồi mới thấy <strong>Vẫn cài</strong>. Trước khi bấm, so dãy SHA-256 ở trang <a href="/tai-nguyen">Tải về</a> với file vừa tải để chắc nó không bị sửa giữa đường.</p>
@@ -94,7 +94,7 @@ export default function Page() {
 
             <div className="block">
               <h3>2. Cấp hai quyền bắt buộc</h3>
-              <p>App sẽ dẫn bạn qua <strong>Hiển thị trên ứng dụng khác</strong> và <strong>Trợ năng</strong>. Trợ năng chỉ theo dõi cửa sổ nào đang ở phía trước; quyền đọc cây nội dung cửa sổ vẫn tắt. Khi bạn bật nhận diện ảnh, Android cấp thêm quyền chụp màn hình cho đúng service đó.</p>
+              <p>App sẽ dẫn bạn qua <strong>Hiển thị trên ứng dụng khác</strong> và <strong>Trợ năng</strong>. Trợ năng chỉ cho biết cửa sổ nào đang ở phía trước và lúc nào có cú chạm hay cuốn — tức tên app và thời điểm, không có nội dung; quyền đọc cây nội dung cửa sổ vẫn tắt trong khai báo của app. Khi bạn bật nhận diện ảnh, Android cấp thêm quyền chụp màn hình cho đúng service đó.</p>
               <p>Quyền thông báo là tuỳ chọn, cần nếu bạn muốn đồng hồ buổi tập hiện trên thanh trạng thái.</p>
             </div>
 
@@ -121,24 +121,26 @@ export default function Page() {
 
             <div className="block">
               <h3>5. Hiểu quy tắc quỹ mạng xã hội</h3>
-              <p>App trong danh sách bị khoá theo mặc định. Muốn dùng, bạn mở Kỷ luật và bấm <strong>Nghỉ có kiểm soát</strong>, chọn 10, 15 hoặc 30 phút. Chỉ trong khoảng nghỉ đó thời gian lướt mới trừ vào quỹ.</p>
-              <p>Quỹ là dùng chung cho cả nhóm app đã chọn, không phải mỗi app một tiếng, mặc định 60 phút và làm mới lúc 0:00 theo ngày trên máy. Hết giờ nghỉ là khoá lại, còn nghỉ thì bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</p>
-              <p>Đổi mức quỹ ở <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>: chọn từ 15 đến 120 phút, gõ lại đúng đoạn cam kết rồi chờ 30 giây. Giảm mức có hiệu lực ngay, tăng mức phải chờ đến 0:00 hôm sau.</p>
+              <p>Quỹ là khoản thời gian lướt dùng cho cả ngày. Mở một app trong danh sách chặn là thời gian bắt đầu trừ vào quỹ ngay, không phải xin phiên nghỉ trước. Hết quỹ thì màn khoá đóng app đó tới 0:00 hôm sau.</p>
+              <p>Một mức quỹ dùng chung cho cả nhóm app đã chọn, không phải mỗi app một tiếng; mặc định 60 phút và làm mới lúc 0:00 theo ngày trên máy. Khi còn dùng được, một đồng hồ nhỏ trên đầu màn hình đếm số phút quỹ còn lại.</p>
+              <p>Học kiên trì được thưởng thêm quỹ: mỗi phút không chạm điện thoại được 5 điểm, mỗi phút trong app AI bạn tự chọn được 2 điểm, đủ 5 điểm thì đổi thành 1 phút quỹ. Điểm cộng từ lúc màn hình tắt hoặc khoá cũng được, nhưng không cộng từ 22:00 đến 07:00 và trần thưởng là 120 phút mỗi ngày. Vì phần thưởng cộng vào ngay mức quỹ hôm đó, học đủ lâu có thể mở lại app đã cạn quỹ.</p>
+              <p>Đổi mức quỹ ở <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>: chọn từ 15 đến 120 phút. Giảm có hiệu lực ngay, tăng phải chờ đến 0:00 hôm sau.</p>
               <figure className="shot phone-shot inline-phone">
                 <img src="/assets/img/android-doi-quy.png" alt="Bước chọn mức quỹ: các mức 15 đến 120 phút, đang chọn 90, kèm dòng giải thích tăng quỹ có hiệu lực từ 0:00 hôm sau" width="1080" height="2157" loading="lazy" />
-                <figcaption>Bước 1 của ba bước đổi mức quỹ.</figcaption>
+                <figcaption>Bảng chọn mức quỹ (ảnh bản 3.14).</figcaption>
               </figure>
-              <p>Đang có phiên focus chạy thì không xin nghỉ được. Muốn lướt trong lúc focus, bạn phải dừng phiên trước, và dừng giữa chừng thì vẫn còn chờ theo đúng cơ chế đã cam kết.</p>
+              <p>Muốn <em>nới lỏng</em> luật — tăng quỹ, bỏ bớt app bị chặn, đổi tỷ lệ điểm, hay tắt hẳn bảo vệ — bạn phải qua cổng cam kết 60 giây: đọc cảnh báo, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ đủ 60 giây. Một lần mở áp dụng cho mọi luật trong 10 phút rồi tự khoá lại; siết luật thì làm ngay, không cần mở cổng.</p>
+              <p>Đang chạy phiên tập trung thì app mạng xã hội bị khoá và không trừ quỹ, kể khi quỹ còn dư.</p>
               <figure className="shot phone-shot inline-phone">
                 <img src="/assets/img/android-hom-nay.png" alt="Tab Hôm nay trên điện thoại: vòng quỹ mạng xã hội 42 phút còn lại và nút Kết thúc nghỉ" width="1080" height="2608" loading="lazy" />
-                <figcaption>Tab Hôm nay: vòng quỹ và nút kết thúc nghỉ đang chạy.</figcaption>
+                <figcaption>Vòng quỹ ở tab Hôm nay (ảnh bản 3.14).</figcaption>
               </figure>
             </div>
 
             <div className="block">
               <h3>6. Màn khoá nói cho bạn biết vì sao bị chặn</h3>
-              <p>Lớp phủ hiện ngay trên mặt app với tiêu đề và lý do: app đang trong danh sách chặn, phiên focus đang chạy, hay đã dùng hết quỹ hôm nay. Trường hợp hết quỹ ghi luôn còn bao lâu tới 0:00.</p>
-              <p>Hai nút luôn có ở trạng thái thường: <strong>Quay lại Kỷ luật</strong> và <strong>Dùng app khác</strong> để về màn hình chính. Màn khoá không giữ bạn ở lại.</p>
+              <p>Lớp phủ hiện ngay trên mặt app với tiêu đề và lý do, và chỉ trong hai trường hợp: đang chạy phiên tập trung, hoặc đã dùng hết quỹ hôm nay. Bản 3.15 bỏ hẳn màn "app đang bị chặn" ngoài hai tình huống đó — còn quỹ là app mở bình thường, chỉ có đồng hồ đếm ngược phía trên. Trường hợp hết quỹ ghi luôn còn bao lâu tới 0:00.</p>
+              <p>Nút <strong>Dùng app khác</strong> luôn còn và đưa bạn về màn hình chính; mở lại Kỷ luật từ màn hình chính thì màn khoá tự tắt. Màn khoá không giữ bạn ở lại.</p>
               <figure className="shot phone-shot inline-phone">
                 <img src="/assets/img/android-man-khoa.png" alt="Lớp phủ màn khoá màu đậm với hai nút Quay lại Kỷ luật và Dùng app khác" width="1080" height="2400" loading="lazy" />
                 <figcaption>Màn khoá thật, vẽ bằng chính app Kỷ luật.</figcaption>
@@ -148,7 +150,7 @@ export default function Page() {
             <div className="block">
               <h3>7. Buổi tập gym</h3>
               <p>Ở tab <strong>Hôm nay</strong>, chọn app tập của bạn rồi bấm bắt đầu. Giữ app đó trên màn hình đủ 10 phút liên tục thì được tính một buổi.</p>
-              <p>Rời app hoặc tắt màn hình là đếm lại từ đầu. Trong lúc tập, một đồng hồ nhỏ chạy ở giữa mép trên màn hình và có thông báo ở thanh trạng thái.</p>
+              <p>Rời app hoặc tắt màn hình là đếm lại từ đầu. Trong lúc tập, một đồng hồ nhỏ đếm ngược tới 10 phút chạy ở giữa mép trên màn hình, kèm thông báo đếm ngược ở thanh trạng thái. Ngoài giờ tập, đúng đồng hồ đó hiện số phút quỹ còn lại khi bạn đang ở app mạng xã hội.</p>
               <p>Buổi tập được ghi sang máy tính khi hai máy đang ghép nối và cùng có mạng.</p>
             </div>
 

@@ -6,7 +6,7 @@ import org.junit.Test
 
 /**
  * Lịch trên máy tính chạy suốt ngày nên không được coi là phiên focus: nếu không thì điện thoại
- * khoá app và cấm dùng quỹ gần 24/24, đúng lỗi người dùng không mở được "Nghỉ có kiểm soát".
+ * khoá app và cấm dùng quỹ gần 24/24. Chỉ phiên thủ công mới khoá app và ngừng trừ quỹ.
  */
 class FocusPolicyTest {
     @Test

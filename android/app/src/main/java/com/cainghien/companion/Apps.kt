@@ -19,6 +19,12 @@ object Apps {
         "com.jefit.jefit" to "JEFIT",
         "com.myfitnesspal.android" to "MyFitnessPal",
         "com.nike.ntc" to "Nike Training Club",
+        "com.google.android.apps.bard" to "Gemini",
+        "com.openai.chatgpt" to "ChatGPT",
+        "com.anthropic.claude" to "Claude",
+        "com.microsoft.copilot" to "Copilot",
+        "ai.perplexity.app.android" to "Perplexity",
+        "com.deepseek.chat" to "DeepSeek",
     )
 
     private val categories = mapOf(

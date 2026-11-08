@@ -1,33 +1,29 @@
 package com.cainghien.companion
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 
+/**
+ * Đổi mức quỹ mỗi ngày. Tăng quỹ là nới luật nên phải qua cổng 60 giây (một lần cho mọi luật);
+ * giảm quỹ là siết luật nên áp dụng ngay, miễn phí. Tăng vẫn chỉ có hiệu lực từ 0:00 hôm sau.
+ */
 class QuotaActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var quota: QuotaManager
     private lateinit var container: LinearLayout
-    private val handler = Handler(Looper.getMainLooper())
 
-    private var step = 0
     private var chosen = 0
-    private var waitLeft = WAIT_SECONDS
-    private var applied = false
-
     private var previewLabel: TextView? = null
+    private var bonusLabel: TextView? = null
     private var pickButton: UiButton? = null
-    private var counter: TextView? = null
-    private var commitButton: UiButton? = null
-    private var waitRing: RingStack? = null
+    private var pendingAction: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,20 +38,13 @@ class QuotaActivity : Activity() {
         page.addView(container)
         setContentView(Ui.scroll(page))
         showPicker()
-        handler.post(ticker)
-    }
-
-    private fun scaffold(title: String, subtitle: String, done: Int, onBack: () -> Unit) {
-        container.removeAllViews()
-        container.addView(Ui.backHeader(this, title, subtitle, onBack))
-        container.addView(Ui.steps(this, 3, done))
     }
 
     private fun showPicker() {
-        step = 0
         val current = quota.limitMinutes
         val pending = quota.pendingMinutes
-        scaffold("Quỹ mạng xã hội", "Bước 1 / 3 · chọn mức dùng mỗi ngày", 1) { finish() }
+        container.removeAllViews()
+        container.addView(Ui.backHeader(this, "Quỹ mạng xã hội", "Chọn mức dùng mỗi ngày") { finish() })
 
         val hero = Ui.hero(this)
         hero.addView(Ui.eyebrow(this, "Mức đang áp dụng"))
@@ -65,6 +54,11 @@ class QuotaActivity : Activity() {
         hero.addView(value)
         hero.addView(Ui.label(this, "dùng chung cho cả nhóm app đã chặn", 12f, Ui.TEXT_3)
             .apply { setPadding(0, Ui.dp(this@QuotaActivity, 2), 0, 0) })
+        bonusLabel = Ui.label(this, bonusText(), 12f, Ui.ACCENT, true).apply {
+            setPadding(0, Ui.dp(this@QuotaActivity, 8), 0, 0)
+            setLineSpacing(0f, 1.35f)
+        }
+        hero.addView(bonusLabel)
         if (pending > 0 && pending != current) {
             hero.addView(Ui.label(
                 this,
@@ -90,8 +84,7 @@ class QuotaActivity : Activity() {
         val segmented = Ui.segmented(this, labels, QuotaManager.PRESETS.indexOf(chosen)) { index ->
             chosen = QuotaManager.PRESETS[index]
             previewLabel?.text = previewText(current, chosen)
-            pickButton?.text = if (chosen == current) "Đây là mức hiện tại" else "Tiếp tục · $chosen phút"
-            pickButton?.isEnabled = chosen != current
+            updatePickButton(current)
         }
         card.addView(segmented, Ui.match(this, topMarginDp = 8))
         previewLabel = Ui.label(this, previewText(current, chosen), 12f, Ui.TEXT_2).apply {
@@ -100,165 +93,106 @@ class QuotaActivity : Activity() {
         card.addView(previewLabel, Ui.match(this, topMarginDp = 11))
         container.addView(card, Ui.match(this, bottomMarginDp = 11))
 
-        val next = Ui.button(this, if (chosen == current) "Đây là mức hiện tại" else "Tiếp tục · $chosen phút",
-            Variant.PRIMARY, big = true)
-        next.isEnabled = chosen != current
-        next.setOnClickListener { showParagraph() }
+        val next = Ui.button(this, "", Variant.PRIMARY, big = true)
+        next.setOnClickListener { onPick(current) }
         pickButton = next
         container.addView(next, Ui.match(this))
+        updatePickButton(current)
 
         container.addView(Ui.note(
             this,
-            "Mọi lần đổi mức đều phải gõ lại đoạn cam kết và chờ 30 giây.",
+            "Tăng quỹ phải qua cổng cam kết 60 giây và chờ đến 0:00 hôm sau. " +
+                "Giảm quỹ áp dụng ngay, không cần cam kết.",
             R.drawable.ic_info,
         ).apply { setPadding(Ui.dp(this@QuotaActivity, 2), Ui.dp(this@QuotaActivity, 10), 0, 0) })
+    }
+
+    private fun bonusText(): String {
+        val bonus = quota.bonusMinutes()
+        val points = quota.pointsToday()
+        return if (bonus > 0) {
+            "Học tập hôm nay: $points điểm · thưởng thêm $bonus phút quỹ"
+        } else {
+            "Học tập hôm nay: $points điểm · chưa đủ quy đổi phút thưởng"
+        }
+    }
+
+    private fun updatePickButton(current: Int) {
+        val button = pickButton ?: return
+        when {
+            chosen == current -> {
+                button.text = "Đây là mức hiện tại"
+                button.isEnabled = false
+            }
+            chosen > current -> {
+                button.text = "Tăng lên $chosen phút · cần cam kết"
+                button.isEnabled = true
+            }
+            else -> {
+                button.text = "Giảm xuống $chosen phút · áp dụng ngay"
+                button.isEnabled = true
+            }
+        }
     }
 
     private fun previewText(current: Int, target: Int): String {
         if (target == current) return "Đây là mức đang áp dụng, không có gì thay đổi."
         val usedMinutes = quota.usedSeconds() / 60
         val left = quota.remainingSecondsFor(target) / 60
-        return if (target > current) {
-            "Tăng quỹ chỉ có hiệu lực từ 0:00 hôm sau. Hôm nay vẫn là $current phút."
-        } else if (left == 0) {
-            "Giảm xuống $target phút có hiệu lực ngay. Hôm nay đã dùng $usedMinutes phút nên quỹ khoá lại."
-        } else {
-            "Giảm xuống $target phút có hiệu lực ngay. Hôm nay còn $left phút."
+        return when {
+            target > current ->
+                "Tăng quỹ chỉ có hiệu lực từ 0:00 hôm sau và phải qua cổng cam kết. Hôm nay vẫn là $current phút."
+            left == 0 ->
+                "Giảm xuống $target phút có hiệu lực ngay. Hôm nay đã dùng $usedMinutes phút nên quỹ khoá lại."
+            else ->
+                "Giảm xuống $target phút có hiệu lực ngay, không cần cam kết. Hôm nay còn $left phút."
         }
     }
 
-    private fun showParagraph() {
-        step = 1
-        val paragraph = commitment(chosen)
-        scaffold("Nhập đoạn cam kết", "Bước 2 / 3 · gõ tay, không hỗ trợ dán", 2) { showPicker() }
-
-        container.addView(Ui.section(this, "Gõ lại đúng từng chữ"))
-        container.addView(Ui.quote(this, paragraph), Ui.match(this, bottomMarginDp = 9))
-
-        val field = NoPasteEdit(this)
-        container.addView(field, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 130)
-        ))
-
-        counter = Ui.label(this, "0 / ${paragraph.length}", 11.5f, Ui.TEXT_3).apply {
-            gravity = Gravity.END
-            setPadding(0, Ui.dp(this@QuotaActivity, 5), Ui.dp(this@QuotaActivity, 2), 0)
-        }
-        container.addView(counter, Ui.match(this, bottomMarginDp = 11))
-
-        field.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val text = s?.toString()?.trim() ?: ""
-                counter?.text = "${text.length} / ${paragraph.length}"
-                counter?.setTextColor(if (text == paragraph) Ui.ACCENT else Ui.TEXT_3)
-                commitButton?.isEnabled = text == paragraph
+    private fun onPick(current: Int) {
+        when {
+            chosen == current -> return
+            chosen > current -> requireUnlock {
+                quota.schedule(chosen)
+                Toast.makeText(this, "Đã hẹn mức $chosen phút từ 0:00 hôm sau.", Toast.LENGTH_LONG).show()
+                setResult(RESULT_OK)
+                finish()
             }
-        })
-
-        val row = LinearLayout(this)
-        row.orientation = LinearLayout.HORIZONTAL
-        val back = Ui.button(this, "Quay lại", Variant.GHOST)
-        back.setOnClickListener { showPicker() }
-        row.addView(back, Ui.weight(this, 1f))
-        val next = Ui.button(this, "Xác nhận mức $chosen phút", Variant.PRIMARY)
-        next.isEnabled = false
-        next.setOnClickListener { showWait() }
-        commitButton = next
-        row.addView(next, Ui.weight(this, 1f, leftMarginDp = 8))
-        container.addView(row, Ui.match(this))
-
-        container.addView(Ui.note(
-            this,
-            "Sai một chữ cũng phải gõ lại. Sau khi nhập đúng, bạn vẫn còn $WAIT_SECONDS giây để đổi ý.",
-            R.drawable.ic_info,
-        ).apply { setPadding(Ui.dp(this@QuotaActivity, 2), Ui.dp(this@QuotaActivity, 10), 0, 0) })
+            else -> {
+                quota.applyNow(chosen)
+                Toast.makeText(this, "Quỹ hôm nay là $chosen phút.", Toast.LENGTH_LONG).show()
+                setResult(RESULT_OK)
+                finish()
+            }
+        }
     }
 
-    private fun showWait() {
-        step = 2
-        waitLeft = WAIT_SECONDS
-        val current = quota.limitMinutes
-        scaffold("Xác nhận lần cuối", "Bước 3 / 3 · mức mới ghi nhận khi hết giờ", 3) { showParagraph() }
-
-        val hero = Ui.hero(this)
-        hero.gravity = Gravity.CENTER_HORIZONTAL
-        hero.addView(Ui.eyebrow(this, "Đang chờ"))
-        waitRing = Ui.ringStack(this, 148, 9f).apply {
-            setValueSize(38f)
-            value.text = waitLeft.toString()
-            caption.text = "giây"
-            setProgress(1f)
+    private fun requireUnlock(then: () -> Unit) {
+        if (prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+            then()
+            return
         }
-        hero.addView(waitRing, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = Ui.dp(this@QuotaActivity, 13)
-            bottomMargin = Ui.dp(this@QuotaActivity, 11)
-        })
-        hero.addView(Ui.label(
-            this,
-            if (chosen > current) {
-                "Hết đồng hồ thì mức $chosen phút có hiệu lực từ 0:00 hôm sau."
+        pendingAction = then
+        startActivityForResult(
+            Intent(this, UnlockActivity::class.java)
+                .putExtra(UnlockActivity.EXTRA_PURPOSE, UnlockActivity.PURPOSE_UNLOCK),
+            UNLOCK_REQUEST,
+        )
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == UNLOCK_REQUEST) {
+            if (resultCode == RESULT_OK) {
+                pendingAction?.invoke()
             } else {
-                "Hết đồng hồ thì mức $chosen phút áp dụng luôn cho hôm nay."
-            },
-            12.5f,
-            Ui.TEXT_2,
-        ).apply {
-            gravity = Gravity.CENTER
-            setLineSpacing(0f, 1.35f)
-        })
-        container.addView(hero)
-
-        val cancel = Ui.button(this, "Đổi ý, giữ mức $current phút", Variant.GHOST, big = true)
-        cancel.setOnClickListener { finish() }
-        container.addView(cancel, Ui.match(this))
-    }
-
-    private val ticker = object : Runnable {
-        override fun run() {
-            if (step == 2) {
-                waitLeft -= 1
-                val shown = waitLeft.coerceAtLeast(0)
-                waitRing?.value?.text = shown.toString()
-                waitRing?.setProgress(shown.toFloat() / WAIT_SECONDS)
-                if (waitLeft <= 0) {
-                    applyChoice()
-                    return
-                }
+                showPicker()
             }
-            handler.postDelayed(this, 1000)
+            pendingAction = null
         }
-    }
-
-    private fun applyChoice() {
-        if (applied) return
-        applied = true
-        val current = quota.limitMinutes
-        if (chosen > current) {
-            quota.schedule(chosen)
-            Toast.makeText(this, "Đã hẹn mức $chosen phút từ 0:00 hôm sau.", Toast.LENGTH_LONG).show()
-        } else {
-            quota.applyNow(chosen)
-            Toast.makeText(this, "Quỹ hôm nay là $chosen phút.", Toast.LENGTH_LONG).show()
-        }
-        setResult(RESULT_OK)
-        finish()
-    }
-
-    override fun onDestroy() {
-        handler.removeCallbacksAndMessages(null)
-        super.onDestroy()
     }
 
     companion object {
-        private const val WAIT_SECONDS = 30
-
-        fun commitment(minutes: Int): String =
-            "Tôi tự chọn mức $minutes phút mỗi ngày. Quỹ này để giữ giờ học, " +
-                "không phải để nới ra mỗi khi hết giờ."
+        private const val UNLOCK_REQUEST = 91
     }
 }

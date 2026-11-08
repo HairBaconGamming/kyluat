@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -14,6 +15,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -36,6 +38,7 @@ class FocusAccessibilityService : AccessibilityService() {
     private lateinit var secure: SecureStore
     private lateinit var windowManager: WindowManager
     private lateinit var notifications: NotificationManager
+    private lateinit var study: StudyTracker
     private val handler = Handler(Looper.getMainLooper())
     private val network = Executors.newSingleThreadExecutor()
     private var overlay: FrameLayout? = null
@@ -55,6 +58,35 @@ class FocusAccessibilityService : AccessibilityService() {
     private var neverBlocked: Set<String> = emptySet()
     private val launchable = HashMap<String, Boolean>()
     private var lastUpdateAttemptElapsed = 0L
+    private var gymNotifMode = -1
+    private var gymNotifStart = 0L
+
+    private fun keyguard(): KeyguardManager? = try {
+        getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+    } catch (error: Exception) {
+        null
+    }
+
+    private fun audio(): AudioManager? = try {
+        getSystemService(AUDIO_SERVICE) as AudioManager
+    } catch (error: Exception) {
+        null
+    }
+
+    /** Đọc trạng thái khoá màn hình và cuộc gọi để không trừ quỹ, không tính điểm học sai lúc. */
+    private fun refreshDeviceState() {
+        Runtime.keyguardLocked = try {
+            keyguard()?.isKeyguardLocked ?: false
+        } catch (error: Exception) {
+            false
+        }
+        Runtime.inCall = try {
+            val mode = audio()?.mode ?: AudioManager.MODE_NORMAL
+            mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION
+        } catch (error: Exception) {
+            false
+        }
+    }
 
     private val appVersion: String by lazy {
         try {
@@ -69,6 +101,8 @@ class FocusAccessibilityService : AccessibilityService() {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     Runtime.screenOn = false
+                    Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
+                    refreshDeviceState()
                     finishGym()
                     removeGymPill()
                     removeQuotaPill()
@@ -77,6 +111,14 @@ class FocusAccessibilityService : AccessibilityService() {
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     Runtime.screenOn = true
+                    Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
+                    refreshDeviceState()
+                    lastUsageTick = SystemClock.elapsedRealtime()
+                    evaluate()
+                }
+                Intent.ACTION_USER_PRESENT -> {
+                    refreshDeviceState()
+                    Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
                     lastUsageTick = SystemClock.elapsedRealtime()
                     evaluate()
                 }
@@ -89,6 +131,7 @@ class FocusAccessibilityService : AccessibilityService() {
         prefs = Prefs(this)
         quota = QuotaManager(prefs)
         secure = SecureStore(this)
+        study = StudyTracker(prefs, quota, packageName)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         notifications = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createChannels()
@@ -97,19 +140,33 @@ class FocusAccessibilityService : AccessibilityService() {
         } catch (error: Exception) {
             emptySet()
         }
+        Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
+        refreshDeviceState()
         registerReceiver(screenReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
         })
         handler.postDelayed(tick, 1500)
+        handler.postDelayed(secondTick, 1000)
         handler.postDelayed(poll, 2000)
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        // Sự kiện chạm để biết lúc nào bạn thôi đụng điện thoại. Chỉ đọc tên app + thời điểm, không đọc nội dung.
+        try {
+            serviceInfo = serviceInfo.apply {
+                eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                    AccessibilityEvent.TYPE_VIEW_CLICKED or
+                    AccessibilityEvent.TYPE_VIEW_LONG_CLICKED or
+                    AccessibilityEvent.TYPE_VIEW_SCROLLED or
+                    AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+            }
+        } catch (error: Exception) {
+        }
         updateRuntimeFocus()
         Toast.makeText(this, "Kỷ luật đã bật bảo vệ", Toast.LENGTH_SHORT).show()
-        reassertBlockedWindow()
         evaluate()
     }
 
@@ -143,41 +200,72 @@ class FocusAccessibilityService : AccessibilityService() {
             try {
                 if (prefs.protectionEnabled) {
                     updateRuntimeFocus()
+                    refreshDeviceState()
                     quota.resetIfNeeded()
-                    val social = Runtime.currentPackage in prefs.socialPackages
-                    if (
-                        social && Runtime.screenOn && !Runtime.focusActive &&
-                        quota.isBreakActive() && Runtime.currentPackage != packageName
-                    ) {
-                        val now = SystemClock.elapsedRealtime()
-                        val delta = ((now - lastUsageTick) / 1000).toInt().coerceIn(0, 10)
-                        lastUsageTick = now
-                        if (delta > 0) quota.consume(delta)
-                    } else {
-                        lastUsageTick = SystemClock.elapsedRealtime()
-                    }
-                    reassertBlockedWindow()
                     evaluate()
-                    updateQuotaPill()
-                    updateBreakNotification()
-                    updateGym()
                     if (Build.VERSION.SDK_INT >= 30) maybeScanVisual()
                 } else {
                     Runtime.remoteManualFocus = false
                     Runtime.focusActive = false
                     prefs.clearLocalFocus()
+                    study.stop()
                     removeOverlay()
                     removeQuotaPill()
                     finishGym()
                     removeGymPill()
                     cancelGymNotification()
-                    cancelBreakNotification()
                 }
             } catch (error: Exception) {
                 removeOverlay()
             }
             handler.postDelayed(this, 5000)
         }
+    }
+
+    /**
+     * Nhịp 1 giây: trừ quỹ khi đang ở app mạng xã hội, cộng điểm học, và cập nhật đồng hồ
+     * đếm ngược. Tách khỏi nhịp 5 giây để số giây trừ đúng và pill nhảy mượt.
+     */
+    private val secondTick = object : Runnable {
+        override fun run() {
+            try {
+                if (prefs.protectionEnabled) {
+                    refreshDeviceState()
+                    quota.resetIfNeeded()
+                    study.settle()
+                    val now = SystemClock.elapsedRealtime()
+                    if (isConsumingQuota()) {
+                        val delta = ((now - lastUsageTick) / 1000).toInt().coerceIn(0, 5)
+                        if (delta > 0) {
+                            lastUsageTick = now
+                            quota.consume(delta)
+                            if (quota.isExhausted()) evaluate()
+                        }
+                    } else {
+                        lastUsageTick = now
+                    }
+                    updateQuotaPill()
+                    updateGym()
+                } else {
+                    study.stop()
+                    lastUsageTick = SystemClock.elapsedRealtime()
+                    removeQuotaPill()
+                }
+            } catch (error: Exception) {
+            }
+            handler.postDelayed(this, 1000)
+        }
+    }
+
+    /** Quỹ của cả ngày, mở app mạng xã hội là bắt đầu trừ, không cần "vào nghỉ". */
+    private fun isConsumingQuota(): Boolean {
+        if (!prefs.protectionEnabled) return false
+        if (!Runtime.screenOn || Runtime.keyguardLocked) return false
+        if (Runtime.focusActive) return false
+        val pkg = Runtime.currentPackage
+        if (pkg.isEmpty() || pkg == packageName) return false
+        if (pkg !in prefs.socialPackages) return false
+        return !quota.isExhausted()
     }
 
     /**
@@ -228,11 +316,23 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val type = event?.eventType ?: return
         val pkg = event.packageName?.toString() ?: return
+        if (isInteraction(type)) {
+            // Chỉ ghi nhận thời điểm chạm để biết lúc nào bạn thôi đụng điện thoại; không đọc nội dung.
+            if (isInteractionEvent(pkg, event.className?.toString(), packageName)) {
+                Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
+            }
+            return
+        }
+        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         if (pkg == "com.android.systemui") return
+        // Cửa sổ overlay của chính Kỷ luật (màn khoá, pill) cũng phát TYPE_WINDOW_STATE_CHANGED.
+        // Không lọc thì app tự coi là "đang mở Kỷ luật" rồi gỡ khoá sau một nhịp.
+        if (isOwnOverlayEvent(pkg, event.className?.toString(), packageName)) return
         if (isTransientHelper(pkg)) return
         Runtime.currentPackage = pkg
+        Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
         lastUsageTick = SystemClock.elapsedRealtime()
         try {
             evaluate()
@@ -241,6 +341,12 @@ class FocusAccessibilityService : AccessibilityService() {
             removeOverlay()
         }
     }
+
+    private fun isInteraction(type: Int): Boolean =
+        type == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+            type == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED ||
+            type == AccessibilityEvent.TYPE_VIEW_SCROLLED ||
+            type == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
 
     private fun isTransientHelper(pkg: String): Boolean {
         if (pkg in neverBlocked) return false
@@ -253,20 +359,6 @@ class FocusAccessibilityService : AccessibilityService() {
             packageManager.getLaunchIntentForPackage(pkg) != null
         } catch (error: Exception) {
             true
-        }
-    }
-
-    /** Cửa sổ phụ (ads, webview, "android") có thể làm mất màn khoá — kiểm tra lại app thật đang hiển thị. */
-    private fun reassertBlockedWindow() {
-        val current = Runtime.currentPackage
-        if (current.isNotEmpty() && current in prefs.socialPackages) return
-        val active = try {
-            rootInActiveWindow?.packageName?.toString()
-        } catch (error: Exception) {
-            null
-        } ?: return
-        if (active.isNotEmpty() && active != packageName && active in prefs.socialPackages) {
-            Runtime.currentPackage = active
         }
     }
 
@@ -303,17 +395,13 @@ class FocusAccessibilityService : AccessibilityService() {
             )
             quota.isExhausted() -> showOverlay(
                 "Hết quỹ hôm nay",
-                "${quota.limitMinutes} phút mạng xã hội đã dùng xong",
-                "Bạn đã tự chốt mức ${quota.limitMinutes} phút mỗi ngày. Quỹ làm mới lúc 0:00 — còn ${resetLabel()}.",
+                "Quỹ mạng xã hội đã dùng xong",
+                "Bạn đã tự chốt mức ${quota.limitMinutes} phút mỗi ngày. Quỹ làm mới lúc 0:00 — còn ${resetLabel()}. " +
+                    "Học tập kiên trì sẽ cộng thêm phút thưởng.",
                 false,
             )
-            quota.isBreakActive() -> removeOverlay()
-            else -> showOverlay(
-                "Ứng dụng được bảo vệ",
-                "App này đang trong danh sách chặn",
-                "Mở Kỷ luật để dùng quỹ mạng xã hội trong ngày, hoặc quay lại việc đang học.",
-                true,
-            )
+            // Quỹ của cả ngày: còn quỹ thì dùng app bình thường, chỉ hiện đồng hồ đếm ngược.
+            else -> removeOverlay()
         }
     }
 
@@ -515,8 +603,8 @@ class FocusAccessibilityService : AccessibilityService() {
 
     /**
      * Lúc mở app, Android có thể báo thêm một cửa sổ phụ (launcher, splash) ngay sau app thật.
-     * Gỡ khoá ngay theo sự kiện đó làm màn khoá chớp rồi mất; chờ một nhịp rồi xác nhận lại
-     * cửa sổ đang thật sự hiển thị.
+     * Gỡ khoá ngay theo sự kiện đó làm màn khoá chớp rồi mất; chờ một nhịp rồi đánh giá lại
+     * theo app đang thật sự ở tiền cảnh.
      */
     private val hideCheck = Runnable {
         if (!prefs.protectionEnabled) {
@@ -525,16 +613,6 @@ class FocusAccessibilityService : AccessibilityService() {
         }
         val pkg = Runtime.currentPackage
         if (pkg.isNotEmpty() && pkg in prefs.socialPackages) {
-            evaluate()
-            return@Runnable
-        }
-        val active = try {
-            rootInActiveWindow?.packageName?.toString()
-        } catch (error: Exception) {
-            null
-        }
-        if (active != null && active in prefs.socialPackages) {
-            Runtime.currentPackage = active
             evaluate()
         } else {
             removeOverlay()
@@ -558,15 +636,16 @@ class FocusAccessibilityService : AccessibilityService() {
         if (Runtime.gymStartElapsed == 0L) {
             Runtime.gymStartElapsed = SystemClock.elapsedRealtime()
             Runtime.gymAwarded = false
+            gymNotifMode = -1
         }
         val seconds = ((SystemClock.elapsedRealtime() - Runtime.gymStartElapsed) / 1000).toInt()
-        if (seconds >= 600 && !Runtime.gymAwarded) {
+        if (seconds >= GYM_TARGET_SECONDS && !Runtime.gymAwarded) {
             Runtime.gymAwarded = true
             prefs.pendingGymCheckin = true
             postGymCheckin()
         }
         showGymPill(seconds)
-        showGymNotification(seconds)
+        updateGymNotification()
     }
 
     private fun finishGym() {
@@ -591,7 +670,7 @@ class FocusAccessibilityService : AccessibilityService() {
         val text = if (Runtime.gymAwarded) {
             "Đã tính buổi tập · ${Ui.clockText(seconds)}"
         } else {
-            "Buổi tập · ${Ui.clockText(seconds)} / 10:00"
+            "Buổi tập · còn ${Ui.clockText((GYM_TARGET_SECONDS - seconds).coerceAtLeast(0))}"
         }
         if (gymPill == null) {
             val pill = LinearLayout(this)
@@ -644,14 +723,10 @@ class FocusAccessibilityService : AccessibilityService() {
         gymPillText = null
     }
 
-    /** Trong phiên nghỉ, quỹ trừ dần sau mỗi nhịp đếm. Hiện ngay trên app đang dùng để
-     *  người dùng thấy mình đang tiêu quỹ chứ không phải đợi mở lại Kỷ luật. */
+    /** Quỹ trừ dần khi đang ở app mạng xã hội. Hiện đồng hồ đếm ngược ngay trên app đang dùng
+     *  để người dùng thấy mình đang tiêu quỹ chứ không phải đợi mở lại Kỷ luật. */
     private fun updateQuotaPill() {
-        val show = Runtime.screenOn &&
-            !Runtime.focusActive &&
-            Runtime.currentPackage in prefs.socialPackages &&
-            quota.isBreakActive()
-        if (!show) {
+        if (!isConsumingQuota()) {
             removeQuotaPill()
             return
         }
@@ -660,7 +735,7 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private fun showQuotaPill(secondsLeft: Int) {
         if (!Settings.canDrawOverlays(this)) return
-        val text = "Quỹ mạng xã hội · còn ${Ui.clockText(secondsLeft)}"
+        val text = "Quỹ · còn ${Ui.clockText(secondsLeft)}"
         if (quotaPill == null) {
             val pill = LinearLayout(this)
             pill.orientation = LinearLayout.HORIZONTAL
@@ -712,38 +787,43 @@ class FocusAccessibilityService : AccessibilityService() {
         quotaPillText = null
     }
 
-    private fun showGymNotification(seconds: Int) {
-        val text = if (Runtime.gymAwarded) {
-            "Đã tính 1 buổi gym"
-        } else {
-            "${Ui.clockText(seconds)} / 10:00 liên tục"
-        }
-        notify(42, "Đang tập cùng Kỷ luật", text)
-    }
-
-    private fun cancelGymNotification() {
+    /** Chỉ đăng lại thông báo khi đổi trạng thái, dùng chronometer để khỏi spam mỗi giây. */
+    private fun updateGymNotification() {
+        val mode = if (Runtime.gymAwarded) 1 else 0
+        if (mode == gymNotifMode && Runtime.gymStartElapsed == gymNotifStart) return
+        gymNotifMode = mode
+        gymNotifStart = Runtime.gymStartElapsed
         try {
-            notifications.cancel(42)
+            val intent = Intent(this, MainActivity::class.java)
+            val pending = PendingIntent.getActivity(
+                this, 42, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val builder = Notification.Builder(this, "protection")
+                .setSmallIcon(android.R.drawable.ic_lock_lock)
+                .setOngoing(true)
+                .setContentIntent(pending)
+                .setUsesChronometer(true)
+            if (Runtime.gymAwarded) {
+                builder.setContentTitle("Đã tính 1 buổi gym")
+                    .setContentText("Buổi tập đang tiếp tục")
+                    .setChronometerCountDown(false)
+                    .setWhen(Runtime.gymStartElapsed)
+            } else {
+                builder.setContentTitle("Đang tập cùng Kỷ luật")
+                    .setContentText("Giữ app tập trên màn hình để tính 1 buổi")
+                    .setChronometerCountDown(true)
+                    .setWhen(Runtime.gymStartElapsed + GYM_TARGET_SECONDS * 1000L)
+            }
+            notifications.notify(42, builder.build())
         } catch (error: Exception) {
         }
     }
 
-    private fun updateBreakNotification() {
-        if (!prefs.protectionEnabled) {
-            cancelBreakNotification()
-            return
-        }
-        if (quota.isBreakActive()) {
-            val left = quota.breakRemainingSeconds()
-            notify(41, "Đang nghỉ có kiểm soát", "Đang trừ quỹ · còn ${Ui.clockText(left)} hôm nay")
-        } else {
-            cancelBreakNotification()
-        }
-    }
-
-    private fun cancelBreakNotification() {
+    private fun cancelGymNotification() {
+        gymNotifMode = -1
         try {
-            notifications.cancel(41)
+            notifications.cancel(42)
         } catch (error: Exception) {
         }
     }
@@ -796,25 +876,6 @@ class FocusAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun notify(id: Int, title: String, text: String) {
-        try {
-            val intent = Intent(this, MainActivity::class.java)
-            val pending = PendingIntent.getActivity(
-                this, id, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            val notification = Notification.Builder(this, "protection")
-                .setSmallIcon(android.R.drawable.ic_lock_lock)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setOngoing(true)
-                .setContentIntent(pending)
-                .build()
-            notifications.notify(id, notification)
-        } catch (error: Exception) {
-        }
-    }
-
     private fun createChannels() {
         notifications.createNotificationChannel(
             NotificationChannel("protection", "Bảo vệ", NotificationManager.IMPORTANCE_LOW)
@@ -839,7 +900,7 @@ class FocusAccessibilityService : AccessibilityService() {
         removeGymPill()
         removeQuotaPill()
         cancelGymNotification()
-        cancelBreakNotification()
+        study.stop()
         network.shutdownNow()
         executor.shutdownNow()
         closeVisualScanner()
@@ -848,6 +909,7 @@ class FocusAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val HIDE_DELAY_MS = 800L
+        private const val GYM_TARGET_SECONDS = 600
         private const val UPDATE_CHECK_INTERVAL_MS = 12L * 60 * 60 * 1000
         private const val UPDATE_RETRY_INTERVAL_MS = 60L * 60 * 1000
         private val OVERLAY_ACCENT = Color.parseColor("#3D8B74")

@@ -11,6 +11,7 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextUtils
@@ -39,6 +40,7 @@ class OnboardingActivity : Activity() {
     private var quotaChoice = 60
     private var destroyed = false
     private var appQuery = ""
+    private var pendingUnlockAction: (() -> Unit)? = null
     private var appRowsBox: LinearLayout? = null
     private var appCountLabel: TextView? = null
     private var actionHint: TextView? = null
@@ -95,7 +97,25 @@ class OnboardingActivity : Activity() {
         if (requestCode == VPN_REQUEST) {
             if (resultCode == RESULT_OK) enableAdult() else prefs.adultFilterEnabled = false
         }
+        if (requestCode == UNLOCK_REQUEST) {
+            if (resultCode == RESULT_OK) pendingUnlockAction?.invoke()
+            pendingUnlockAction = null
+        }
         render()
+    }
+
+    /** Chạy [then] ngay nếu cổng đang mở; nếu không thì mở cổng 60 giây rồi chạy khi qua cổng. */
+    private fun requireUnlock(then: () -> Unit) {
+        if (prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+            then()
+            return
+        }
+        pendingUnlockAction = then
+        startActivityForResult(
+            Intent(this, UnlockActivity::class.java)
+                .putExtra(UnlockActivity.EXTRA_PURPOSE, UnlockActivity.PURPOSE_UNLOCK),
+            UNLOCK_REQUEST,
+        )
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -282,7 +302,7 @@ class OnboardingActivity : Activity() {
         rows.addView(permissionRow(
             R.drawable.ic_bell,
             "Thông báo (tuỳ chọn)",
-            "Đồng hồ nghỉ và buổi tập",
+            "Đồng hồ buổi tập",
             notificationsGranted(),
         ) {
             if (Build.VERSION.SDK_INT >= 33 && !notificationsGranted()) {
@@ -458,8 +478,20 @@ class OnboardingActivity : Activity() {
         }
         paint(initially)
         toggle.onChange = { checked ->
-            paint(checked)
-            toggleApp(entry.packageName, checked)
+            // Bỏ chặn một app sau khi đã hoàn tất thiết lập là nới luật → phải qua cổng 60 giây.
+            val loosening = !checked && prefs.onboardingDone
+            if (loosening) {
+                if (!prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+                    toggle.setChecked(true, animate = true)
+                }
+                requireUnlock {
+                    toggleApp(entry.packageName, false)
+                    render()
+                }
+            } else {
+                paint(checked)
+                toggleApp(entry.packageName, checked)
+            }
         }
         row.addView(toggle, LinearLayout.LayoutParams(dp(46), dp(26)).apply { leftMargin = dp(10) })
         row.isClickable = true
@@ -890,5 +922,6 @@ class OnboardingActivity : Activity() {
     companion object {
         private const val VPN_REQUEST = 81
         private const val NOTIFY_REQUEST = 83
+        private const val UNLOCK_REQUEST = 84
     }
 }

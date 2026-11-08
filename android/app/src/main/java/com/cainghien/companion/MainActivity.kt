@@ -70,10 +70,11 @@ class MainActivity : Activity() {
     private lateinit var quotaRing: RingStack
     private lateinit var quotaSub: TextView
     private lateinit var quotaPending: TextView
-    private lateinit var breakButton: UiButton
+    private lateinit var quotaBonus: TextView
     private lateinit var studyTile: UiStat
     private lateinit var gymTile: UiStat
     private lateinit var streakTile: UiStat
+    private lateinit var studyRow: UiRow
     private lateinit var gymRow: UiRow
     private lateinit var blockRow: UiRow
     private lateinit var protectQuotaRow: UiRow
@@ -97,6 +98,9 @@ class MainActivity : Activity() {
     private lateinit var notificationRow: UiRow
     private lateinit var gymSettingRow: UiRow
     private lateinit var quotaSettingRow: UiRow
+    private lateinit var studyRateRow: UiRow
+    private lateinit var aiAppsRow: UiRow
+    private lateinit var rulesRow: UiRow
     private lateinit var protectionRow: UiRow
     private lateinit var protectionToggle: UiToggle
     private lateinit var guardRow: UiRow
@@ -107,6 +111,7 @@ class MainActivity : Activity() {
     private lateinit var versionRow: UiRow
     private var updateBusy = false
     private var pendingRelease: UpdateChecker.Release? = null
+    private var pendingUnlockAction: (() -> Unit)? = null
     private val offerUpdateRunnable = Runnable { maybeOfferUpdate() }
     private val appVersion: String by lazy {
         try {
@@ -312,9 +317,13 @@ class MainActivity : Activity() {
         quotaPending.setPadding(0, Ui.dp(this, 4), 0, 0)
         quotaPending.visibility = View.GONE
         quotaText.addView(quotaPending)
-        breakButton = Ui.button(this, "Nghỉ có kiểm soát", Variant.GHOST)
-        breakButton.setOnClickListener { onBreak() }
-        quotaText.addView(breakButton, LinearLayout.LayoutParams(
+        quotaBonus = Ui.label(this, "", 11.5f, Ui.ACCENT, true)
+        quotaBonus.setPadding(0, Ui.dp(this, 4), 0, 0)
+        quotaBonus.visibility = View.GONE
+        quotaText.addView(quotaBonus)
+        val quotaChange = Ui.button(this, "Đổi mức quỹ", Variant.GHOST)
+        quotaChange.setOnClickListener { startActivity(Intent(this, QuotaActivity::class.java)) }
+        quotaText.addView(quotaChange, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = Ui.dp(this@MainActivity, 9) })
         quotaRow.addView(quotaText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -327,6 +336,12 @@ class MainActivity : Activity() {
         page.addView(statRow(listOf(studyTile, gymTile, streakTile)))
 
         val activity = Ui.group(this)
+        studyRow = Ui.row(this, Ui.tile(this, R.drawable.ic_flash, Tone.ACCENT))
+        studyRow.title("Điểm học hôm nay")
+        studyRow.subtitle("Không đụng điện thoại và dùng app AI")
+        studyRow.trailing(Ui.chevron(this))
+        studyRow.makeClickable { selectTab(2) }
+        activity.addView(studyRow)
         gymRow = Ui.row(this, Ui.tile(this, R.drawable.ic_dumbbell, Tone.NEUTRAL))
         gymRow.title("Buổi tập")
         gymRow.subtitle("Đủ 10 phút liên tục trong app tập")
@@ -339,7 +354,11 @@ class MainActivity : Activity() {
         activity.addView(blockRow)
         page.addView(activity)
 
-        page.addView(Ui.note(this, "Quỹ làm mới lúc 0:00. Không can thiệp hệ thống, tắt quyền Trợ năng là dừng ngay."))
+        page.addView(Ui.note(
+            this,
+            "Quỹ là của cả ngày: mở app mạng xã hội là bắt đầu trừ. Học kiên trì sẽ cộng thêm phút thưởng. " +
+                "Quỹ làm mới lúc 0:00. Không can thiệp hệ thống, tắt quyền Trợ năng là dừng ngay.",
+        ))
         return Ui.scroll(page)
     }
 
@@ -374,8 +393,8 @@ class MainActivity : Activity() {
 
         val explainer = Ui.group(this)
         protectQuotaRow = Ui.row(this, Ui.tile(this, R.drawable.ic_shield_check, Tone.ACCENT))
-        protectQuotaRow.title("Bật là bị chặn, trừ lúc nghỉ")
-        protectQuotaRow.subtitle("Mở tạm thời bằng quỹ mạng xã hội mỗi ngày")
+        protectQuotaRow.title("Mở app là bắt đầu trừ quỹ")
+        protectQuotaRow.subtitle("Quỹ của cả ngày, còn quỹ thì dùng bình thường")
         explainer.addView(protectQuotaRow)
         page.addView(explainer)
 
@@ -461,10 +480,13 @@ class MainActivity : Activity() {
                 remove.setPadding(pad, pad, pad, pad)
                 remove.addView(Ui.icon(this, R.drawable.ic_close, Ui.TEXT_3, 15))
                 remove.setOnClickListener {
-                    prefs.setExtraPackage(packageName, false)
-                    Toast.makeText(this, "Đã xóa $label khỏi danh sách", Toast.LENGTH_SHORT).show()
-                    rebuildProtectRows()
-                    refreshAll()
+                    // Bỏ một app khỏi danh sách chặn là nới luật, phải qua cổng 60 giây.
+                    requireUnlock {
+                        prefs.setExtraPackage(packageName, false)
+                        Toast.makeText(this, "Đã xóa $label khỏi danh sách", Toast.LENGTH_SHORT).show()
+                        rebuildProtectRows()
+                        refreshAll()
+                    }
                 }
                 row.trailing(remove, leftMarginDp = 2)
             }
@@ -472,8 +494,19 @@ class MainActivity : Activity() {
             val toggle = UiToggle(this)
             toggle.setChecked(prefs.socialPackages.contains(packageName))
             toggle.onChange = { checked ->
-                prefs.setSocialPackage(packageName, checked)
-                refreshAll()
+                if (checked) {
+                    prefs.setSocialPackage(packageName, true)
+                    refreshAll()
+                } else {
+                    // Tắt chặn một app là nới luật; giữ công tắc bật cho tới khi qua cổng.
+                    if (!prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+                        toggle.setChecked(true, animate = true)
+                    }
+                    requireUnlock {
+                        prefs.setSocialPackage(packageName, false)
+                        refreshAll()
+                    }
+                }
             }
             socialToggles[packageName] = toggle
             row.trailing(toggle, leftMarginDp = if (custom) 6 else 10)
@@ -651,7 +684,7 @@ class MainActivity : Activity() {
         permissions.addView(accessibilityRow)
         notificationRow = Ui.row(this, Ui.tile(this, R.drawable.ic_bell, Tone.NEUTRAL))
         notificationRow.title("Thông báo")
-        notificationRow.subtitle("Đồng hồ buổi tập và giờ nghỉ")
+        notificationRow.subtitle("Đồng hồ buổi tập")
         notificationRow.trailing(Ui.chevron(this))
         notificationRow.makeClickable {
             if (Build.VERSION.SDK_INT >= 33) {
@@ -689,8 +722,43 @@ class MainActivity : Activity() {
         goals.addView(gymSettingRow)
         page.addView(goals)
 
+        page.addView(Ui.section(this, "Điểm học"))
+        val studyGroup = Ui.group(this)
+        studyRateRow = Ui.row(this, Ui.tile(this, R.drawable.ic_flash, Tone.ACCENT))
+        studyRateRow.title("Quy đổi điểm")
+        studyRateRow.subtitle("${prefs.pointsPerMinute} điểm = 1 phút lướt")
+        studyRateRow.status("Đổi", Ui.TEXT_3)
+        studyRateRow.trailing(Ui.chevron(this))
+        studyRateRow.makeClickable { showRateDialog() }
+        studyGroup.addView(studyRateRow)
+        aiAppsRow = Ui.row(this, Ui.tile(this, R.drawable.ic_grid, Tone.NEUTRAL))
+        aiAppsRow.title("App AI tính điểm")
+        aiAppsRow.subtitle(aiAppsSummary())
+        aiAppsRow.trailing(Ui.chevron(this))
+        aiAppsRow.makeClickable {
+            startActivity(
+                Intent(this, BlockPickerActivity::class.java)
+                    .putExtra(BlockPickerActivity.EXTRA_MODE, BlockPickerActivity.MODE_AI)
+            )
+        }
+        studyGroup.addView(aiAppsRow)
+        page.addView(studyGroup)
+        page.addView(Ui.note(
+            this,
+            "1 phút không đụng điện thoại = $IDLE_POINTS_PER_MINUTE điểm, bắt đầu cộng sau $IDLE_THRESHOLD_SECONDS giây. " +
+                "1 phút trong app AI = $AI_POINTS_PER_MINUTE điểm; để máy yên 1 phút trong app AI thì tính như không đụng điện thoại. " +
+                "Không cộng điểm từ 22:00 đến 07:00. Trần ${MAX_BONUS_MINUTES} phút thưởng mỗi ngày.",
+            R.drawable.ic_info,
+        ))
+
         page.addView(Ui.section(this, "An toàn"))
         val safety = Ui.group(this)
+        rulesRow = Ui.row(this, Ui.tile(this, R.drawable.ic_gear, Tone.WARN))
+        rulesRow.title("Chỉnh luật")
+        rulesRow.subtitle("Một lần cam kết 60 giây mở khoá mọi chỉnh sửa nới luật")
+        rulesRow.trailing(Ui.chevron(this))
+        rulesRow.makeClickable { onRulesRow() }
+        safety.addView(rulesRow)
         protectionRow = Ui.row(this, Ui.tile(this, R.drawable.ic_power, Tone.WARN))
         protectionRow.title("Bảo vệ")
         protectionRow.subtitle("Đang chặn app trong danh sách · tắt phải xác nhận 3 bước")
@@ -918,9 +986,11 @@ class MainActivity : Activity() {
         heroRing.caption.text = "phút học"
         heroRing.setProgress(studyDone.toFloat() / studyGoal)
 
+        val total = quota.totalLimitSeconds()
+        val bonusMin = quota.bonusMinutes()
         quotaRing.value.text = "${(remaining + 59) / 60}"
         quotaRing.caption.text = "phút còn"
-        quotaRing.setProgress(remaining.toFloat() / quota.limitSeconds)
+        quotaRing.setProgress(if (total > 0) remaining.toFloat() / total else 0f)
         quotaRing.setArcColor(
             when {
                 remaining <= 0 -> Ui.DANGER
@@ -928,16 +998,19 @@ class MainActivity : Activity() {
                 else -> Ui.ACCENT
             }
         )
-        quotaSub.text = "Đã dùng ${quota.usedSeconds() / 60} / ${quota.limitMinutes} phút · làm mới 0:00"
+        quotaSub.text = "Đã dùng ${quota.usedSeconds() / 60} / ${total / 60} phút · làm mới 0:00"
         val pending = quota.pendingMinutes
         val hasPending = pending > 0 && pending != quota.limitMinutes
         quotaPending.text = if (hasPending) "Đã hẹn $pending phút từ 0:00 hôm sau" else ""
         quotaPending.visibility = if (hasPending) View.VISIBLE else View.GONE
-        breakButton.text = if (quota.isBreakActive()) {
-            "Kết thúc nghỉ · còn ${Ui.clockText(quota.breakRemainingSeconds())}"
-        } else {
-            "Nghỉ có kiểm soát"
-        }
+        quotaBonus.text = if (bonusMin > 0) "+$bonusMin phút thưởng từ ${quota.pointsToday()} điểm học" else ""
+        quotaBonus.visibility = if (bonusMin > 0) View.VISIBLE else View.GONE
+
+        studyRow.subtitle(studyHomeSubtitle())
+        studyRow.status(
+            if (bonusMin > 0) "+$bonusMin phút" else "${quota.pointsToday()} điểm",
+            if (bonusMin > 0) Ui.ACCENT else Ui.TEXT_3,
+        )
 
         studyTile.value.text = if (summary == null) "—" else "$studyDone/$studyGoal"
         studyTile.setBar(studyDone.toFloat() / studyGoal)
@@ -1004,13 +1077,39 @@ class MainActivity : Activity() {
         gymSettingRow.subtitle(Apps.label(this, prefs.gymPackage))
         quotaSettingRow.subtitle(
             if (hasPending) "$pending phút có hiệu lực từ 0:00 hôm sau"
+            else if (bonusMin > 0) "${quota.limitMinutes} phút + $bonusMin phút thưởng mỗi ngày"
             else "${quota.limitMinutes} phút mỗi ngày · chỉnh được"
         )
-        protectQuotaRow.subtitle("Mở tạm thời bằng quỹ ${quota.limitMinutes} phút mỗi ngày")
+        protectQuotaRow.subtitle(
+            if (bonusMin > 0) "Quỹ ${quota.limitMinutes} phút + $bonusMin phút thưởng mỗi ngày"
+            else "Quỹ ${quota.limitMinutes} phút mỗi ngày, mở app là trừ dần"
+        )
+        studyRateRow.subtitle("${prefs.pointsPerMinute} điểm = 1 phút lướt")
+        aiAppsRow.subtitle(aiAppsSummary())
+
+        val unlocked = prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())
+        when {
+            !protectionOn -> {
+                rulesRow.status("Bảo vệ tắt", Ui.TEXT_3)
+                rulesRow.subtitle("Bảo vệ đang tắt nên chỉnh luật nào cũng được")
+            }
+            unlocked -> {
+                val left = unlockRemainingSeconds(
+                    prefs.unlockWallMs, prefs.unlockElapsedMs,
+                    System.currentTimeMillis(), SystemClock.elapsedRealtime(),
+                )
+                rulesRow.status("Còn ${(left + 59) / 60}′", Ui.ACCENT)
+                rulesRow.subtitle("Đang mở khoá · chạm để khoá lại sớm")
+            }
+            else -> {
+                rulesRow.status("Đang khoá", Ui.TEXT_3)
+                rulesRow.subtitle("Một lần cam kết 60 giây mở khoá mọi chỉnh sửa nới luật")
+            }
+        }
 
         if (protectionToggle.checked != protectionOn) protectionToggle.setChecked(protectionOn)
         protectionRow.subtitle(
-            if (protectionOn) "Đang chặn app trong danh sách · tắt phải xác nhận 3 bước"
+            if (protectionOn) "Đang chặn app trong danh sách · tắt phải qua cổng cam kết 60 giây"
             else "Đang tắt do bạn chủ động dừng · bật lại khi sẵn sàng"
         )
 
@@ -1018,6 +1117,12 @@ class MainActivity : Activity() {
             val checked = prefs.socialPackages.contains(pkg)
             if (toggle.checked != checked) toggle.setChecked(checked)
         }
+    }
+
+    private fun studyHomeSubtitle(): String = when (Runtime.studyMode) {
+        STUDY_IDLE -> "Đang cộng điểm · không đụng điện thoại"
+        STUDY_AI -> "Đang cộng điểm · trong app AI"
+        else -> "Không đụng điện thoại và dùng app AI thì cộng điểm"
     }
 
     private fun gymSeconds(): Int =
@@ -1175,74 +1280,89 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun onBreak() {
-        if (quota.isBreakActive()) {
+    /** Chạy [then] ngay nếu cổng đang mở; nếu không thì mở cổng 60 giây rồi chạy khi qua cổng. */
+    private fun requireUnlock(then: () -> Unit) {
+        if (prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+            then()
+            return
+        }
+        startUnlock(UnlockActivity.PURPOSE_UNLOCK, then)
+    }
+
+    private fun startUnlock(purpose: String, then: (() -> Unit)?) {
+        pendingUnlockAction = then
+        startActivityForResult(
+            Intent(this, UnlockActivity::class.java).putExtra(UnlockActivity.EXTRA_PURPOSE, purpose),
+            UNLOCK_REQUEST,
+        )
+    }
+
+    private fun onRulesRow() {
+        if (!prefs.protectionEnabled) {
+            Toast.makeText(this, "Bảo vệ đang tắt nên chỉnh luật nào cũng được.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+            val left = unlockRemainingSeconds(
+                prefs.unlockWallMs, prefs.unlockElapsedMs,
+                System.currentTimeMillis(), SystemClock.elapsedRealtime(),
+            )
             AlertDialog.Builder(this)
-                .setTitle("Đang nghỉ có kiểm soát")
-                .setMessage("Còn ${(quota.breakRemainingSeconds() + 59) / 60} phút nghỉ và ${quota.remainingSeconds() / 60} phút quỹ.")
-                .setPositiveButton("Kết thúc nghỉ") { _, _ ->
-                    quota.stopBreak()
+                .setTitle("Đang mở khoá")
+                .setMessage("Còn ${(left + 59) / 60} phút nữa Kỷ luật tự khoá lại. Trong lúc này bạn chỉnh được mọi luật nới: tăng quỹ, bỏ chặn app, hạ tỷ lệ điểm, thêm app AI, tắt bảo vệ.")
+                .setPositiveButton("Khoá lại ngay") { _, _ ->
+                    prefs.lockRules()
+                    Toast.makeText(this, "Đã khoá lại các luật.", Toast.LENGTH_SHORT).show()
                     refreshAll()
                 }
-                .setNegativeButton("Tiếp tục nghỉ", null)
+                .setNegativeButton("Để nguyên", null)
                 .show()
             return
         }
-        val exhausted = quota.isExhausted()
-        val blocked = when {
-            !prefs.protectionEnabled -> "Bảo vệ đang tắt" to
-                "Không tính quỹ khi bảo vệ tắt. Bật lại bảo vệ rồi mới nghỉ có kiểm soát."
-            Runtime.focusActive -> "Không dùng quỹ trong phiên focus" to
-                if (isLocalFocusActive()) {
-                    "Phiên trên điện thoại còn ${Ui.clockText(manualRemainingSeconds())}. Dừng phiên trước hoặc chờ hết phiên."
-                } else {
-                    "Phiên «${summary?.sessionLabel ?: "máy tính"}» đang chạy. Hoàn thành phiên trên máy tính trước."
-                }
-            !accessibilityEnabled() || !Settings.canDrawOverlays(this) ->
-                "Chưa đủ quyền để trừ quỹ" to
-                    "Cần bật Trợ năng và Hiển thị trên ứng dụng khác thì mới nhận diện được lúc bạn đang lướt mạng xã hội."
-            exhausted -> "Đã hết quỹ hôm nay" to
-                "Đã dùng hết ${quota.limitMinutes} phút. Quỹ làm mới sau ${resetCountdown()} (0:00). Bạn vẫn dùng được các ứng dụng khác."
-            else -> null
-        }
-        if (blocked != null) {
-            val builder = AlertDialog.Builder(this)
-                .setTitle(blocked.first)
-                .setMessage(blocked.second)
-            if (exhausted) {
-                builder.setNeutralButton("Đổi mức quỹ") { _, _ ->
-                    startActivity(Intent(this, QuotaActivity::class.java))
-                }
-            }
-            builder.setPositiveButton("Đã hiểu", null).show()
-            return
-        }
-        val options = arrayOf("10 phút", "15 phút", "30 phút")
         AlertDialog.Builder(this)
-            .setTitle("Nghỉ có kiểm soát")
-            .setMessage("Bạn còn ${quota.remainingSeconds() / 60} phút quỹ. Thời gian lướt trong app mạng xã hội sẽ trừ vào quỹ.")
-            .setItems(options) { _, index ->
-                val minutes = intArrayOf(10, 15, 30)[index]
-                if (quota.startBreak(minutes)) {
-                    refreshAll()
-                    Toast.makeText(this, "Đã bắt đầu nghỉ $minutes phút", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "Không mở được kỳ nghỉ, thử lại sau giây lát.", Toast.LENGTH_SHORT).show()
-                }
+            .setTitle("Mở khoá chỉnh luật?")
+            .setMessage("Qua cổng cam kết 60 giây một lần, bạn được chỉnh mọi luật nới trong $UNLOCK_MINUTES phút: tăng quỹ, bỏ chặn app, hạ tỷ lệ quy đổi điểm, thêm app AI, hoặc tắt bảo vệ. Siết luật thì luôn miễn phí.")
+            .setPositiveButton("Bắt đầu cam kết") { _, _ -> startUnlock(UnlockActivity.PURPOSE_UNLOCK, null) }
+            .setNegativeButton("Để sau", null)
+            .show()
+    }
+
+    private fun showRateDialog() {
+        val rates = intArrayOf(3, 5, 10, 15, 30)
+        val labels = rates.map { "$it điểm = 1 phút" }.toTypedArray()
+        val checkedIndex = rates.indexOf(prefs.pointsPerMinute).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("Quy đổi điểm học")
+            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
+                dialog.dismiss()
+                applyRate(rates[which])
             }
             .setNegativeButton("Hủy", null)
             .show()
     }
 
-    private fun resetCountdown(): String {
-        val seconds = quota.secondsUntilReset()
-        val hours = seconds / 3600
-        val minutes = (seconds % 3600) / 60
-        return when {
-            hours <= 0 -> "$minutes phút"
-            minutes == 0 -> "$hours giờ"
-            else -> "$hours giờ $minutes phút"
+    private fun applyRate(chosen: Int) {
+        val current = prefs.pointsPerMinute
+        if (chosen == current) return
+        if (chosen < current) {
+            // Hạ tỷ lệ = nới luật (ít điểm hơn vẫn ra phút thưởng) → phải qua cổng.
+            requireUnlock {
+                prefs.pointsPerMinute = chosen
+                Toast.makeText(this, "Đã đổi: $chosen điểm = 1 phút.", Toast.LENGTH_SHORT).show()
+                refreshAll()
+            }
+        } else {
+            prefs.pointsPerMinute = chosen
+            Toast.makeText(this, "Đã đổi: $chosen điểm = 1 phút.", Toast.LENGTH_SHORT).show()
+            refreshAll()
         }
+    }
+
+    private fun aiAppsSummary(): String {
+        val packages = prefs.aiPackages.toList()
+        if (packages.isEmpty()) return "Chưa chọn app AI nào"
+        val names = packages.take(3).map { Apps.label(this, it) }
+        return if (packages.size <= 3) names.joinToString(", ") else "${names.joinToString(", ")} · +${packages.size - 3}"
     }
 
     private fun onProtectionToggle(checked: Boolean) {
@@ -1252,9 +1372,27 @@ class MainActivity : Activity() {
             refreshAll()
             return
         }
-        // Công tắc chỉ thực sự tắt sau khi người dùng qua đủ 3 bước cản.
+        // Tắt bảo vệ là nới luật mạnh nhất: giữ công tắc bật cho tới khi xác nhận xong.
         protectionToggle.setChecked(true, animate = true)
-        startActivityForResult(Intent(this, OffActivity::class.java), PROTECTION_REQUEST)
+        if (prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+            confirmTurnOffProtection()
+        } else {
+            startUnlock(UnlockActivity.PURPOSE_OFF, null)
+        }
+    }
+
+    private fun confirmTurnOffProtection() {
+        AlertDialog.Builder(this)
+            .setTitle("Tắt bảo vệ ngay?")
+            .setMessage("Cổng chỉnh luật đang mở. Tắt bây giờ sẽ ngừng chặn app, ngừng trừ quỹ và ngừng cộng điểm học cho đến khi bạn bật lại.")
+            .setPositiveButton("Tắt bảo vệ") { _, _ ->
+                turnOffProtection(prefs)
+                Toast.makeText(this, "Đã tắt bảo vệ. Bạn có thể bật lại trong Cài đặt.", Toast.LENGTH_LONG).show()
+                refreshAll()
+                refreshUpdateRows()
+            }
+            .setNegativeButton("Giữ bảo vệ", null)
+            .show()
     }
 
     private fun showCrashLog() {
@@ -1290,7 +1428,9 @@ class MainActivity : Activity() {
             if (resultCode == RESULT_OK) startAdultFilter() else prefs.adultFilterEnabled = false
             refreshAdult()
         }
-        if (requestCode == PROTECTION_REQUEST) {
+        if (requestCode == UNLOCK_REQUEST) {
+            if (resultCode == RESULT_OK) pendingUnlockAction?.invoke()
+            pendingUnlockAction = null
             refreshAll()
             refreshUpdateRows()
         }
@@ -1561,6 +1701,6 @@ class MainActivity : Activity() {
         private const val ADULT_REQUEST = 71
         private const val GUARD_REQUEST = 72
         private const val UPDATE_INTERVAL_MS = 12L * 60 * 60 * 1000
-        private const val PROTECTION_REQUEST = 73
+        private const val UNLOCK_REQUEST = 73
     }
 }

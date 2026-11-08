@@ -6,7 +6,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
-import kotlin.math.min
 
 class QuotaManager(private val prefs: Prefs) {
     private val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -14,7 +13,26 @@ class QuotaManager(private val prefs: Prefs) {
     val limitMinutes: Int
         @Synchronized get() = prefs.quotaMinutes.coerceIn(MIN_MINUTES, MAX_MINUTES)
 
+    /** Quỹ gốc do người dùng chốt, chưa cộng phút thưởng từ điểm học. */
     val limitSeconds: Int get() = limitMinutes * 60
+
+    /** Điểm học hôm nay (không đụng điện thoại + dùng app AI), đã quy đổi. */
+    @Synchronized
+    fun pointsToday(): Int = studyPoints(prefs.studyIdleSeconds, prefs.studyAiSeconds)
+
+    /** Phút thưởng quy từ điểm học, trần [MAX_BONUS_MINUTES] phút mỗi ngày. */
+    @Synchronized
+    fun bonusMinutes(): Int = bonusSeconds(prefs.studyIdleSeconds, prefs.studyAiSeconds, prefs.pointsPerMinute) / 60
+
+    @Synchronized
+    fun bonusSecondsToday(): Int = bonusSeconds(prefs.studyIdleSeconds, prefs.studyAiSeconds, prefs.pointsPerMinute)
+
+    /** Tổng quỹ thực tế = quỹ gốc + phút thưởng học tập. */
+    @Synchronized
+    fun totalLimitSeconds(now: Long = System.currentTimeMillis()): Int {
+        resetIfNeeded(now)
+        return limitSeconds + bonusSecondsToday()
+    }
 
     val pendingMinutes: Int
         @Synchronized get() = prefs.quotaPendingMinutes.coerceIn(0, MAX_MINUTES)
@@ -25,7 +43,8 @@ class QuotaManager(private val prefs: Prefs) {
         if (prefs.quotaDate != today) {
             prefs.quotaDate = today
             prefs.quotaUsedSeconds = 0
-            prefs.breakUntilMs = 0L
+            prefs.studyIdleSeconds = 0
+            prefs.studyAiSeconds = 0
             val pending = prefs.quotaPendingMinutes
             if (pending > 0) {
                 prefs.quotaMinutes = pending.coerceIn(MIN_MINUTES, MAX_MINUTES)
@@ -37,12 +56,12 @@ class QuotaManager(private val prefs: Prefs) {
     @Synchronized
     fun usedSeconds(now: Long = System.currentTimeMillis()): Int {
         resetIfNeeded(now)
-        return prefs.quotaUsedSeconds.coerceIn(0, limitSeconds)
+        return prefs.quotaUsedSeconds.coerceIn(0, totalLimitSeconds(now))
     }
 
     @Synchronized
     fun remainingSeconds(now: Long = System.currentTimeMillis()): Int =
-        max(0, limitSeconds - usedSeconds(now))
+        max(0, totalLimitSeconds(now) - usedSeconds(now))
 
     @Synchronized
     fun remainingSecondsFor(minutes: Int, now: Long = System.currentTimeMillis()): Int =
@@ -50,28 +69,6 @@ class QuotaManager(private val prefs: Prefs) {
 
     @Synchronized
     fun isExhausted(now: Long = System.currentTimeMillis()): Boolean = remainingSeconds(now) <= 0
-
-    @Synchronized
-    fun isBreakActive(now: Long = System.currentTimeMillis()): Boolean =
-        prefs.breakUntilMs > now && !isExhausted(now)
-
-    @Synchronized
-    fun breakRemainingSeconds(now: Long = System.currentTimeMillis()): Int =
-        max(0, (prefs.breakUntilMs - now) / 1000).toInt()
-
-    @Synchronized
-    fun startBreak(minutes: Int, now: Long = System.currentTimeMillis()): Boolean {
-        if (!prefs.protectionEnabled || isExhausted(now)) return false
-        val remainingMs = remainingSeconds(now) * 1000L
-        val requestedMs = minutes.coerceIn(1, 60) * 60_000L
-        prefs.breakUntilMs = now + min(remainingMs, requestedMs)
-        return true
-    }
-
-    @Synchronized
-    fun stopBreak() {
-        prefs.breakUntilMs = 0L
-    }
 
     /** Mức mới có hiệu lực ngay, đồng thời hủy lịch đổi đang hẹn. */
     @Synchronized
@@ -95,11 +92,9 @@ class QuotaManager(private val prefs: Prefs) {
     fun consume(seconds: Int, now: Long = System.currentTimeMillis()): Boolean {
         if (seconds <= 0) return isExhausted(now)
         resetIfNeeded(now)
-        val used = (prefs.quotaUsedSeconds + seconds).coerceAtMost(limitSeconds)
+        val cap = totalLimitSeconds(now)
+        val used = (prefs.quotaUsedSeconds + seconds).coerceAtMost(cap)
         prefs.quotaUsedSeconds = used
-        if (used >= limitSeconds) {
-            prefs.breakUntilMs = 0L
-        }
         return isExhausted(now)
     }
 
@@ -131,6 +126,10 @@ object Runtime {
     @Volatile var lastSyncElapsed = 0L
     @Volatile var currentPackage = ""
     @Volatile var screenOn = true
+    @Volatile var keyguardLocked = false
+    @Volatile var inCall = false
+    @Volatile var lastInteractionElapsed = 0L
+    @Volatile var studyMode = 0
     @Volatile var gymStartElapsed = 0L
     @Volatile var gymAwarded = false
     @Volatile var lastGymSeconds = 0

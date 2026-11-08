@@ -216,7 +216,7 @@ class SetupActivity : Activity() {
 
         val notifyRow = Ui.row(this, Ui.tile(this, R.drawable.ic_bell, Tone.NEUTRAL))
         notifyRow.title("Thông báo")
-        notifyRow.subtitle("Đồng hồ buổi tập và giờ nghỉ")
+        notifyRow.subtitle("Đồng hồ buổi tập")
         notifyRow.status(if (notifications) "Đã bật" else "Tùy chọn", if (notifications) Ui.ACCENT else Ui.TEXT_3)
         notifyRow.trailing(Ui.chevron(this))
         notifyRow.makeClickable {

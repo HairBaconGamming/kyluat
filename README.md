@@ -10,8 +10,10 @@ Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình n
 
 | Việc | Bản này |
 | --- | --- |
-| Quỹ mạng xã hội mỗi ngày trên Android | mặc định 60 phút, làm mới lúc 0 giờ, không có nút gia hạn trong ngày |
-| Đổi mức quỹ trên Android | 15–120 phút, gõ lại đoạn cam kết và chờ 30 giây; giảm có hiệu lực ngay, tăng chờ đến 0 giờ hôm sau |
+| Quỹ mạng xã hội mỗi ngày trên Android | mặc định 60 phút, trừ ngay khi bạn mở app trong danh sách, làm mới lúc 0 giờ, không có nút gia hạn trong ngày |
+| Điểm học thưởng thêm quỹ trên Android | 1 phút không chạm điện thoại = 5 điểm, 1 phút trong app AI (Gemini, ChatGPT...) = 2 điểm; 5 điểm = 1 phút quỹ, trần 120 phút thưởng mỗi ngày, không cộng điểm từ 22 giờ đến 7 giờ |
+| Cổng cam kết 60 giây trên Android | một lần mở (đọc 60 giây + gõ lại đoạn cam kết) được quyền nới lỏng mọi luật trong 10 phút; siết luật luôn miễn phí |
+| Đổi mức quỹ trên Android | 15–120 phút trong 15 bước một; giảm có hiệu lực ngay, tăng chờ đến 0 giờ hôm sau |
 | Xin dừng một phiên tập trung giữa chừng | phải chờ 10 phút |
 | Nới lỏng luật (bỏ chặn, giảm giờ, giảm cooldown) | có hiệu lực sau 24 giờ; riêng công tắc 18+ trên Windows chờ 60 giây, không gõ cam kết |
 | Thêm ràng buộc mới | có hiệu lực ngay |
@@ -27,7 +29,7 @@ Bản phát hành có ba file trên GitHub Releases:
 
 - `KYLUAT-Setup-v1.9.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
 - `KYLUAT-windows-x64-v1.9.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
-- `kyluat-android-v3.14.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
+- `kyluat-android-v3.15.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
 
@@ -38,7 +40,7 @@ File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: ch�
 Máy tính và điện thoại nói chuyện với nhau qua Wi-Fi nội bộ, mỗi bên tự giữ luật của mình.
 
 - `enforcer/` chạy trên Windows. Tiến trình nền kiểm tra mỗi 3 giây và tắt tiến trình thuộc danh sách chặn trong giờ tập trung. Lần mở đầu tiên có `SetupDialog` sáu bước để chọn app, web, lịch, mục tiêu và tuỳ chọn chặn web; mở lại từ Cài đặt, thay đổi nới lỏng vẫn xếp hàng 24 giờ như luật cũ.
-- `android/` chạy trên Android. Màn khoá chỉ là một lớp phủ hình ảnh do `WindowManager.addView` với cửa sổ `TYPE_APPLICATION_OVERLAY` vẽ lên, còn AccessibilityService chỉ báo về app nào đang ở phía trước. Lớp phủ không lấy focus, không đổi chính sách hệ thống; mặc định nó không đọc nội dung màn hình. Việc đọc màn hình chỉ xảy ra khi bạn bật riêng **Chặn ảnh 18+ trên màn hình**. Hai nút trên màn khoá luôn còn: "Quay lại Kỷ luật" và "Dùng app khác"; thu hồi quyền Trợ năng là app dừng chặn ngay. Riêng bộ lọc 18+ là một `VpnService` tự chọn, chỉ nhận DNS, tắt được bằng một chạm; không bật thì máy không đổi gì. Bước cản gỡ cài đặt là Device Admin tuỳ chọn, mặc định tắt, không giữ policy nào và luôn tắt được trong Cài đặt hệ thống; app không dùng Device Owner.
+- `android/` chạy trên Android. Màn khoá chỉ là một lớp phủ hình ảnh do `WindowManager.addView` với cửa sổ `TYPE_APPLICATION_OVERLAY` vẽ lên, còn AccessibilityService chỉ báo về app nào đang ở phía trước và lúc nào có thao tác (tên app và thời điểm, không phải nội dung). Lớp phủ không lấy focus, không đổi chính sách hệ thống; mặc định nó không đọc nội dung màn hình. Việc đọc màn hình chỉ xảy ra khi bạn bật riêng **Chặn ảnh 18+ trên màn hình**. Hai nút trên màn khoá luôn còn: "Quay lại Kỷ luật" và "Dùng app khác"; thu hồi quyền Trợ năng là app dừng chặn ngay. Riêng bộ lọc 18+ là một `VpnService` tự chọn, chỉ nhận DNS, tắt được bằng một chạm; không bật thì máy không đổi gì. Bước cản gỡ cài đặt là Device Admin tuỳ chọn, mặc định tắt, không giữ policy nào và luôn tắt được trong Cài đặt hệ thống; app không dùng Device Owner.
 - Android có `OnboardingActivity` năm bước ở lần mở đầu tiên: hai quyền cốt lõi bắt buộc, chọn app, quỹ và gym, tuỳ chọn ghép máy tính và lọc 18+; mở lại từ Cài đặt.
 - Tự cập nhật trên Android đọc release công khai trên GitHub mỗi ngày khi được bật, chỉ nhận file `kyluat-android-v*.apk` của repo và để Android kiểm chữ ký trước khi cài.
 - Ghép nối: máy tính sinh mã 6 số và QR, hết hạn sau 5 phút, sai 5 lần thì phải lấy mã mới. Server chỉ lắng nghe trong mạng nội bộ, cổng 8766. Key nằm trong Android Keystore.
@@ -90,7 +92,7 @@ DNS không thấy được nội dung bên trong một trang hay một video đ�
 
 Mô hình lấy từ [Déchaîner](https://github.com/warleysr/dechainer), giấy phép Apache-2.0; văn bản giấy phép đi kèm ở `enforcer/data/NOTICE-nsfw-model.txt` và được đóng gói vào cả APK lẫn bản Windows. `Kyluat-cli.exe adult visual` nạp thử mô hình và chấm một ảnh xám, dùng để kiểm tra bản cài mà không cần nội dung thật.
 
-Phần này có trong bản phát hành Windows 1.9 và Android 3.14.
+Phần này có trong bản phát hành Windows 1.9 và Android 3.15.
 
 ## Chạy từ mã nguồn
 
@@ -178,7 +180,7 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 19 tương ứng `versionName` 3.14. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 20 tương ứng `versionName` 3.15. APK build ra nằm ở `android/app/build/` và không được commit.
 
 Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
 

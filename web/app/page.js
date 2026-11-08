@@ -43,7 +43,7 @@ export default function Page() {
             <div className="grid three">
               <div className="card stat">
                 <p className="big">60 <span>phút</span></p>
-                <p>Quỹ mạng xã hội mỗi ngày trên điện thoại. Hết quỹ là hết, không có nút gia hạn.</p>
+                <p>Quỹ mạng xã hội mỗi ngày trên điện thoại, trừ ngay khi bạn mở app. Hết quỹ là hết; chỉ học kiên trì mới được thưởng thêm.</p>
               </div>
               <div className="card stat">
                 <p className="big">10 <span>phút</span></p>
@@ -147,7 +147,7 @@ export default function Page() {
                 <span className="ico"><Icon name="chart" /></span>
                 <div>
                   <h3>Không can thiệp hệ thống</h3>
-                  <p>Điện thoại phủ màn khoá lên app bạn chọn. Bộ lọc 18+ là đường hầm DNS tự chọn, tắt một chạm là máy về như cũ; lớp nhận diện ảnh là công tắc riêng, mặc định tắt và chỉ đọc màn hình trình duyệt, mạng xã hội khi bạn bật. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở. Bước cản gỡ cài đặt cũng là tuỳ chọn, mặc định tắt và Android luôn cho tắt trong Cài đặt.</p>
+                  <p>Điện thoại đếm quỹ mạng xã hội của cả ngày và chỉ phủ màn khoá khi bạn đang tập trung hoặc đã hết quỹ. Bộ lọc 18+ là đường hầm DNS tự chọn, tắt một chạm là máy về như cũ; lớp nhận diện ảnh là công tắc riêng, mặc định tắt và chỉ đọc màn hình trình duyệt, mạng xã hội khi bạn bật. Cuộc gọi, Tin nhắn, Cài đặt và màn hình chính luôn mở. Bước cản gỡ cài đặt cũng là tuỳ chọn, mặc định tắt và Android luôn cho tắt trong Cài đặt.</p>
                 </div>
               </div>
             </div>
@@ -213,8 +213,8 @@ export default function Page() {
           <div className="wrap">
             <div className="head">
               <p className="eyebrow">Cách hoạt động · Android</p>
-              <h2>Trên điện thoại: app bị khoá sẵn, quỹ mạng xã hội phải chủ động xin dùng</h2>
-              <p className="lede">Mặc định là 60 phút cho cả ngày, và nó chỉ trừ dần khi bạn mở một phiên nghỉ có kiểm soát. Đổi mức cũng được, nhưng phải gõ lại đoạn cam kết.</p>
+              <h2>Trên điện thoại: mở app là bắt đầu trừ quỹ của cả ngày</h2>
+              <p className="lede">Mặc định 60 phút cho cả ngày, và nó trừ dần ngay khi bạn mở app trong danh sách chặn. Học kiên trì được thưởng thêm phút, còn đổi mức thì phải qua cổng cam kết.</p>
             </div>
             <div className="steps">
               <div className="step">
@@ -235,33 +235,33 @@ export default function Page() {
               <div className="step">
                 <div>
                   <span className="num">2</span>
-                  <h3>Muốn dùng thì xin một phiên nghỉ</h3>
-                  <p>Bấm <strong>Nghỉ có kiểm soát</strong>, chọn 10, 15 hoặc 30 phút. Trong phiên nghỉ, app mạng xã hội mở bình thường và thời gian bạn lướt trừ dần vào quỹ.</p>
+                  <h3>Mở app là bắt đầu trừ quỹ</h3>
+                  <p>Quỹ tính cho cả ngày. Mở một app trong danh sách chặn thì thời gian bạn lướt trừ dần vào quỹ ngay, không cần xin phiên nghỉ; một đồng hồ nhỏ trên đầu màn hình đếm số phút còn lại.</p>
                   <ul>
-                    <li>Hết giờ nghỉ là màn khoá đóng lại, dù quỹ chưa cạn.</li>
-                    <li>Đang có phiên focus thì không xin nghỉ được.</li>
-                    <li>Nghỉ sớm cũng được: bấm <strong>Kết thúc nghỉ</strong> bất cứ lúc nào.</li>
+                    <li>Hết quỹ là màn khoá đóng lại tới 0:00, dù đang giữa ngày.</li>
+                    <li>Đang chạy phiên tập trung thì app bị khoá và không trừ quỹ.</li>
+                    <li>Không chạm điện thoại hoặc dùng app AI thì được cộng điểm học, đổi thành phút quỹ thưởng.</li>
                   </ul>
                 </div>
                 <figure className="shot phone-shot step-media">
                   <img src="/assets/img/android-hom-nay.png" alt="Màn Hôm nay trên điện thoại: vòng quỹ còn 42 phút và nút Kết thúc nghỉ đang chạy" width="1080" height="2608" loading="lazy" />
-                  <figcaption>Quỹ mạng xã hội và phiên nghỉ nhìn thấy ngay ở tab Hôm nay.</figcaption>
+                  <figcaption>Vòng quỹ nhìn thấy ngay ở tab Hôm nay (ảnh bản 3.14).</figcaption>
                 </figure>
               </div>
               <div className="step">
                 <div>
                   <span className="num">3</span>
-                  <h3>Màn khoá có bốn trạng thái, và luôn nói lý do</h3>
+                  <h3>Màn khoá chỉ hiện khi hết đường dùng</h3>
                   <p>Màn khoá là một lớp phủ do app tự vẽ. Nó hiện tiêu đề và lý do ngay trên mặt app, không phải một trang web hay thông báo.</p>
                   <ul>
-                    <li>App đang bị chặn: <strong>Quay lại Kỷ luật</strong> hoặc <strong>Dùng app khác</strong>, nút sau đưa bạn về màn hình chính.</li>
-                    <li>Đang focus hoặc đã hết quỹ: chỉ có tiêu đề và thời gian còn lại, không có nút mở app.</li>
-                    <li>Đang nghỉ có kiểm soát: không có màn khoá.</li>
+                    <li>Đang focus hoặc đã hết quỹ: tiêu đề, lý do và thời gian còn lại tới 0:00, không có nút mở app.</li>
+                    <li>Còn quỹ thì không có màn khoá: app mở bình thường, chỉ có đồng hồ đếm ngược phía trên.</li>
+                    <li>Nút <strong>Dùng app khác</strong> lúc nào cũng còn và đưa bạn về màn hình chính — màn khoá không giữ bạn ở lại.</li>
                   </ul>
                 </div>
                 <figure className="shot phone-shot step-media">
                   <img src="/assets/img/android-man-khoa.png" alt="Lớp phủ màn khoá màu đậm với tiêu đề APP NÀY ĐANG TRONG DANH SÁCH CHẶN và hai nút Quay lại Kỷ luật, Dùng app khác" width="1080" height="2400" loading="lazy" />
-                  <figcaption>Màn khoá khi bạn mở app đang bị chặn.</figcaption>
+                  <figcaption>Màn khoá vẽ bằng chính app Kỷ luật (ảnh bản 3.14).</figcaption>
                 </figure>
               </div>
             </div>
@@ -291,7 +291,7 @@ export default function Page() {
                 <span className="ico"><Icon name="clock" /></span>
                 <div>
                   <h3>Quỹ dùng chung, và bạn đổi được mức</h3>
-                  <p>Một mức quỹ duy nhất dùng cho cả nhóm app đã chọn, không phải mỗi app một tiếng. Mặc định 60 phút, chỉnh được 15 đến 120 phút.</p>
+                  <p>Một mức quỹ duy nhất dùng cho cả nhóm app đã chọn, không phải mỗi app một tiếng. Mặc định 60 phút, chỉnh được 15 đến 120 phút, và điểm học có thể thưởng thêm tới 120 phút nữa trong ngày.</p>
                 </div>
               </div>
               <div className="card principle">
@@ -387,22 +387,37 @@ export default function Page() {
               <details id="faq-man-hinh">
                 <summary>App có đọc nội dung trên màn hình không?</summary>
                 <div className="body">
-                  <p>Không. Quyền Trợ năng trên Android chỉ được dùng để biết app nào đang ở phía trước và phủ màn khoá lên app trong danh sách.</p>
-                  <p>Tuỳ chọn đọc nội dung cửa sổ bị tắt ngay trong file khai báo của app.</p>
+                  <p>Không. Quyền Trợ năng trên Android chỉ được dùng để biết app nào đang ở phía trước, lúc nào có chạm hay cuốn, và để phủ màn khoá. App nào cũng chỉ lấy tên gói và thời điểm, không lấy nội dung.</p>
+                  <p>Tuỳ chọn đọc nội dung cửa sổ bị tắt ngay trong file khai báo của app. Ngoại lệ duy nhất là <strong>Chặn ảnh 18+ trên màn hình</strong>: khi bạn tự bật thì app mới chụp màn hình của trình duyệt và các app mạng xã hội đã chọn, chạy mô hình trên máy, không lưu và không gửi đi.</p>
                 </div>
               </details>
               <details id="faq-quy">
                 <summary>Quỹ mạng xã hội trên điện thoại tiêu thế nào?</summary>
                 <div className="body">
-                  <p>Mặc định là khoá. Bạn mở Kỷ luật rồi chọn một phiên nghỉ 10, 15 hoặc 30 phút; chỉ trong phiên nghỉ đó thời gian lướt mới trừ vào quỹ của ngày.</p>
-                  <p>Hết giờ nghỉ là màn khoá đóng lại, dù quỹ còn. Hết quỹ thì màn khoá nói rõ còn bao lâu tới 0:00.</p>
+                  <p>Quỹ tính cho cả ngày. Mở một app trong danh sách chặn là thời gian lướt trừ dần vào quỹ ngay, không cần xin phiên nghỉ như bản cũ; trên đầu màn hình có đồng hồ nhỏ đếm số phút còn lại.</p>
+                  <p>Hết quỹ thì màn khoá đóng app đó và nói rõ còn bao lâu tới 0:00. Đang chạy phiên tập trung thì app bị khoá và không trừ quỹ.</p>
+                </div>
+              </details>
+              <details id="faq-diem-hoc">
+                <summary>Điểm học là gì và đổi được gì?</summary>
+                <div className="body">
+                  <p>Mỗi phút bạn không chạm điện thoại được 5 điểm; mỗi phút ở trong app AI bạn tự chọn (Gemini, ChatGPT, Claude, Copilot, Perplexity, DeepSeek) được 2 điểm, và khi không thao tác trong app AI một phút thì app chuyển sang tính theo nhịp không chạm. Cứ 5 điểm thành 1 phút quỹ thưởng, mặc định vậy và chỉnh được từ 3 tới 30.</p>
+                  <p>Phút thưởng cộng thẳng vào mức quỹ hôm đó nên học đủ lâu có thể mở lại app đã cạn quỹ. Điểm xoá lúc 0:00, không cộng từ 22:00 đến 07:00, không tính khi đang gọi điện, và trần 120 phút thưởng mỗi ngày. Muốn đổi tỷ lệ điểm thì phải qua cổng cam kết.</p>
                 </div>
               </details>
               <details id="faq-doi-quy">
                 <summary>Đổi mức quỹ 60 phút thì làm thế nào?</summary>
                 <div className="body">
-                  <p>Ở tab <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>. Chọn mức từ 15 đến 120 phút, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 30 giây. Ba bước này giống hệt lúc tắt bảo vệ.</p>
-                  <p>Giảm mức có hiệu lực ngay, tăng mức phải chờ đến 0:00 hôm sau — nên đổi quỹ không cứu được một ngày đã dùng hết. Đã trót hẹn tăng mà đổi ý thì có nút <strong>Hủy lịch đổi</strong> ở bước chọn mức, bỏ lịch đó ngay, không phải gõ lại gì.</p>
+                  <p>Ở tab <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>. Chọn mức từ 15 đến 120 phút. Giảm có hiệu lực ngay; tăng thì app hiện ô báo "Đã hẹn mức X phút từ 0:00 hôm sau" và có nút <strong>Hủy lịch đổi</strong> nếu bạn đổi ý.</p>
+                  <p>Tăng quỹ là nới lỏng nên phải qua cổng cam kết 60 giây: đọc cảnh báo, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ đủ 60 giây. Siết mức thì làm ngay, không cần cổng.</p>
+                </div>
+              </details>
+              <details id="faq-cam-ket">
+                <summary>Một lần cam kết mở được những gì?</summary>
+                <div className="body">
+                  <p>Từ bản 3.15, mọi thao tác nới lỏng trên điện thoại dùng chung một cổng: tăng quỹ, bỏ app ra khỏi danh sách bị chặn, thêm app AI vào nhóm được tính điểm, đổi tỷ lệ điểm học và tắt hẳn bảo vệ. Bạn chỉ phải làm một lần, rồi được quyền chỉnh những thứ đó trong 10 phút; hết 10 phút thì cổng tự đóng lại.</p>
+                  <p>Siết luật thì làm ngay, không qua cổng: thêm app vào danh sách chặn, giảm quỹ, giảm tỷ lệ điểm.</p>
+                  <p>Cổng tính cả hai đồng hồ — giờ hệ thống và thời gian máy đã bật — nên đổi giờ máy không kéo dài được thời gian mở, và khởi động lại máy thì cổng đóng sớm.</p>
                 </div>
               </details>
               <details id="faq-mat-ket-noi">
@@ -415,14 +430,14 @@ export default function Page() {
               <details id="faq-man-khoa">
                 <summary>Màn khoá có giữ bạn ở lại không?</summary>
                 <div className="body">
-                  <p>Không. Lớp phủ không nhận thao tác bàn phím và luôn có hai nút: <strong>Quay lại Kỷ luật</strong> và <strong>Dùng app khác</strong>, nút sau đưa bạn về màn hình chính.</p>
-                  <p>Lúc đã hết quỹ hoặc đang trong phiên focus, màn khoá chỉ hiện tiêu đề và thời gian còn lại, không có nút mở app.</p>
+                  <p>Không. Lớp phủ không nhận thao tác bàn phím và luôn có nút <strong>Dùng app khác</strong> đưa bạn về màn hình chính; mở lại Kỷ luật từ đó thì màn khoá tự tắt.</p>
+                  <p>Lúc đã hết quỹ hoặc đang trong phiên focus, màn khoá chỉ hiện tiêu đề, lý do và thời gian còn lại — không có nút mở tiếp app.</p>
                 </div>
               </details>
               <details id="faq-tat-android">
                 <summary>Tắt bảo vệ trên điện thoại mất bao lâu?</summary>
                 <div className="body">
-                  <p>Trong app là ba bước: đọc cảnh báo 60 giây, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 60 giây. Không có thời gian chờ 24 giờ như trên máy tính.</p>
+                  <p>Trong app là cổng cam kết chung: đọc cảnh báo 60 giây, gõ lại đúng đoạn cam kết (dán văn bản không được tính), chờ nốt 60 giây. Cổng này cũng chính là cổng dùng cho tăng quỹ và bỏ app bị chặn, nên nếu bạn vừa mở cổng thì tắt bảo vệ không phải chờ lại từ đầu. Không có thời gian chờ 24 giờ như trên máy tính.</p>
                   <p>Thu hồi quyền Trợ năng trong Cài đặt thì dừng ngay lập tức.</p>
                 </div>
               </details>

@@ -72,7 +72,7 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".OffActivity"
+            android:name=".UnlockActivity"
             android:exported="false" />
 
         <activity

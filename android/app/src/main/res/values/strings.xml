@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Kỷ luật</string>
-    <string name="accessibility_description">Nhận biết ứng dụng đang mở, đếm thời gian tập gym và đọc màn hình trình duyệt, mạng xã hội để chặn ảnh 18+ khi bạn bật tính năng đó.</string>
+    <string name="accessibility_description">Nhận biết ứng dụng đang mở để trừ quỹ lướt mạng xã hội, đếm thời gian tập gym, và ghi nhận lúc bạn không đụng điện thoại hoặc đang dùng app AI để cộng điểm học. Kỷ luật chỉ đọc tên ứng dụng và thời điểm bạn chạm màn hình, không đọc nội dung. Khi bạn bật tính năng chặn ảnh 18+, app mới đọc màn hình trình duyệt và mạng xã hội để nhận diện ngay trên máy.</string>
 </resources>

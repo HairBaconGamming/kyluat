@@ -54,6 +54,10 @@ class Prefs(context: Context) {
         get() = store.getStringSet("extra_packages", emptySet())?.toSet() ?: emptySet()
         set(value) = store.edit().putStringSet("extra_packages", value).apply()
 
+    var aiPackages: Set<String>
+        get() = store.getStringSet("ai_packages", DEFAULT_AI)?.toSet() ?: DEFAULT_AI
+        set(value) = store.edit().putStringSet("ai_packages", value).apply()
+
     var quotaDate: String
         get() = store.getString("quota_date", "") ?: ""
         set(value) = store.edit().putString("quota_date", value).apply()
@@ -61,6 +65,21 @@ class Prefs(context: Context) {
     var quotaUsedSeconds: Int
         get() = store.getInt("quota_used_seconds", 0)
         set(value) = store.edit().putInt("quota_used_seconds", value).apply()
+
+    /** Giây không đụng điện thoại đã quy thành điểm học hôm nay (5 điểm/phút). */
+    var studyIdleSeconds: Int
+        get() = store.getInt("study_idle_seconds", 0)
+        set(value) = store.edit().putInt("study_idle_seconds", value).apply()
+
+    /** Giây dùng trong app AI đã quy thành điểm học hôm nay (2 điểm/phút). */
+    var studyAiSeconds: Int
+        get() = store.getInt("study_ai_seconds", 0)
+        set(value) = store.edit().putInt("study_ai_seconds", value).apply()
+
+    /** Bao nhiêu điểm học thì đổi được 1 phút quỹ. Giảm số này là nới luật, phải qua cổng 60 giây. */
+    var pointsPerMinute: Int
+        get() = store.getInt("points_per_minute", DEFAULT_POINTS_PER_MINUTE)
+        set(value) = store.edit().putInt("points_per_minute", value.coerceIn(1, 120)).apply()
 
     var quotaMinutes: Int
         get() = store.getInt("quota_minutes", DEFAULT_QUOTA_MINUTES)
@@ -70,9 +89,17 @@ class Prefs(context: Context) {
         get() = store.getInt("quota_pending_minutes", 0)
         set(value) = store.edit().putInt("quota_pending_minutes", value).apply()
 
-    var breakUntilMs: Long
-        get() = store.getLong("break_until_ms", 0L)
-        set(value) = store.edit().putLong("break_until_ms", value).apply()
+    /**
+     * Cổng 60 giây: một lần cam kết mở quyền chỉnh mọi luật nới trong [UNLOCK_MINUTES] phút.
+     * Giữ cả mốc giờ máy và mốc từ lúc mở máy để đổi giờ hệ thống không kéo dài cổng.
+     */
+    var unlockWallMs: Long
+        get() = store.getLong("unlock_wall_ms", 0L)
+        set(value) = store.edit().putLong("unlock_wall_ms", value).apply()
+
+    var unlockElapsedMs: Long
+        get() = store.getLong("unlock_elapsed_ms", 0L)
+        set(value) = store.edit().putLong("unlock_elapsed_ms", value).apply()
 
     var localFocusEndMs: Long
         get() = store.getLong("local_focus_end_ms", 0L)
@@ -154,6 +181,27 @@ class Prefs(context: Context) {
         socialPackages = blocked
     }
 
+    fun setAiPackage(packageName: String, added: Boolean) {
+        val current = aiPackages.toMutableSet()
+        if (added) current.add(packageName) else current.remove(packageName)
+        aiPackages = current
+    }
+
+    /** Cổng 60 giây còn mở hay không. Bảo vệ tắt thì luật nào cũng chỉnh được, coi như mở. */
+    fun rulesUnlocked(nowWallMs: Long, nowElapsedMs: Long): Boolean =
+        !protectionEnabled ||
+            unlockWindowOpen(unlockWallMs, unlockElapsedMs, nowWallMs, nowElapsedMs)
+
+    fun grantUnlock(nowWallMs: Long, nowElapsedMs: Long) {
+        unlockWallMs = nowWallMs + UNLOCK_MINUTES * 60_000L
+        unlockElapsedMs = nowElapsedMs + UNLOCK_MINUTES * 60_000L
+    }
+
+    fun lockRules() {
+        unlockWallMs = 0L
+        unlockElapsedMs = 0L
+    }
+
     companion object {
         const val DEFAULT_GYM = "com.google.android.apps.fitness"
         const val DEFAULT_QUOTA_MINUTES = 60
@@ -172,6 +220,15 @@ class Prefs(context: Context) {
             "com.instagram.android" to "Instagram",
             "com.reddit.frontpage" to "Reddit",
             "com.twitter.android" to "X (Twitter)",
+        )
+        /** App trợ lý AI tính điểm học khi người dùng đang thao tác trong đó. Đổi được ở Cài đặt. */
+        val DEFAULT_AI = setOf(
+            "com.google.android.apps.bard",
+            "com.openai.chatgpt",
+            "com.anthropic.claude",
+            "com.microsoft.copilot",
+            "ai.perplexity.app.android",
+            "com.deepseek.chat",
         )
     }
 }
