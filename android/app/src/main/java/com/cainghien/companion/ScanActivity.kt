@@ -246,7 +246,7 @@ class ScanActivity : Activity() {
             ) { finish() }
             checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED -> showState(
                 "Cần quyền camera",
-                "Kỷ luật chỉ dùng camera để đọc mã QR kết nối, không chụp và không lưu hình ảnh.",
+                "Màn này dùng camera để đọc mã QR kết nối, không chụp và không lưu hình ảnh.",
                 "Cấp quyền camera",
             ) { requestPermissions(arrayOf(Manifest.permission.CAMERA), PERMISSION) }
             else -> {

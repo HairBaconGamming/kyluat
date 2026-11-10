@@ -43,7 +43,7 @@ export default function Page() {
             <div className="grid three">
               <div className="card stat">
                 <p className="big">60 <span>phút</span></p>
-                <p>Quỹ mạng xã hội mỗi ngày trên điện thoại, trừ ngay khi bạn mở app. Hết quỹ là hết; chỉ hoàn thành phiên tập trung mới được thưởng thêm.</p>
+                <p>Quỹ mạng xã hội mỗi ngày trên điện thoại, trừ ngay khi bạn mở app. Hoàn thành phiên tập trung hoặc tập thể dục để nhận điểm thưởng thêm quỹ.</p>
               </div>
               <div className="card stat">
                 <p className="big">10 <span>phút</span></p>
@@ -240,7 +240,7 @@ export default function Page() {
                   <ul>
                     <li>Hết quỹ là màn khoá đóng lại tới 0:00, dù đang giữa ngày.</li>
                     <li>Đang chạy phiên tập trung thì app bị khoá và không trừ quỹ.</li>
-                    <li>Hoàn thành một phiên tập trung thì được 25 điểm học, đổi thành phút quỹ thưởng.</li>
+                    <li>Phiên tập trung 25/45/60 phút được 25/50/70 điểm học; buổi tập đủ 10 phút cũng có điểm.</li>
                   </ul>
                 </div>
                 <figure className="shot phone-shot step-media">
@@ -284,7 +284,7 @@ export default function Page() {
                 <span className="ico"><Icon name="dumbbell" /></span>
                 <div>
                   <h3>Gym tính bằng 10 phút thật</h3>
-                  <p>Giữ app tập trên màn hình đủ 10 phút liên tục mới được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, có đồng hồ chạy ở thanh trạng thái.</p>
+                  <p>Giữ app tập trên màn hình đủ 10 phút liên tục mới được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, có đồng hồ chạy ở thanh trạng thái. Tập càng lâu càng nhiều điểm học: đủ 60 phút là 100 điểm.</p>
                 </div>
               </div>
               <div className="card principle">
@@ -366,7 +366,8 @@ export default function Page() {
               <details id="faq-du-lieu">
                 <summary>Dữ liệu của tôi đi đâu?</summary>
                 <div className="body">
-                  <p>Không đi đâu cả. Luật, lịch sử chặn và sổ học tập nằm trong một file SQLite trên máy bạn, xem được ở mục Nâng cao.</p>
+                  <p>Luật, lịch sử chặn và sổ học tập nằm trên máy bạn; dữ liệu Windows ở một file SQLite, xem được ở mục Nâng cao. Ảnh camera dùng để đếm bài tập được xử lý tại máy, không lưu hoặc gửi đi.</p>
+                  <p>SDK Google ML Kit trên Android gửi số liệu sử dụng, hiệu năng và thông tin kỹ thuật tới Google, không gửi ảnh hoặc kết quả tư thế. <a href="/an-toan#camera-bai-tap">Đọc chi tiết quyền riêng tư</a>.</p>
                   <p>Máy tính và điện thoại nói chuyện với nhau qua Wi-Fi nội bộ, không có máy chủ trung gian.</p>
                 </div>
               </details>
@@ -401,7 +402,7 @@ export default function Page() {
               <details id="faq-diem-hoc">
                 <summary>Điểm học là gì và đổi được gì?</summary>
                 <div className="body">
-                  <p>Điểm học chỉ đến từ phiên tập trung: hoàn thành một phiên thì được 25 điểm, dù phiên đó bật trên điện thoại hay trên máy tính đã ghép nối. Cứ 5 điểm thành 1 phút quỹ thưởng — mặc định vậy và chỉnh được từ 3 tới 30 điểm một phút.</p>
+                  <p>Điểm học đến từ học và tập. Phiên tập trung chạy hết giờ: 25/45/60 phút được 25/50/70 điểm, dù phiên bật trên điện thoại hay trên máy tính đã ghép nối. Buổi tập đủ thời gian: 10/20/30/45/60 phút liên tục trong app tập được 20/40/50/70/100 điểm, mỗi bậc chỉ cộng thêm phần chênh nên một giờ tập ra đúng 100 điểm. Camera còn tính 1 chống đẩy = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. Cứ 5 điểm thành 1 phút quỹ thưởng — mặc định vậy và chỉnh được từ 3 tới 30 điểm một phút.</p>
                   <p>Dừng phiên giữa chừng thì không có điểm, kể cả khi bạn đã ngồi được 20 phút. Phút thưởng cộng thẳng vào mức quỹ hôm đó nên học đủ nhiều phiên có thể mở lại app đã cạn quỹ. Điểm về 0 lúc 0:00 và trần 120 phút thưởng mỗi ngày. Muốn đổi tỷ lệ điểm thì phải qua cổng cam kết.</p>
                 </div>
               </details>
@@ -480,7 +481,8 @@ export default function Page() {
               <details id="faq-gym">
                 <summary>Buổi gym được tính thế nào?</summary>
                 <div className="body">
-                  <p>Giữ app tập của bạn trên màn hình đủ 10 phút liên tục thì được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu.</p>
+                  <p>Giữ app tập của bạn trên màn hình đủ 10 phút liên tục thì được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, nhưng điểm đã nhận không mất. Cùng đồng hồ đó còn tính điểm học: 10/20/30/45/60 phút = 20/40/50/70/100 điểm, đổi ra phút quỹ lướt.</p>
+                  <p>Bản 3.17 có thêm <strong>Buổi tập → Tập với camera</strong>: 1 chống đẩy = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. Phải đủ nhịp động tác hoặc giữ đúng tư thế; camera dừng khi bạn bấm Dừng hay rời màn. Ảnh không lưu hoặc gửi đi; <a href="/an-toan#camera-bai-tap">xem quyền riêng tư của SDK nhận diện</a>.</p>
                 </div>
               </details>
               <details id="faq-tat">
@@ -516,7 +518,7 @@ export default function Page() {
                   <tr>
                     <td>Tài khoản đăng nhập</td>
                     <td className="no" data-label="Kỷ luật">Không có</td>
-                    <td className="no" data-label="Ghi chú">Mở là dùng, không định danh ai.</td>
+                    <td className="no" data-label="Ghi chú">Không cần đăng ký hay đăng nhập.</td>
                   </tr>
                   <tr>
                     <td>Máy chủ riêng của dự án</td>
@@ -524,9 +526,9 @@ export default function Page() {
                     <td className="no" data-label="Ghi chú">File phát hành để trên GitHub.</td>
                   </tr>
                   <tr>
-                    <td>Phân tích truy cập trong app</td>
-                    <td className="no" data-label="Kỷ luật">Không có</td>
-                    <td className="no" data-label="Ghi chú">Không gửi số liệu dùng ra ngoài.</td>
+                    <td>Số liệu kỹ thuật SDK Android</td>
+                    <td className="yes" data-label="Kỷ luật">Có, ML Kit</td>
+                    <td data-label="Ghi chú">Gửi tới Google, không gồm ảnh hoặc kết quả tư thế. <a href="/an-toan#camera-bai-tap">Chi tiết</a>.</td>
                   </tr>
                   <tr>
                     <td>Đọc nội dung màn hình</td>

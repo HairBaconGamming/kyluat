@@ -47,7 +47,7 @@ class GymActivity : Activity() {
 
     private fun buildPage(): LinearLayout {
         val page = Ui.screen(this)
-        page.addView(Ui.backHeader(this, "Buổi tập", "Cần 10 phút liên tục trong app tập") { finish() })
+        page.addView(Ui.backHeader(this, "Buổi tập", "10 phút liên tục = 20 điểm · 60 phút = 100 điểm") { finish() })
 
         val hero = Ui.hero(this)
         statusPill = Ui.pill(this, "Chưa bắt đầu", Tone.NEUTRAL)
@@ -75,12 +75,12 @@ class GymActivity : Activity() {
         dotsBox.orientation = LinearLayout.HORIZONTAL
         dotsBox.gravity = Gravity.CENTER
         val dotsRow = mutableListOf<View>()
-        repeat(TOTAL_STEPS) { index ->
+        repeat(GYM_TIERS.size) { index ->
             val dot = View(this)
             dot.background = Ui.rounded(Ui.STEP_OFF, 2, this)
             dotsRow.add(dot)
             dotsBox.addView(dot, LinearLayout.LayoutParams(Ui.dp(this, 15), Ui.dp(this, 4)).apply {
-                if (index < TOTAL_STEPS - 1) rightMargin = Ui.dp(this@GymActivity, 4)
+                if (index < GYM_TIERS.size - 1) rightMargin = Ui.dp(this@GymActivity, 4)
             })
         }
         dots = dotsRow
@@ -94,6 +94,16 @@ class GymActivity : Activity() {
         change.setOnClickListener { startActivity(Intent(this, GymPickerActivity::class.java)) }
         hero.addView(change, Ui.match(this, topMarginDp = 7))
         page.addView(hero)
+
+        page.addView(Ui.section(this, "Tập với camera"))
+        val exercises = Ui.group(this)
+        val exerciseRow = Ui.row(this, Ui.tile(this, R.drawable.ic_dumbbell, Tone.ACCENT))
+        exerciseRow.title("Chống đẩy · Squat · Plank")
+        exerciseRow.subtitle("Tự đếm động tác và cộng điểm học trên điện thoại")
+        exerciseRow.trailing(Ui.chevron(this))
+        exerciseRow.makeClickable { startActivity(Intent(this, ExerciseActivity::class.java)) }
+        exercises.addView(exerciseRow)
+        page.addView(exercises)
 
         page.addView(Ui.section(this, "Đang theo dõi"))
         val group = Ui.group(this)
@@ -114,7 +124,8 @@ class GymActivity : Activity() {
 
         page.addView(Ui.note(
             this,
-            "Rời app tập hoặc tắt màn hình sẽ đếm lại từ đầu.",
+            "Rời app tập hoặc tắt màn hình sẽ đếm lại từ đầu. " +
+                "Mỗi bậc thời gian chỉ được cộng một lần trong buổi tập.",
             R.drawable.ic_clock,
         ))
         return page
@@ -146,20 +157,21 @@ class GymActivity : Activity() {
     private fun renderTimer() {
         val running = Runtime.gymStartElapsed > 0L
         val seconds = if (running) {
-            ((SystemClock.elapsedRealtime() - Runtime.gymStartElapsed) / 1000).toInt().coerceIn(0, TARGET_SECONDS)
+            ((SystemClock.elapsedRealtime() - Runtime.gymStartElapsed) / 1000).toInt().coerceIn(0, MAX_SECONDS)
         } else if (Runtime.lastGymSeconds > 0) {
-            Runtime.lastGymSeconds.coerceAtMost(TARGET_SECONDS)
+            Runtime.lastGymSeconds.coerceAtMost(MAX_SECONDS)
         } else {
             0
         }
-        val left = (TARGET_SECONDS - seconds).coerceAtLeast(0)
+        val points = gymPointsFor(seconds)
+        val next = gymSecondsToNextTier(seconds)
 
         heroRing.value.text = Ui.clockText(seconds)
-        heroRing.caption.text = if (left == 0) "đủ buổi tập" else "còn ${Ui.clockText(left)}"
-        heroRing.setProgress(seconds.toFloat() / TARGET_SECONDS)
-        heroRing.setArcColor(if (Runtime.lastGymAwarded || seconds >= TARGET_SECONDS) Ui.ACCENT else Ui.TEXT_2)
+        heroRing.caption.text = if (next == 0) "trọn 60 phút" else "còn ${Ui.clockText(next)}"
+        heroRing.setProgress(seconds.toFloat() / MAX_SECONDS)
+        heroRing.setArcColor(if (points > 0) Ui.ACCENT else Ui.TEXT_2)
 
-        val done = (seconds * TOTAL_STEPS / TARGET_SECONDS).coerceIn(0, TOTAL_STEPS)
+        val done = GYM_TIERS.count { seconds >= it.first }
         if (done != dotsDone) {
             dotsDone = done
             dots.forEachIndexed { index, dot ->
@@ -169,13 +181,17 @@ class GymActivity : Activity() {
 
         when {
             running -> {
-                statusPill.set("Đang đếm", Tone.ACCENT)
-                ringCaption.text = "Giữ app tập ở trên màn hình cho đến 10:00."
+                statusPill.set(if (points > 0) "$points điểm" else "Đang đếm", Tone.ACCENT)
+                ringCaption.text = if (next == 0) {
+                    "Buổi tập dài nhất được tính · 100 điểm."
+                } else {
+                    "Giữ app tập trên màn hình · ${Ui.clockText(next)} nữa lên ${gymPointsFor(seconds + next)} điểm."
+                }
                 ringCaption.setTextColor(Ui.TEXT_2)
             }
             Runtime.lastGymAwarded -> {
                 statusPill.set("Đã tính 1 buổi", Tone.ACCENT)
-                ringCaption.text = "Buổi tập gần nhất đã được ghi nhận."
+                ringCaption.text = "Buổi tập gần nhất ${Ui.clockText(seconds)} · ${points} điểm."
                 ringCaption.setTextColor(Ui.ACCENT)
             }
             seconds > 0 -> {
@@ -249,7 +265,6 @@ class GymActivity : Activity() {
     }
 
     companion object {
-        private const val TARGET_SECONDS = 600
-        private const val TOTAL_STEPS = 10
+        private const val MAX_SECONDS = 3600
     }
 }

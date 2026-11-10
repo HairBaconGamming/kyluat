@@ -85,7 +85,7 @@ export default function Page() {
 
             <div className="block">
               <h3>1. Cài file APK</h3>
-              <p>Tải <code>kyluat-android-v3.16.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
+              <p>Tải <code>kyluat-android-v3.17.apk</code> sang điện thoại và mở file. Máy sẽ hỏi quyền cài từ nguồn không xác định, cho phép một lần là đủ.</p>
               <p>Lần mở đầu tiên có bộ thiết lập: cấp hai quyền cốt lõi, chọn app cần chặn, đặt quỹ và app gym, rồi tuỳ chọn ghép máy tính và lọc 18+. Sau đó app tự kiểm tra bản mới hằng ngày khi bạn để bật; tắt trong <strong>Cài đặt</strong> → <strong>Cập nhật</strong>.</p>
               <p>Android 8.0 trở lên. Không lên CH Play.</p>
               <p>File phát hành trên GitHub nên Google không nhận ra người gửi và hiện cảnh báo <strong>Ứng dụng chưa được xác minh</strong>; trên vài máy phải bấm <strong>Chi tiết khác</strong> rồi mới thấy <strong>Vẫn cài</strong>. Trước khi bấm, so dãy SHA-256 ở trang <a href="/tai-nguyen">Tải về</a> với file vừa tải để chắc nó không bị sửa giữa đường.</p>
@@ -124,7 +124,7 @@ export default function Page() {
               <h3>5. Hiểu quy tắc quỹ mạng xã hội</h3>
               <p>Quỹ là khoản thời gian lướt dùng cho cả ngày. Mở một app trong danh sách chặn là thời gian bắt đầu trừ vào quỹ ngay, không phải xin phiên nghỉ trước. Hết quỹ thì màn khoá đóng app đó tới 0:00 hôm sau.</p>
               <p>Một mức quỹ dùng chung cho cả nhóm app đã chọn, không phải mỗi app một tiếng; mặc định 60 phút và làm mới lúc 0:00 theo ngày trên máy. Khi còn dùng được, một đồng hồ nhỏ trên đầu màn hình đếm số phút quỹ còn lại.</p>
-              <p>Điểm học chỉ đến từ phiên tập trung: hoàn thành một phiên — bật trên điện thoại hay trên máy tính đã ghép — được 25 điểm, đủ 5 điểm thì đổi thành 1 phút quỹ thưởng, tức một phiên được 5 phút. Dừng phiên giữa chừng thì không có điểm nào. Phần thưởng cộng vào ngay mức quỹ hôm đó nên học đủ nhiều phiên có thể mở lại app đã cạn quỹ. Điểm về 0 lúc 0:00 và trần thưởng là 120 phút mỗi ngày.</p>
+              <p>Điểm học đến từ phiên tập trung bạn chạy hết giờ, buổi tập giữ đủ thời gian và bài tập đếm bằng camera. Phiên 25/45/60 phút được 25/50/70 điểm, tính cả phiên bật trên máy tính đã ghép; buổi tập 10/20/30/45/60 phút liên tục được 20/40/50/70/100 điểm, mỗi bậc chỉ cộng thêm phần chênh nên một giờ tập ra đúng 100 điểm chứ không cộng dồn. Dừng phiên giữa chừng thì không có điểm nào. Cứ 5 điểm đổi thành 1 phút quỹ thưởng (chỉnh được tỷ lệ), phần thưởng cộng ngay vào mức quỹ hôm đó nên học đủ nhiều phiên có thể mở lại app đã cạn quỹ. Điểm về 0 lúc 0:00 và trần thưởng là 120 phút mỗi ngày.</p>
               <p>Đổi mức quỹ ở <strong>Cài đặt</strong> → <strong>Mục tiêu</strong> → <strong>Quỹ mạng xã hội</strong>: chọn từ 15 đến 120 phút. Giảm có hiệu lực ngay, tăng phải chờ đến 0:00 hôm sau.</p>
               <figure className="shot phone-shot inline-phone">
                 <img src="/assets/img/android-doi-quy.png" alt="Bước chọn mức quỹ: các mức 15 đến 120 phút, đang chọn 90, kèm dòng giải thích tăng quỹ có hiệu lực từ 0:00 hôm sau" width="1080" height="2157" loading="lazy" />
@@ -150,9 +150,13 @@ export default function Page() {
 
             <div className="block">
               <h3>7. Buổi tập gym</h3>
-              <p>Ở tab <strong>Hôm nay</strong>, chọn app tập của bạn rồi bấm bắt đầu. Giữ app đó trên màn hình đủ 10 phút liên tục thì được tính một buổi.</p>
-              <p>Rời app hoặc tắt màn hình là đếm lại từ đầu. Trong lúc tập, một đồng hồ nhỏ đếm ngược tới 10 phút chạy ở giữa mép trên màn hình, kèm thông báo đếm ngược ở thanh trạng thái. Ngoài giờ tập, đúng đồng hồ đó hiện số phút quỹ còn lại khi bạn đang ở app mạng xã hội.</p>
-              <p>Buổi tập được ghi sang máy tính khi hai máy đang ghép nối và cùng có mạng.</p>
+              <p>Ở tab <strong>Hôm nay</strong>, chọn app tập của bạn rồi bấm bắt đầu. Giữ app đó trên màn hình đủ 10 phút liên tục thì được tính một buổi, đồng thời là bậc điểm đầu tiên: 10/20/30/45/60 phút = 20/40/50/70/100 điểm.</p>
+              <p>Rời app hoặc tắt màn hình là đếm lại từ đầu. Trong lúc tập, một đồng hồ nhỏ ở giữa mép trên màn hình hiện thời gian đã tập, số điểm đang có và thời gian còn lại tới bậc kế tiếp, kèm thông báo đếm ngược ở thanh trạng thái. Ngoài giờ tập, đúng đồng hồ đó hiện số phút quỹ còn lại khi bạn đang ở app mạng xã hội.</p>
+              <p>Buổi tập theo thời gian được ghi sang máy tính khi hai máy đang ghép nối và cùng có mạng. Điểm ở các bậc đã đạt được giữ lại khi bạn rời app.</p>
+              <h4>Tập với camera</h4>
+              <p>Vào <strong>Hôm nay → Buổi tập → Tập với camera</strong>, chọn Chống đẩy, Squat hoặc Plank rồi bấm <strong>Bắt đầu</strong>. Nếu được hỏi, cấp quyền camera rồi bấm Bắt đầu lần nữa. Đặt điện thoại cố định nhìn ngang bên hông, thấy đủ vai, tay, hông, gối và mắt cá chân.</p>
+              <p><strong>1 chống đẩy = 1 điểm; mỗi 2 squat = 2 điểm; mỗi 5 giây plank = 1 điểm.</strong> Chống đẩy và squat phải đủ một nhịp từ tư thế thẳng, hạ xuống rồi trở lại. Plank dùng cẳng tay và giữ thân thẳng; mất tư thế bỏ phần chưa đủ 5 giây. Điểm cộng ngay vào quỹ học trên điện thoại; không cộng thêm điểm thời gian app tập trong màn camera.</p>
+              <p>Bấm <strong>Dừng</strong>, rời màn tập, chuyển sang ô app khác khi chia đôi màn hình, xoay máy hoặc khoá máy là tắt camera; bấm Bắt đầu để tiếp tục, điểm đã nhận vẫn còn. Lỗi camera hoặc từ chối quyền chỉ làm tính năng này dừng, các phần khác vẫn dùng được. Ảnh xử lý trên máy, không lưu/gửi; SDK ML Kit gửi số liệu kỹ thuật tới Google như mô tả tại <a href="/an-toan#camera-bai-tap">trang an toàn</a>. Bộ đếm chưa được kiểm chứng trên điện thoại thật; thiếu sáng hoặc khuất người có thể làm đếm sai.</p>
             </div>
 
             <div className="block">

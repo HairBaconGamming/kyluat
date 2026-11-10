@@ -16,7 +16,6 @@ class QuotaManager(private val prefs: Prefs) {
     /** Quỹ gốc do người dùng chốt, chưa cộng phút thưởng từ điểm học. */
     val limitSeconds: Int get() = limitMinutes * 60
 
-    /** Điểm học hôm nay: mỗi phiên tập trung chạy hết giờ được [POINTS_PER_SESSION] điểm. */
     @Synchronized
     fun pointsToday(): Int = prefs.studyPointsToday
 
@@ -27,9 +26,8 @@ class QuotaManager(private val prefs: Prefs) {
     @Synchronized
     fun bonusSecondsToday(): Int = bonusSeconds(prefs.studyPointsToday, prefs.pointsPerMinute)
 
-    /** Cộng điểm cho một phiên tập trung vừa chạy hết giờ. */
     @Synchronized
-    fun awardSession(points: Int = POINTS_PER_SESSION, now: Long = System.currentTimeMillis()) {
+    fun awardSession(points: Int, now: Long = System.currentTimeMillis()) = synchronized(pointsLock) {
         resetIfNeeded(now)
         prefs.studyPointsToday = prefs.studyPointsToday + points
     }
@@ -45,7 +43,7 @@ class QuotaManager(private val prefs: Prefs) {
         @Synchronized get() = prefs.quotaPendingMinutes.coerceIn(0, MAX_MINUTES)
 
     @Synchronized
-    fun resetIfNeeded(now: Long = System.currentTimeMillis()) {
+    fun resetIfNeeded(now: Long = System.currentTimeMillis()) = synchronized(pointsLock) {
         val today = formatter.format(Date(now))
         if (prefs.quotaDate != today) {
             prefs.quotaDate = today
@@ -116,6 +114,7 @@ class QuotaManager(private val prefs: Prefs) {
     }
 
     companion object {
+        private val pointsLock = Any()
         const val MIN_MINUTES = 15
         const val MAX_MINUTES = 120
         const val STEP_MINUTES = 15

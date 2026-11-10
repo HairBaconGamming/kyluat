@@ -50,7 +50,33 @@ internal fun bonusSeconds(points: Int, pointsPerMinute: Int): Int {
     return minOf(seconds, MAX_BONUS_MINUTES * 60L).toInt()
 }
 
-internal const val POINTS_PER_SESSION = 25
+/**
+ * Bảng điểm phiên tập trung theo giờ đã hẹn: 25 phút = 25, 45 phút = 50, 60 phút = 70 điểm.
+ * Bản chọn giờ trên điện thoại đúng ba bậc này; phiên máy tính dài bao nhiêu thì tính theo
+ * bậc cao nhất nó chạm tới, dưới 25 phút không có điểm.
+ */
+internal val FOCUS_TIERS = listOf(1500 to 25, 2700 to 50, 3600 to 70)
+
+/** Bảng điểm buổi tập theo số phút liên tục trong app tập: 10→20, 20→40, 30→50, 45→70, 60→100. */
+internal val GYM_TIERS = listOf(600 to 20, 1200 to 40, 1800 to 50, 2700 to 70, 3600 to 100)
+
+internal fun focusPointsFor(totalSeconds: Int): Int = topTierPoints(FOCUS_TIERS, totalSeconds)
+
+internal fun gymPointsFor(seconds: Int): Int = topTierPoints(GYM_TIERS, seconds)
+
+private fun topTierPoints(tiers: List<Pair<Int, Int>>, seconds: Int): Int =
+    tiers.lastOrNull { seconds >= it.first }?.second ?: 0
+
+/** Giây còn lại tới bậc điểm kế tiếp của buổi tập; 0 khi đã chạm bậc cao nhất. */
+internal fun gymSecondsToNextTier(seconds: Int): Int =
+    GYM_TIERS.firstOrNull { it.first > seconds }?.let { it.first - seconds } ?: 0
+
+/**
+ * Điểm cộng thêm khi buổi tập vượt qua một bậc mới. Buổi tập chỉ được trả phần chênh giữa
+ * hai bậc, nên 60 phút liên tục ra đúng 100 điểm chứ không phải cộng dồn mọi bậc đã đi qua.
+ */
+internal fun gymTopUp(seconds: Int, alreadyPaid: Int): Int = (gymPointsFor(seconds) - alreadyPaid).coerceAtLeast(0)
+
 internal const val DEFAULT_POINTS_PER_MINUTE = 5
 internal const val MAX_BONUS_MINUTES = 120
 internal const val UNLOCK_MINUTES = 10
@@ -58,18 +84,19 @@ internal const val UNLOCK_MINUTES = 10
 private val focusSettleLock = Any()
 
 /**
- * Dọn phiên tập trung trên điện thoại đã kết thúc: phiên chạy hết giờ được [POINTS_PER_SESSION]
- * điểm học rồi mới xoá dấu vết, phiên bị dừng sớm thì chỉ xoá. Khoá chung để activity và service
- * không cộng hai lần cho cùng một phiên, và trả về đúng một lần `true`.
+ * Dọn phiên tập trung trên điện thoại đã kết thúc: phiên chạy hết giờ được điểm theo bậc giờ
+ * đã hẹn rồi mới xoá dấu vết, phiên bị dừng sớm thì chỉ xoá. Khoá chung để activity và service
+ * không cộng hai lần cho cùng một phiên, và trả về số điểm vừa cộng (0 là không có).
  */
-internal fun settleLocalFocus(prefs: Prefs, quota: QuotaManager, nowMs: Long): Boolean =
+internal fun settleLocalFocus(prefs: Prefs, quota: QuotaManager, nowMs: Long): Int =
     synchronized(focusSettleLock) {
         if (!localFocusFinished(prefs.localFocusEndMs, prefs.localFocusStopAfterMs, nowMs)) {
-            return@synchronized false
+            return@synchronized 0
         }
         val completed = prefs.protectionEnabled &&
             localSessionCompleted(prefs.localFocusEndMs, prefs.localFocusStopAfterMs, nowMs)
-        if (completed) quota.awardSession(POINTS_PER_SESSION, nowMs)
+        val points = if (completed) focusPointsFor(prefs.localFocusTotalSeconds) else 0
+        if (points > 0) quota.awardSession(points, nowMs)
         prefs.clearLocalFocus()
-        completed
+        points
     }

@@ -128,7 +128,7 @@ export default function Page() {
             <div className="card">
               <h3>Ra ngoài internet</h3>
               <p>Khi chặn web đang bật, trình phân giải cục bộ hỏi DNS công cộng cho những tên miền không bị chặn, mặc định là <code>1.1.1.1</code> rồi <code>8.8.8.8</code>, đổi sang <code>94.140.14.14</code> và <code>94.140.14.15</code> của bộ lọc gia đình AdGuard khi bạn bật luật 18+. Trên Android, bộ lọc 18+ cũng gửi đúng câu hỏi DNS tới hai địa chỉ AdGuard đó.</p>
-              <p>Ngoài DNS, bản Android còn gọi <code>api.github.com</code> mỗi ngày một lần nếu bạn để bật tự kiểm tra bản mới. Không có lệnh upload, không có telemetry.</p>
+              <p>Ngoài DNS, bản Android còn gọi <code>api.github.com</code> mỗi ngày một lần nếu bạn để bật tự kiểm tra bản mới. Từ bản 3.17, SDK Google ML Kit dùng cho đếm bài tập gửi số liệu sử dụng, hiệu năng và thông tin kỹ thuật của thiết bị/app tới Google. Ảnh camera và kết quả nhận diện không được gửi đi; xem <a href="https://developers.google.com/ml-kit/android-data-disclosure">công bố dữ liệu của ML Kit</a>.</p>
             </div>
           </div>
           <p className="note warn">
@@ -252,6 +252,21 @@ Get-DnsClientServerAddress -AddressFamily IPv4`}</code></pre>
             <Icon name="alert" />
             <span>Có thể nhận nhầm ảnh bơi lội hoặc em bé. Windows chỉ thấy cửa sổ trình duyệt; Android chỉ thấy màn hình đang hiển thị và cần Android 11 trở lên. Video bị DRM làm đen hoặc đoạn hình ngắn hơn nhịp quét có thể lọt. Đây là lớp giảm thiểu, không phải bảo đảm tuyệt đối.</span>
           </p>
+        </div>
+      </section>
+
+      <section className="alt" id="camera-bai-tap">
+        <div className="wrap">
+          <div className="head">
+            <p className="eyebrow">Camera bài tập · Android 3.17</p>
+            <h2>Đếm động tác trên máy, không lưu hình ảnh</h2>
+          </div>
+          <div className="prose">
+            <p>Quyền <strong>Camera</strong> là tuỳ chọn, dùng để quét mã ghép nối hoặc đếm chống đẩy, squat và plank. Màn bài tập chỉ mở camera sau khi bạn bấm <strong>Bắt đầu</strong>; không xin quyền micro, không quay video, không đọc ảnh có sẵn. Mô hình nhận diện được đóng gói trong APK.</p>
+            <p>Bấm <strong>Dừng</strong>, chuyển sang app khác (kể cả chia đôi màn hình), xoay máy, khoá máy hoặc gặp lỗi nhận diện là dừng đếm và tắt camera. Bạn luôn rời màn tập được; từ chối quyền không ảnh hưởng tính năng khác. Điểm đã nhận được giữ lại, phần động tác hoặc 5 giây plank còn dở không được cộng.</p>
+            <p>Ảnh và kết quả nhận diện được xử lý ngay trên điện thoại, không gửi tới tác giả hay Google. Tuy vậy, <strong>Google ML Kit có gửi số liệu sử dụng, hiệu năng, thông tin thiết bị/app và mã định danh kỹ thuật tới Google</strong>; vì thế không thể gọi bản Android này là “không có telemetry”. Chi tiết trong <a href="https://developers.google.com/ml-kit/terms">điều khoản ML Kit</a> và <a href="https://developers.google.com/ml-kit/android-data-disclosure">công bố dữ liệu SDK Android</a>.</p>
+            <p>Bộ đếm chưa được kiểm chứng trên điện thoại thật. Góc đặt máy, thiếu sáng và khuất người có thể làm đếm sai; đây không phải công cụ đánh giá y khoa hay bảo đảm tư thế an toàn.</p>
+          </div>
         </div>
       </section>
 

@@ -733,8 +733,10 @@ class MainActivity : Activity() {
         page.addView(studyGroup)
         page.addView(Ui.note(
             this,
-            "Hoàn thành 1 phiên tập trung = $POINTS_PER_SESSION điểm học, cộng cả phiên chạy trên máy tính. " +
-                "Dừng phiên giữa chừng thì không có điểm. Điểm về 0 lúc 0:00, trần ${MAX_BONUS_MINUTES} phút thưởng mỗi ngày.",
+            "Phiên tập trung 25/45/60 phút = 25/50/70 điểm học, cộng cả phiên chạy trên máy tính. " +
+                "Buổi tập 10/20/30/45/60 phút liên tục = 20/40/50/70/100 điểm. " +
+                "Camera: 1 chống đẩy = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. " +
+                "Dừng phiên tập trung giữa chừng thì không có điểm; điểm về 0 lúc 0:00, trần ${MAX_BONUS_MINUTES} phút thưởng mỗi ngày.",
             R.drawable.ic_info,
         ))
 
@@ -881,10 +883,11 @@ class MainActivity : Activity() {
 
     private fun maybeExpireLocalFocus() {
         // Phiên chạy hết giờ thì cộng điểm học ở đây, để mở app đúng lúc hết phiên vẫn thấy điểm.
-        if (settleLocalFocus(prefs, quota, System.currentTimeMillis())) {
+        val points = settleLocalFocus(prefs, quota, System.currentTimeMillis())
+        if (points > 0) {
             val bonus = quota.bonusMinutes()
             val tail = if (bonus > 0) " · quỹ hôm nay +$bonus phút" else ""
-            Toast.makeText(this, "Xong phiên tập trung · +$POINTS_PER_SESSION điểm học$tail", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Xong phiên tập trung · +$points điểm học$tail", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -1013,10 +1016,11 @@ class MainActivity : Activity() {
 
         gymRow.subtitle(
             when {
-                Runtime.gymStartElapsed > 0L -> "Đang đếm · ${Ui.clockText(gymSeconds())}"
+                Runtime.gymStartElapsed > 0L ->
+                    "Đang đếm · ${Ui.clockText(gymSeconds())} · ${gymPointsFor(gymSeconds())} điểm"
                 Runtime.lastGymAwarded -> "Đã tính 1 buổi · ${Ui.clockText(Runtime.lastGymSeconds)}"
                 Runtime.lastGymSeconds > 0 -> "Lần trước ${Ui.clockText(Runtime.lastGymSeconds)} · chưa đủ 10 phút"
-                else -> "Đủ 10 phút liên tục trong app tập"
+                else -> "Tập với camera hoặc theo dõi thời gian trong app tập"
             }
         )
         gymRow.status(if (Runtime.gymStartElapsed > 0L) "Đang chạy" else "Mở", if (Runtime.gymStartElapsed > 0L) Ui.ACCENT else Ui.TEXT_3)
@@ -1108,7 +1112,8 @@ class MainActivity : Activity() {
     }
 
     private fun studyHomeSubtitle(): String =
-        "Hoàn thành một phiên tập trung để có $POINTS_PER_SESSION điểm"
+        "Phiên $selectedMinutes phút = ${focusPointsFor(selectedMinutes * 60)} điểm · " +
+            "thêm điểm từ thời gian tập và bài tập camera"
 
     private fun gymSeconds(): Int =
         if (Runtime.gymStartElapsed == 0L) 0 else ((SystemClock.elapsedRealtime() - Runtime.gymStartElapsed) / 1000).toInt()

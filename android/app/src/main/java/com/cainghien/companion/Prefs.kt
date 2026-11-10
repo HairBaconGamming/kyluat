@@ -62,7 +62,7 @@ class Prefs(context: Context) {
         get() = store.getInt("quota_used_seconds", 0)
         set(value) = store.edit().putInt("quota_used_seconds", value).apply()
 
-    /** Điểm học hôm nay: chỉ phiên tập trung chạy hết giờ mới cộng, [POINTS_PER_SESSION] điểm một phiên. */
+    /** Điểm học hôm nay: phiên tập trung và buổi tập cộng theo bậc thời gian, về 0 lúc 0:00. */
     var studyPointsToday: Int
         get() = store.getInt("study_points_today", 0)
         set(value) = store.edit().putInt("study_points_today", value.coerceAtLeast(0)).apply()
@@ -107,6 +107,11 @@ class Prefs(context: Context) {
     var pendingGymCheckin: Boolean
         get() = store.getBoolean("pending_gym_checkin", false)
         set(value) = store.edit().putBoolean("pending_gym_checkin", value).apply()
+
+    /** Điểm đã trả cho buổi tập đang chạy, để vượt bậc cao hơn chỉ cộng thêm phần chênh. */
+    var gymSessionPoints: Int
+        get() = store.getInt("gym_session_points", 0)
+        set(value) = store.edit().putInt("gym_session_points", value.coerceAtLeast(0)).apply()
 
     var autoUpdate: Boolean
         get() = store.getBoolean("auto_update", true)

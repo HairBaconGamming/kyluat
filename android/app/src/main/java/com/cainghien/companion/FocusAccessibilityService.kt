@@ -63,6 +63,9 @@ class FocusAccessibilityService : AccessibilityService() {
     private var remoteWasActive = false
     private var remoteLastRemaining = Int.MAX_VALUE
 
+    /** Số phút còn lại lớn nhất nhìn thấy trong phiên, dùng làm độ dài suy ra để chọn bậc điểm. */
+    private var remoteMaxRemaining = 0
+
     private fun keyguard(): KeyguardManager? = try {
         getSystemService(KEYGUARD_SERVICE) as KeyguardManager
     } catch (error: Exception) {
@@ -161,8 +164,9 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private fun updateRuntimeFocus() {
         val now = System.currentTimeMillis()
-        // Phiên chạy hết giờ thì cộng điểm học trước khi xoá dấu vết; dừng sớm thì chỉ xoá.
-        if (settleLocalFocus(prefs, quota, now)) announcePoints()
+        // Phiên chạy hết giờ thì cộng điểm học theo bậc giờ đã hẹn; dừng sớm thì chỉ xoá.
+        val points = settleLocalFocus(prefs, quota, now)
+        if (points > 0) announcePoints("Xong phiên tập trung", points)
         val local = localFocusActive()
         val protection = prefs.protectionEnabled
         if (!protection) Runtime.remoteManualFocus = false
@@ -260,35 +264,39 @@ class FocusAccessibilityService : AccessibilityService() {
     /**
      * Phiên chạy trên máy tính cũng được điểm, nhưng máy tính không nói "hết giờ" hay "bị dừng".
      * Chỉ thưởng khi lần hỏi cuối còn thấy phiên ở phút 0–1 rồi biến mất; dừng sớm, mất ghép nối
-     * hay tắt bảo vệ đều đi qua [forgetRemoteSession] nên không có điểm.
+     * hay tắt bảo vệ đều đi qua [forgetRemoteSession] nên không có điểm. Bậc điểm lấy theo số phút
+     * còn lại lớn nhất nhìn thấy trong phiên, tức độ dài gần đúng của nó.
      */
     private fun settleRemoteFocus(summary: Summary) {
         if (summary.sessionLabel != null) {
             remoteWasActive = true
             remoteLastRemaining = summary.sessionRemaining
+            remoteMaxRemaining = maxOf(remoteMaxRemaining, summary.sessionRemaining)
             return
         }
         if (!remoteWasActive) return
         val completed = remoteSessionCompleted(true, false, remoteLastRemaining) && prefs.protectionEnabled
+        val points = if (completed) focusPointsFor(remoteMaxRemaining * 60) else 0
         forgetRemoteSession()
-        if (completed) {
-            quota.awardSession()
-            announcePoints()
+        if (points > 0) {
+            quota.awardSession(points)
+            announcePoints("Xong phiên tập trung", points)
         }
     }
 
     private fun forgetRemoteSession() {
         remoteWasActive = false
         remoteLastRemaining = Int.MAX_VALUE
+        remoteMaxRemaining = 0
     }
 
-    /** Báo cho người dùng biết phiên vừa rồi đổi được bao nhiêu phút lướt. */
-    private fun announcePoints() {
+    /** Báo cho người dùng biết lần vừa rồi đổi được bao nhiêu điểm học và bao nhiêu phút lướt. */
+    private fun announcePoints(label: String, points: Int) {
         val bonus = quota.bonusMinutes()
         handler.post {
             try {
                 val tail = if (bonus > 0) " · quỹ hôm nay +$bonus phút" else ""
-                Toast.makeText(this, "Xong phiên tập trung · +$POINTS_PER_SESSION điểm học$tail", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "$label · +$points điểm học$tail", Toast.LENGTH_LONG).show()
             } catch (error: Exception) {
             }
         }
@@ -643,7 +651,7 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private fun updateGym() {
         val pkg = Runtime.currentPackage
-        if (pkg != prefs.gymPackage || !Runtime.screenOn) {
+        if (pkg == packageName || pkg != prefs.gymPackage || !Runtime.screenOn || Runtime.keyguardLocked) {
             if (Runtime.gymStartElapsed > 0L) finishGym()
             removeGymPill()
             cancelGymNotification()
@@ -651,6 +659,7 @@ class FocusAccessibilityService : AccessibilityService() {
         }
         if (Runtime.gymStartElapsed == 0L) {
             Runtime.gymStartElapsed = SystemClock.elapsedRealtime()
+            prefs.gymSessionPoints = 0
             Runtime.gymAwarded = false
             gymNotifMode = -1
         }
@@ -660,12 +669,21 @@ class FocusAccessibilityService : AccessibilityService() {
             prefs.pendingGymCheckin = true
             postGymCheckin()
         }
+        // Mỗi bậc thời gian 10/20/30/45/60 phút chỉ trả phần chênh, nên 60 phút liên tục ra đúng 100 điểm.
+        val topUp = gymTopUp(seconds, prefs.gymSessionPoints)
+        if (topUp > 0) {
+            prefs.gymSessionPoints = prefs.gymSessionPoints + topUp
+            quota.awardSession(topUp)
+            announcePoints("Buổi tập ${seconds / 60} phút", topUp)
+        }
         showGymPill(seconds)
         updateGymNotification()
     }
 
     private fun finishGym() {
         Runtime.finishGym()
+        // Rời app tập hay tắt màn hình là kết thúc buổi tập: bậc điểm đã trả không còn giá trị giữ.
+        if (prefs.gymSessionPoints != 0) prefs.gymSessionPoints = 0
         removeGymPill()
         cancelGymNotification()
     }
@@ -683,10 +701,12 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private fun showGymPill(seconds: Int) {
         if (!Settings.canDrawOverlays(this)) return
-        val text = if (Runtime.gymAwarded) {
-            "Đã tính buổi tập · ${Ui.clockText(seconds)}"
-        } else {
-            "Buổi tập · còn ${Ui.clockText((GYM_TARGET_SECONDS - seconds).coerceAtLeast(0))}"
+        val points = gymPointsFor(seconds)
+        val next = gymSecondsToNextTier(seconds)
+        val text = when {
+            points == 0 -> "Buổi tập · còn ${Ui.clockText(GYM_TARGET_SECONDS - seconds)} tới 20 điểm"
+            next == 0 -> "Buổi tập ${Ui.clockText(seconds)} · $points điểm"
+            else -> "Buổi tập ${Ui.clockText(seconds)} · $points điểm · còn ${Ui.clockText(next)}"
         }
         if (gymPill == null) {
             val pill = LinearLayout(this)

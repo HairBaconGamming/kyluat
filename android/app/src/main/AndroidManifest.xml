@@ -62,6 +62,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ExerciseActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".GymPickerActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

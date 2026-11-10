@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.17</td>
+                    <td>11/11/2026</td>
+                    <td><strong>Điểm theo thời gian và bài tập camera.</strong> Phiên tập trung 25/45/60 phút = 25/50/70 điểm; buổi tập 10/20/30/45/60 phút liên tục = 20/40/50/70/100 điểm (chỉ cộng phần chênh). Thêm chống đẩy 1 cái = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. Camera chỉ bật khi bấm Bắt đầu, dừng khi rời màn; ảnh không lưu/gửi, SDK ML Kit có gửi số liệu kỹ thuật tới Google. Bộ đếm chưa được kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.16</td>
                     <td>10/11/2026</td>
                     <td><strong>Điểm học chỉ đến từ phiên tập trung.</strong> Hoàn thành một phiên tập trung — trên điện thoại hay trên máy tính đã ghép — được 25 điểm, đổi ra phút quỹ thưởng; bỏ hết cách cộng điểm bằng không chạm điện thoại và bằng app AI, nên Trợ năng không còn theo dõi thao tác chạm. Trợ năng chỉ nhận sự kiện đổi cửa sổ như bản 3.14, và mọi lỗi trong service được nuốt lại để Android không tắt quyền.</td>
