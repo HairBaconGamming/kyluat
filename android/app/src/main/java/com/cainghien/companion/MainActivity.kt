@@ -99,7 +99,6 @@ class MainActivity : Activity() {
     private lateinit var gymSettingRow: UiRow
     private lateinit var quotaSettingRow: UiRow
     private lateinit var studyRateRow: UiRow
-    private lateinit var aiAppsRow: UiRow
     private lateinit var rulesRow: UiRow
     private lateinit var protectionRow: UiRow
     private lateinit var protectionToggle: UiToggle
@@ -338,7 +337,7 @@ class MainActivity : Activity() {
         val activity = Ui.group(this)
         studyRow = Ui.row(this, Ui.tile(this, R.drawable.ic_flash, Tone.ACCENT))
         studyRow.title("Điểm học hôm nay")
-        studyRow.subtitle("Không đụng điện thoại và dùng app AI")
+        studyRow.subtitle("Hoàn thành một phiên tập trung để có điểm")
         studyRow.trailing(Ui.chevron(this))
         studyRow.makeClickable { selectTab(2) }
         activity.addView(studyRow)
@@ -731,23 +730,11 @@ class MainActivity : Activity() {
         studyRateRow.trailing(Ui.chevron(this))
         studyRateRow.makeClickable { showRateDialog() }
         studyGroup.addView(studyRateRow)
-        aiAppsRow = Ui.row(this, Ui.tile(this, R.drawable.ic_grid, Tone.NEUTRAL))
-        aiAppsRow.title("App AI tính điểm")
-        aiAppsRow.subtitle(aiAppsSummary())
-        aiAppsRow.trailing(Ui.chevron(this))
-        aiAppsRow.makeClickable {
-            startActivity(
-                Intent(this, BlockPickerActivity::class.java)
-                    .putExtra(BlockPickerActivity.EXTRA_MODE, BlockPickerActivity.MODE_AI)
-            )
-        }
-        studyGroup.addView(aiAppsRow)
         page.addView(studyGroup)
         page.addView(Ui.note(
             this,
-            "1 phút không đụng điện thoại = $IDLE_POINTS_PER_MINUTE điểm, bắt đầu cộng sau $IDLE_THRESHOLD_SECONDS giây. " +
-                "1 phút trong app AI = $AI_POINTS_PER_MINUTE điểm; để máy yên 1 phút trong app AI thì tính như không đụng điện thoại. " +
-                "Không cộng điểm từ 22:00 đến 07:00. Trần ${MAX_BONUS_MINUTES} phút thưởng mỗi ngày.",
+            "Hoàn thành 1 phiên tập trung = $POINTS_PER_SESSION điểm học, cộng cả phiên chạy trên máy tính. " +
+                "Dừng phiên giữa chừng thì không có điểm. Điểm về 0 lúc 0:00, trần ${MAX_BONUS_MINUTES} phút thưởng mỗi ngày.",
             R.drawable.ic_info,
         ))
 
@@ -893,9 +880,11 @@ class MainActivity : Activity() {
     }
 
     private fun maybeExpireLocalFocus() {
-        val now = System.currentTimeMillis()
-        if (localFocusFinished(prefs.localFocusEndMs, prefs.localFocusStopAfterMs, now)) {
-            prefs.clearLocalFocus()
+        // Phiên chạy hết giờ thì cộng điểm học ở đây, để mở app đúng lúc hết phiên vẫn thấy điểm.
+        if (settleLocalFocus(prefs, quota, System.currentTimeMillis())) {
+            val bonus = quota.bonusMinutes()
+            val tail = if (bonus > 0) " · quỹ hôm nay +$bonus phút" else ""
+            Toast.makeText(this, "Xong phiên tập trung · +$POINTS_PER_SESSION điểm học$tail", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -1085,7 +1074,6 @@ class MainActivity : Activity() {
             else "Quỹ ${quota.limitMinutes} phút mỗi ngày, mở app là trừ dần"
         )
         studyRateRow.subtitle("${prefs.pointsPerMinute} điểm = 1 phút lướt")
-        aiAppsRow.subtitle(aiAppsSummary())
 
         val unlocked = prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())
         when {
@@ -1119,11 +1107,8 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun studyHomeSubtitle(): String = when (Runtime.studyMode) {
-        STUDY_IDLE -> "Đang cộng điểm · không đụng điện thoại"
-        STUDY_AI -> "Đang cộng điểm · trong app AI"
-        else -> "Không đụng điện thoại và dùng app AI thì cộng điểm"
-    }
+    private fun studyHomeSubtitle(): String =
+        "Hoàn thành một phiên tập trung để có $POINTS_PER_SESSION điểm"
 
     private fun gymSeconds(): Int =
         if (Runtime.gymStartElapsed == 0L) 0 else ((SystemClock.elapsedRealtime() - Runtime.gymStartElapsed) / 1000).toInt()
@@ -1309,7 +1294,7 @@ class MainActivity : Activity() {
             )
             AlertDialog.Builder(this)
                 .setTitle("Đang mở khoá")
-                .setMessage("Còn ${(left + 59) / 60} phút nữa Kỷ luật tự khoá lại. Trong lúc này bạn chỉnh được mọi luật nới: tăng quỹ, bỏ chặn app, hạ tỷ lệ điểm, thêm app AI, tắt bảo vệ.")
+                .setMessage("Còn ${(left + 59) / 60} phút nữa Kỷ luật tự khoá lại. Trong lúc này bạn chỉnh được mọi luật nới: tăng quỹ, bỏ chặn app, hạ tỷ lệ điểm, tắt bảo vệ.")
                 .setPositiveButton("Khoá lại ngay") { _, _ ->
                     prefs.lockRules()
                     Toast.makeText(this, "Đã khoá lại các luật.", Toast.LENGTH_SHORT).show()
@@ -1321,7 +1306,7 @@ class MainActivity : Activity() {
         }
         AlertDialog.Builder(this)
             .setTitle("Mở khoá chỉnh luật?")
-            .setMessage("Qua cổng cam kết 60 giây một lần, bạn được chỉnh mọi luật nới trong $UNLOCK_MINUTES phút: tăng quỹ, bỏ chặn app, hạ tỷ lệ quy đổi điểm, thêm app AI, hoặc tắt bảo vệ. Siết luật thì luôn miễn phí.")
+            .setMessage("Qua cổng cam kết 60 giây một lần, bạn được chỉnh mọi luật nới trong $UNLOCK_MINUTES phút: tăng quỹ, bỏ chặn app, hạ tỷ lệ quy đổi điểm, hoặc tắt bảo vệ. Siết luật thì luôn miễn phí.")
             .setPositiveButton("Bắt đầu cam kết") { _, _ -> startUnlock(UnlockActivity.PURPOSE_UNLOCK, null) }
             .setNegativeButton("Để sau", null)
             .show()
@@ -1356,13 +1341,6 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Đã đổi: $chosen điểm = 1 phút.", Toast.LENGTH_SHORT).show()
             refreshAll()
         }
-    }
-
-    private fun aiAppsSummary(): String {
-        val packages = prefs.aiPackages.toList()
-        if (packages.isEmpty()) return "Chưa chọn app AI nào"
-        val names = packages.take(3).map { Apps.label(this, it) }
-        return if (packages.size <= 3) names.joinToString(", ") else "${names.joinToString(", ")} · +${packages.size - 3}"
     }
 
     private fun onProtectionToggle(checked: Boolean) {

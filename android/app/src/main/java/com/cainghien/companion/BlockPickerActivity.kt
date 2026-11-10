@@ -23,9 +23,7 @@ import android.widget.TextView
 import java.util.concurrent.Executors
 
 /**
- * Hai chế độ dùng chung một màn chọn app:
- * - MODE_BLOCK (mặc định): thêm app vào danh sách chặn. Thêm thì miễn phí, bỏ chặn thì qua cổng 60 giây.
- * - MODE_AI: chọn app trợ lý AI để tính điểm học. Thêm app AI thì qua cổng, bỏ thì miễn phí.
+ * Thêm app vào danh sách chặn. Thêm thì miễn phí (siết luật), bỏ chặn thì qua cổng cam kết 60 giây.
  */
 class BlockPickerActivity : Activity() {
     private data class AppEntry(
@@ -47,20 +45,18 @@ class BlockPickerActivity : Activity() {
     private val shown = mutableListOf<AppEntry>()
     private var query = ""
     private var destroyed = false
-    private var aiMode = false
     private var pendingAction: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
-        aiMode = intent.getStringExtra(EXTRA_MODE) == MODE_AI
         Ui.chrome(this)
 
         val page = Ui.screen(this)
         page.addView(Ui.backHeader(
             this,
-            if (aiMode) "App AI tính điểm" else "Thêm app khác",
-            if (aiMode) "Chọn app trợ lý AI để cộng điểm học" else "Chọn app bạn muốn Kỷ luật trừ quỹ",
+            "Thêm app khác",
+            "Chọn app bạn muốn Kỷ luật trừ quỹ",
         ) { finish() })
 
         val search = Ui.field(this, "Tìm ứng dụng…")
@@ -102,13 +98,8 @@ class BlockPickerActivity : Activity() {
 
         page.addView(Ui.note(
             this,
-            if (aiMode) {
-                "App AI chỉ được tính điểm khi bạn đang thao tác trong đó. Bỏ app AI thì miễn phí, " +
-                    "thêm app AI phải qua cổng cam kết 60 giây."
-            } else {
-                "Cuộc gọi, Tin nhắn, Cài đặt, màn hình chính và Kỷ luật không bao giờ bị chặn, kể cả khi bạn chọn. " +
-                    "Thêm app thì miễn phí, bỏ chặn phải qua cổng cam kết 60 giây."
-            },
+            "Cuộc gọi, Tin nhắn, Cài đặt, màn hình chính và Kỷ luật không bao giờ bị chặn, kể cả khi bạn chọn. " +
+                "Thêm app thì miễn phí, bỏ chặn phải qua cổng cam kết 60 giây.",
             R.drawable.ic_shield_check,
         ).apply { setPadding(Ui.dp(this@BlockPickerActivity, 2), Ui.dp(this@BlockPickerActivity, 9), 0, 0) })
 
@@ -147,12 +138,8 @@ class BlockPickerActivity : Activity() {
 
     private fun loadApps() {
         val manager = packageManager
-        val skip = if (aiMode) {
-            Apps.neverBlocked(this) + Prefs.SOCIAL_LABELS.keys + prefs.socialPackages
-        } else {
-            Apps.neverBlocked(this) + Prefs.SOCIAL_LABELS.keys
-        }
-        val current = if (aiMode) prefs.aiPackages else prefs.extraPackages
+        val skip = Apps.neverBlocked(this) + Prefs.SOCIAL_LABELS.keys
+        val current = prefs.extraPackages
         val blocked = prefs.socialPackages
         executor.execute {
             val collected = mutableListOf<AppEntry>()
@@ -208,8 +195,8 @@ class BlockPickerActivity : Activity() {
     private fun toggle(position: Int) {
         val entry = shown.getOrNull(position) ?: return
         val add = !entry.added
-        // Nới luật (bỏ chặn app, hoặc thêm app AI) phải qua cổng; siết luật thì miễn phí.
-        val loosening = if (aiMode) add else !add
+        // Bỏ chặn app là nới luật nên phải qua cổng; thêm app vào danh sách chặn thì miễn phí.
+        val loosening = !add
         if (loosening && !prefs.rulesUnlocked(System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
             pendingAction = { applyToggle(entry, add) }
             startActivityForResult(
@@ -223,13 +210,9 @@ class BlockPickerActivity : Activity() {
     }
 
     private fun applyToggle(entry: AppEntry, add: Boolean) {
-        if (aiMode) {
-            prefs.setAiPackage(entry.packageName, add)
-        } else {
-            prefs.setExtraPackage(entry.packageName, add)
-        }
+        prefs.setExtraPackage(entry.packageName, add)
         val index = apps.indexOfFirst { it.packageName == entry.packageName }
-        if (index >= 0) apps[index] = entry.copy(added = add, blocked = if (aiMode) entry.blocked else add)
+        if (index >= 0) apps[index] = entry.copy(added = add, blocked = add)
         sort(apps)
         applyFilter()
         updateDone()
@@ -244,13 +227,8 @@ class BlockPickerActivity : Activity() {
     }
 
     private fun updateDone() {
-        val count = if (aiMode) prefs.aiPackages.size else prefs.extraPackages.size
-        doneButton.text = when {
-            aiMode && count == 0 -> "Xong"
-            aiMode -> "Xong · $count app AI"
-            count == 0 -> "Xong"
-            else -> "Xong · $count app bạn thêm"
-        }
+        val count = prefs.extraPackages.size
+        doneButton.text = if (count == 0) "Xong" else "Xong · $count app bạn thêm"
     }
 
     private fun iconFor(packageName: String): Drawable? {
@@ -298,17 +276,10 @@ class BlockPickerActivity : Activity() {
 
         fun bind(entry: AppEntry) {
             title.text = entry.label
-            subtitle.text = if (aiMode) {
-                when {
-                    entry.added -> "Đang tính điểm học"
-                    else -> "Chạm để thêm vào danh sách app AI"
-                }
-            } else {
-                when {
-                    !entry.added -> "Chạm để thêm vào danh sách chặn"
-                    entry.blocked -> "Đang bị chặn"
-                    else -> "Đã thêm · đang tắt chặn ở tab Bảo vệ"
-                }
+            subtitle.text = when {
+                !entry.added -> "Chạm để thêm vào danh sách chặn"
+                entry.blocked -> "Đang bị chặn"
+                else -> "Đã thêm · đang tắt chặn ở tab Bảo vệ"
             }
             subtitle.setTextColor(if (entry.added) Ui.ACCENT else Ui.TEXT_3)
             container.background = Ui.rounded(
@@ -344,8 +315,6 @@ class BlockPickerActivity : Activity() {
     }
 
     companion object {
-        const val EXTRA_MODE = "mode"
-        const val MODE_AI = "ai"
         private const val UNLOCK_REQUEST = 92
     }
 }

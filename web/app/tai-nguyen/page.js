@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.16</td>
+                    <td>10/11/2026</td>
+                    <td><strong>Điểm học chỉ đến từ phiên tập trung.</strong> Hoàn thành một phiên tập trung — trên điện thoại hay trên máy tính đã ghép — được 25 điểm, đổi ra phút quỹ thưởng; bỏ hết cách cộng điểm bằng không chạm điện thoại và bằng app AI, nên Trợ năng không còn theo dõi thao tác chạm. Trợ năng chỉ nhận sự kiện đổi cửa sổ như bản 3.14, và mọi lỗi trong service được nuốt lại để Android không tắt quyền.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.15</td>
                     <td>08/11/2026</td>
                     <td><strong>Quỹ là của cả ngày.</strong> Mở app mạng xã hội là thời gian lướt trừ vào quỹ ngay, bỏ hẳn bước xin <em>Nghỉ có kiểm soát</em>; màn khoá chỉ còn hiện khi đang tập trung hoặc đã hết quỹ, và không còn tự ẩn vì chính cửa sổ của app. Đồng hồ đếm ngược nhỏ hiện số phút quỹ còn lại khi bạn đang lướt và đếm tới 10 phút khi đang tập. Điểm học thưởng thêm quỹ: 1 phút không chạm điện thoại = 5 điểm, 1 phút trong app AI (Gemini, ChatGPT, Claude...) = 2 điểm, 5 điểm đổi được 1 phút quỹ, trần 120 phút mỗi ngày. Mọi thao tác nới lỏng dùng chung một cổng cam kết 60 giây: mở một lần là chỉnh được hết trong 10 phút.</td>

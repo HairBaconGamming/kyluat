@@ -16,16 +16,23 @@ class QuotaManager(private val prefs: Prefs) {
     /** Quỹ gốc do người dùng chốt, chưa cộng phút thưởng từ điểm học. */
     val limitSeconds: Int get() = limitMinutes * 60
 
-    /** Điểm học hôm nay (không đụng điện thoại + dùng app AI), đã quy đổi. */
+    /** Điểm học hôm nay: mỗi phiên tập trung chạy hết giờ được [POINTS_PER_SESSION] điểm. */
     @Synchronized
-    fun pointsToday(): Int = studyPoints(prefs.studyIdleSeconds, prefs.studyAiSeconds)
+    fun pointsToday(): Int = prefs.studyPointsToday
 
     /** Phút thưởng quy từ điểm học, trần [MAX_BONUS_MINUTES] phút mỗi ngày. */
     @Synchronized
-    fun bonusMinutes(): Int = bonusSeconds(prefs.studyIdleSeconds, prefs.studyAiSeconds, prefs.pointsPerMinute) / 60
+    fun bonusMinutes(): Int = bonusSecondsToday() / 60
 
     @Synchronized
-    fun bonusSecondsToday(): Int = bonusSeconds(prefs.studyIdleSeconds, prefs.studyAiSeconds, prefs.pointsPerMinute)
+    fun bonusSecondsToday(): Int = bonusSeconds(prefs.studyPointsToday, prefs.pointsPerMinute)
+
+    /** Cộng điểm cho một phiên tập trung vừa chạy hết giờ. */
+    @Synchronized
+    fun awardSession(points: Int = POINTS_PER_SESSION, now: Long = System.currentTimeMillis()) {
+        resetIfNeeded(now)
+        prefs.studyPointsToday = prefs.studyPointsToday + points
+    }
 
     /** Tổng quỹ thực tế = quỹ gốc + phút thưởng học tập. */
     @Synchronized
@@ -43,8 +50,7 @@ class QuotaManager(private val prefs: Prefs) {
         if (prefs.quotaDate != today) {
             prefs.quotaDate = today
             prefs.quotaUsedSeconds = 0
-            prefs.studyIdleSeconds = 0
-            prefs.studyAiSeconds = 0
+            prefs.studyPointsToday = 0
             val pending = prefs.quotaPendingMinutes
             if (pending > 0) {
                 prefs.quotaMinutes = pending.coerceIn(MIN_MINUTES, MAX_MINUTES)
@@ -127,9 +133,6 @@ object Runtime {
     @Volatile var currentPackage = ""
     @Volatile var screenOn = true
     @Volatile var keyguardLocked = false
-    @Volatile var inCall = false
-    @Volatile var lastInteractionElapsed = 0L
-    @Volatile var studyMode = 0
     @Volatile var gymStartElapsed = 0L
     @Volatile var gymAwarded = false
     @Volatile var lastGymSeconds = 0

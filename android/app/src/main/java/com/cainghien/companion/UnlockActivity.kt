@@ -19,8 +19,8 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * Cổng 60 giây hợp nhất: mọi luật "nới" (tắt bảo vệ, tăng quỹ, bỏ chặn app, hạ tỷ lệ quy đổi,
- * thêm app AI) đều đi qua đúng một lần cam kết. Qua cổng một lần thì được chỉnh tất cả trong
+ * Cổng 60 giây hợp nhất: mọi luật "nới" (tắt bảo vệ, tăng quỹ, bỏ chặn app, hạ tỷ lệ quy đổi điểm)
+ * đều đi qua đúng một lần cam kết. Qua cổng một lần thì được chỉnh tất cả trong
  * [UNLOCK_MINUTES] phút, khỏi phải cam kết lại cho từng mục.
  *
  * purpose = OFF: sau khi qua cổng thì tắt hẳn bảo vệ.
@@ -79,7 +79,7 @@ class UnlockActivity : Activity() {
                     "cho đến khi bạn bật lại."
             } else {
                 "Qua cổng một lần, bạn được chỉnh mọi luật nới trong $UNLOCK_MINUTES phút: " +
-                    "tăng quỹ, bỏ chặn app, hạ tỷ lệ quy đổi điểm, thêm app AI. Hết giờ Kỷ luật tự khoá lại."
+                    "tăng quỹ, bỏ chặn app, hạ tỷ lệ quy đổi điểm. Hết giờ Kỷ luật tự khoá lại."
             },
         ))
 
@@ -323,7 +323,6 @@ internal fun Context.turnOffProtection(prefs: Prefs) {
     prefs.lockRules()
     Runtime.remoteManualFocus = false
     Runtime.focusActive = false
-    Runtime.studyMode = STUDY_NONE
     try {
         stopService(Intent(this, AdultDnsVpnService::class.java))
     } catch (error: Exception) {

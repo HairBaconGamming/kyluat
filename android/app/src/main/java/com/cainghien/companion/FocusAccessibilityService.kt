@@ -15,7 +15,6 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -38,7 +37,6 @@ class FocusAccessibilityService : AccessibilityService() {
     private lateinit var secure: SecureStore
     private lateinit var windowManager: WindowManager
     private lateinit var notifications: NotificationManager
-    private lateinit var study: StudyTracker
     private val handler = Handler(Looper.getMainLooper())
     private val network = Executors.newSingleThreadExecutor()
     private var overlay: FrameLayout? = null
@@ -61,28 +59,20 @@ class FocusAccessibilityService : AccessibilityService() {
     private var gymNotifMode = -1
     private var gymNotifStart = 0L
 
+    /** Phiên trên máy tính: chỉ thưởng điểm khi thấy nó chạy tới phút cuối rồi biến mất. */
+    private var remoteWasActive = false
+    private var remoteLastRemaining = Int.MAX_VALUE
+
     private fun keyguard(): KeyguardManager? = try {
         getSystemService(KEYGUARD_SERVICE) as KeyguardManager
     } catch (error: Exception) {
         null
     }
 
-    private fun audio(): AudioManager? = try {
-        getSystemService(AUDIO_SERVICE) as AudioManager
-    } catch (error: Exception) {
-        null
-    }
-
-    /** Đọc trạng thái khoá màn hình và cuộc gọi để không trừ quỹ, không tính điểm học sai lúc. */
+    /** Đọc trạng thái khoá màn hình để không trừ quỹ lúc máy đang khoá. */
     private fun refreshDeviceState() {
         Runtime.keyguardLocked = try {
             keyguard()?.isKeyguardLocked ?: false
-        } catch (error: Exception) {
-            false
-        }
-        Runtime.inCall = try {
-            val mode = audio()?.mode ?: AudioManager.MODE_NORMAL
-            mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION
         } catch (error: Exception) {
             false
         }
@@ -98,30 +88,31 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                Intent.ACTION_SCREEN_OFF -> {
-                    Runtime.screenOn = false
-                    Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
-                    refreshDeviceState()
-                    finishGym()
-                    removeGymPill()
-                    removeQuotaPill()
-                    cancelGymNotification()
-                    lastUsageTick = SystemClock.elapsedRealtime()
+            // Không để lỗi nào thoát ra: tiến trình chết vì sự kiện hệ thống là Android tắt luôn Trợ năng.
+            try {
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_OFF -> {
+                        Runtime.screenOn = false
+                        refreshDeviceState()
+                        finishGym()
+                        removeGymPill()
+                        removeQuotaPill()
+                        cancelGymNotification()
+                        lastUsageTick = SystemClock.elapsedRealtime()
+                    }
+                    Intent.ACTION_SCREEN_ON -> {
+                        Runtime.screenOn = true
+                        refreshDeviceState()
+                        lastUsageTick = SystemClock.elapsedRealtime()
+                        evaluate()
+                    }
+                    Intent.ACTION_USER_PRESENT -> {
+                        refreshDeviceState()
+                        lastUsageTick = SystemClock.elapsedRealtime()
+                        evaluate()
+                    }
                 }
-                Intent.ACTION_SCREEN_ON -> {
-                    Runtime.screenOn = true
-                    Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
-                    refreshDeviceState()
-                    lastUsageTick = SystemClock.elapsedRealtime()
-                    evaluate()
-                }
-                Intent.ACTION_USER_PRESENT -> {
-                    refreshDeviceState()
-                    Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
-                    lastUsageTick = SystemClock.elapsedRealtime()
-                    evaluate()
-                }
+            } catch (error: Exception) {
             }
         }
     }
@@ -131,7 +122,6 @@ class FocusAccessibilityService : AccessibilityService() {
         prefs = Prefs(this)
         quota = QuotaManager(prefs)
         secure = SecureStore(this)
-        study = StudyTracker(prefs, quota, packageName)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         notifications = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createChannels()
@@ -140,7 +130,6 @@ class FocusAccessibilityService : AccessibilityService() {
         } catch (error: Exception) {
             emptySet()
         }
-        Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
         refreshDeviceState()
         registerReceiver(screenReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
@@ -154,20 +143,14 @@ class FocusAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        // Sự kiện chạm để biết lúc nào bạn thôi đụng điện thoại. Chỉ đọc tên app + thời điểm, không đọc nội dung.
+        // Chỉ nhận sự kiện đổi cửa sổ (khai báo trong XML). Không đăng ký thêm chạm/cuốn/gõ phím:
+        // lượng sự kiện lớn làm service bị coi là không phản hồi và Android tắt luôn Trợ năng.
         try {
-            serviceInfo = serviceInfo.apply {
-                eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                    AccessibilityEvent.TYPE_VIEW_CLICKED or
-                    AccessibilityEvent.TYPE_VIEW_LONG_CLICKED or
-                    AccessibilityEvent.TYPE_VIEW_SCROLLED or
-                    AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
-            }
+            updateRuntimeFocus()
+            Toast.makeText(this, "Kỷ luật đã bật bảo vệ", Toast.LENGTH_SHORT).show()
+            evaluate()
         } catch (error: Exception) {
         }
-        updateRuntimeFocus()
-        Toast.makeText(this, "Kỷ luật đã bật bảo vệ", Toast.LENGTH_SHORT).show()
-        evaluate()
     }
 
     private fun localFocusActive(): Boolean = localFocusActive(
@@ -178,9 +161,8 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private fun updateRuntimeFocus() {
         val now = System.currentTimeMillis()
-        if (localFocusFinished(prefs.localFocusEndMs, prefs.localFocusStopAfterMs, now)) {
-            prefs.clearLocalFocus()
-        }
+        // Phiên chạy hết giờ thì cộng điểm học trước khi xoá dấu vết; dừng sớm thì chỉ xoá.
+        if (settleLocalFocus(prefs, quota, now)) announcePoints()
         val local = localFocusActive()
         val protection = prefs.protectionEnabled
         if (!protection) Runtime.remoteManualFocus = false
@@ -208,7 +190,7 @@ class FocusAccessibilityService : AccessibilityService() {
                     Runtime.remoteManualFocus = false
                     Runtime.focusActive = false
                     prefs.clearLocalFocus()
-                    study.stop()
+                    forgetRemoteSession()
                     removeOverlay()
                     removeQuotaPill()
                     finishGym()
@@ -223,8 +205,8 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Nhịp 1 giây: trừ quỹ khi đang ở app mạng xã hội, cộng điểm học, và cập nhật đồng hồ
-     * đếm ngược. Tách khỏi nhịp 5 giây để số giây trừ đúng và pill nhảy mượt.
+     * Nhịp 1 giây: trừ quỹ khi đang ở app mạng xã hội và cập nhật đồng hồ đếm ngược.
+     * Tách khỏi nhịp 5 giây để số giây trừ đúng và pill nhảy mượt.
      */
     private val secondTick = object : Runnable {
         override fun run() {
@@ -232,7 +214,6 @@ class FocusAccessibilityService : AccessibilityService() {
                 if (prefs.protectionEnabled) {
                     refreshDeviceState()
                     quota.resetIfNeeded()
-                    study.settle()
                     val now = SystemClock.elapsedRealtime()
                     if (isConsumingQuota()) {
                         val delta = ((now - lastUsageTick) / 1000).toInt().coerceIn(0, 5)
@@ -247,7 +228,6 @@ class FocusAccessibilityService : AccessibilityService() {
                     updateQuotaPill()
                     updateGym()
                 } else {
-                    study.stop()
                     lastUsageTick = SystemClock.elapsedRealtime()
                     removeQuotaPill()
                 }
@@ -277,6 +257,43 @@ class FocusAccessibilityService : AccessibilityService() {
         if (summary.focusActive) Runtime.focusText = summary.focusText
     }
 
+    /**
+     * Phiên chạy trên máy tính cũng được điểm, nhưng máy tính không nói "hết giờ" hay "bị dừng".
+     * Chỉ thưởng khi lần hỏi cuối còn thấy phiên ở phút 0–1 rồi biến mất; dừng sớm, mất ghép nối
+     * hay tắt bảo vệ đều đi qua [forgetRemoteSession] nên không có điểm.
+     */
+    private fun settleRemoteFocus(summary: Summary) {
+        if (summary.sessionLabel != null) {
+            remoteWasActive = true
+            remoteLastRemaining = summary.sessionRemaining
+            return
+        }
+        if (!remoteWasActive) return
+        val completed = remoteSessionCompleted(true, false, remoteLastRemaining) && prefs.protectionEnabled
+        forgetRemoteSession()
+        if (completed) {
+            quota.awardSession()
+            announcePoints()
+        }
+    }
+
+    private fun forgetRemoteSession() {
+        remoteWasActive = false
+        remoteLastRemaining = Int.MAX_VALUE
+    }
+
+    /** Báo cho người dùng biết phiên vừa rồi đổi được bao nhiêu phút lướt. */
+    private fun announcePoints() {
+        val bonus = quota.bonusMinutes()
+        handler.post {
+            try {
+                val tail = if (bonus > 0) " · quỹ hôm nay +$bonus phút" else ""
+                Toast.makeText(this, "Xong phiên tập trung · +$POINTS_PER_SESSION điểm học$tail", Toast.LENGTH_LONG).show()
+            } catch (error: Exception) {
+            }
+        }
+    }
+
     private val poll = object : Runnable {
         override fun run() {
             network.execute {
@@ -286,18 +303,21 @@ class FocusAccessibilityService : AccessibilityService() {
                         Runtime.remoteManualFocus = false
                         Runtime.focusActive = false
                         prefs.clearLocalFocus()
+                        forgetRemoteSession()
                         return@execute
                     }
                     updateRuntimeFocus()
                     val pair = secure.load()
                     if (pair == null) {
                         Runtime.remoteManualFocus = false
+                        forgetRemoteSession()
                         updateRuntimeFocus()
                         handler.post { evaluate() }
                         return@execute
                     }
                     val summary = Api.summary(pair.baseUrl, pair.token)
                     applyRemoteFocus(summary)
+                    settleRemoteFocus(summary)
                     updateRuntimeFocus()
                     Runtime.lastSyncElapsed = SystemClock.elapsedRealtime()
                     if (prefs.pendingGymCheckin) postGymCheckin()
@@ -306,6 +326,7 @@ class FocusAccessibilityService : AccessibilityService() {
                     val last = Runtime.lastSyncElapsed
                     if (last > 0 && SystemClock.elapsedRealtime() - last > 15 * 60 * 1000L) {
                         Runtime.remoteManualFocus = false
+                        forgetRemoteSession()
                         updateRuntimeFocus()
                         handler.post { evaluate() }
                     }
@@ -315,38 +336,33 @@ class FocusAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * Chỉ nhận sự kiện đổi cửa sổ. Toàn bộ thân hàm nằm trong try/catch và phần vẽ được đẩy sang
+     * handler: trả sự kiện về hệ thống càng nhanh thì Trợ năng càng ít bị coi là treo, còn một lỗi
+     * lúc vẽ overlay không bao giờ làm chết tiến trình — chết tiến trình là Android tắt Trợ năng.
+     */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val type = event?.eventType ?: return
-        val pkg = event.packageName?.toString() ?: return
-        if (isInteraction(type)) {
-            // Chỉ ghi nhận thời điểm chạm để biết lúc nào bạn thôi đụng điện thoại; không đọc nội dung.
-            if (isInteractionEvent(pkg, event.className?.toString(), packageName)) {
-                Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
-            }
-            return
-        }
-        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        if (pkg == "com.android.systemui") return
-        // Cửa sổ overlay của chính Kỷ luật (màn khoá, pill) cũng phát TYPE_WINDOW_STATE_CHANGED.
-        // Không lọc thì app tự coi là "đang mở Kỷ luật" rồi gỡ khoá sau một nhịp.
-        if (isOwnOverlayEvent(pkg, event.className?.toString(), packageName)) return
-        if (isTransientHelper(pkg)) return
-        Runtime.currentPackage = pkg
-        Runtime.lastInteractionElapsed = SystemClock.elapsedRealtime()
-        lastUsageTick = SystemClock.elapsedRealtime()
         try {
-            evaluate()
-            updateQuotaPill()
+            if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+            val pkg = event.packageName?.toString() ?: return
+            if (pkg == "com.android.systemui") return
+            // Cửa sổ overlay của chính Kỷ luật (màn khoá, pill) cũng phát TYPE_WINDOW_STATE_CHANGED.
+            // Không lọc thì app tự coi là "đang mở Kỷ luật" rồi gỡ khoá sau một nhịp.
+            if (isOwnOverlayEvent(pkg, event.className?.toString(), packageName)) return
+            if (isTransientHelper(pkg)) return
+            Runtime.currentPackage = pkg
+            lastUsageTick = SystemClock.elapsedRealtime()
+            handler.post {
+                try {
+                    evaluate()
+                    updateQuotaPill()
+                } catch (error: Exception) {
+                    removeOverlay()
+                }
+            }
         } catch (error: Exception) {
-            removeOverlay()
         }
     }
-
-    private fun isInteraction(type: Int): Boolean =
-        type == AccessibilityEvent.TYPE_VIEW_CLICKED ||
-            type == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED ||
-            type == AccessibilityEvent.TYPE_VIEW_SCROLLED ||
-            type == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
 
     private fun isTransientHelper(pkg: String): Boolean {
         if (pkg in neverBlocked) return false
@@ -397,7 +413,7 @@ class FocusAccessibilityService : AccessibilityService() {
                 "Hết quỹ hôm nay",
                 "Quỹ mạng xã hội đã dùng xong",
                 "Bạn đã tự chốt mức ${quota.limitMinutes} phút mỗi ngày. Quỹ làm mới lúc 0:00 — còn ${resetLabel()}. " +
-                    "Học tập kiên trì sẽ cộng thêm phút thưởng.",
+                    "Hoàn thành một phiên tập trung để có thêm phút thưởng.",
                 false,
             )
             // Quỹ của cả ngày: còn quỹ thì dùng app bình thường, chỉ hiện đồng hồ đếm ngược.
@@ -900,7 +916,6 @@ class FocusAccessibilityService : AccessibilityService() {
         removeGymPill()
         removeQuotaPill()
         cancelGymNotification()
-        study.stop()
         network.shutdownNow()
         executor.shutdownNow()
         closeVisualScanner()

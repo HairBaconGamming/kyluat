@@ -54,10 +54,6 @@ class Prefs(context: Context) {
         get() = store.getStringSet("extra_packages", emptySet())?.toSet() ?: emptySet()
         set(value) = store.edit().putStringSet("extra_packages", value).apply()
 
-    var aiPackages: Set<String>
-        get() = store.getStringSet("ai_packages", DEFAULT_AI)?.toSet() ?: DEFAULT_AI
-        set(value) = store.edit().putStringSet("ai_packages", value).apply()
-
     var quotaDate: String
         get() = store.getString("quota_date", "") ?: ""
         set(value) = store.edit().putString("quota_date", value).apply()
@@ -66,15 +62,10 @@ class Prefs(context: Context) {
         get() = store.getInt("quota_used_seconds", 0)
         set(value) = store.edit().putInt("quota_used_seconds", value).apply()
 
-    /** Giây không đụng điện thoại đã quy thành điểm học hôm nay (5 điểm/phút). */
-    var studyIdleSeconds: Int
-        get() = store.getInt("study_idle_seconds", 0)
-        set(value) = store.edit().putInt("study_idle_seconds", value).apply()
-
-    /** Giây dùng trong app AI đã quy thành điểm học hôm nay (2 điểm/phút). */
-    var studyAiSeconds: Int
-        get() = store.getInt("study_ai_seconds", 0)
-        set(value) = store.edit().putInt("study_ai_seconds", value).apply()
+    /** Điểm học hôm nay: chỉ phiên tập trung chạy hết giờ mới cộng, [POINTS_PER_SESSION] điểm một phiên. */
+    var studyPointsToday: Int
+        get() = store.getInt("study_points_today", 0)
+        set(value) = store.edit().putInt("study_points_today", value.coerceAtLeast(0)).apply()
 
     /** Bao nhiêu điểm học thì đổi được 1 phút quỹ. Giảm số này là nới luật, phải qua cổng 60 giây. */
     var pointsPerMinute: Int
@@ -181,12 +172,6 @@ class Prefs(context: Context) {
         socialPackages = blocked
     }
 
-    fun setAiPackage(packageName: String, added: Boolean) {
-        val current = aiPackages.toMutableSet()
-        if (added) current.add(packageName) else current.remove(packageName)
-        aiPackages = current
-    }
-
     /** Cổng 60 giây còn mở hay không. Bảo vệ tắt thì luật nào cũng chỉnh được, coi như mở. */
     fun rulesUnlocked(nowWallMs: Long, nowElapsedMs: Long): Boolean =
         !protectionEnabled ||
@@ -220,15 +205,6 @@ class Prefs(context: Context) {
             "com.instagram.android" to "Instagram",
             "com.reddit.frontpage" to "Reddit",
             "com.twitter.android" to "X (Twitter)",
-        )
-        /** App trợ lý AI tính điểm học khi người dùng đang thao tác trong đó. Đổi được ở Cài đặt. */
-        val DEFAULT_AI = setOf(
-            "com.google.android.apps.bard",
-            "com.openai.chatgpt",
-            "com.anthropic.claude",
-            "com.microsoft.copilot",
-            "ai.perplexity.app.android",
-            "com.deepseek.chat",
         )
     }
 }

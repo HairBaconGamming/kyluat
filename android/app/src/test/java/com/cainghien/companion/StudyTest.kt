@@ -4,22 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.Calendar
 
 /**
  * Các hàm thuần của lớp điểm học và cổng 60 giây. Tách khỏi Context để kiểm thử trên JVM.
  */
 class StudyTest {
-    private fun at(hour: Int, minute: Int, second: Int = 0, dayOffset: Int = 0): Long {
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, dayOffset)
-        calendar.set(Calendar.HOUR_OF_DAY, hour)
-        calendar.set(Calendar.MINUTE, minute)
-        calendar.set(Calendar.SECOND, second)
-        calendar.set(Calendar.MILLISECOND, 0)
-        return calendar.timeInMillis
-    }
-
     @Test
     fun `own overlay window is filtered but own activity is not`() {
         val own = "com.cainghien.companion"
@@ -31,110 +20,45 @@ class StudyTest {
     }
 
     @Test
-    fun `interaction from other apps counts, own overlay does not`() {
-        val own = "com.cainghien.companion"
-        assertTrue(isInteractionEvent("com.google.android.youtube", "com.google.SomeView", own))
-        assertFalse(isInteractionEvent(own, "android.widget.FrameLayout", own))
-        assertTrue(isInteractionEvent(own, "$own.MainActivity", own))
+    fun `local session scores only when it runs to the end`() {
+        val end = 1_000_000L
+        // Chạy hết giờ, không xin dừng → có điểm.
+        assertTrue(localSessionCompleted(end, 0L, end))
+        assertTrue(localSessionCompleted(end, 0L, end + 60_000L))
+        // Chưa tới giờ kết thúc → chưa có điểm.
+        assertFalse(localSessionCompleted(end, 0L, end - 1))
+        // Xin dừng sớm (có mốc mở khoá) → bỏ giữa chừng, không có điểm.
+        assertFalse(localSessionCompleted(end, end - 60_000L, end))
+        // Không có phiên nào.
+        assertFalse(localSessionCompleted(0L, 0L, end))
     }
 
     @Test
-    fun `idle credit starts only after the threshold, counted once`() {
-        val from = at(14, 0, 0)
-        val to = at(14, 1, 0) // 60 s ban ngày
-        // Vừa chạm ngay đầu khoảng, ngưỡng 10 s → chỉ được 50 s.
-        val (idleA, aiA) = studyCreditSeconds(from, to, STUDY_IDLE, from, IDLE_THRESHOLD_SECONDS)
-        assertEquals(50_000L, idleA)
-        assertEquals(0L, aiA)
-        // Đã không đụng từ lâu (trước cả khoảng) → trọn 60 s, không trừ lại ngưỡng.
-        val (idleB, _) = studyCreditSeconds(from, to, STUDY_IDLE, from - 120_000, IDLE_THRESHOLD_SECONDS)
-        assertEquals(60_000L, idleB)
+    fun `remote session scores only when it ran down to the last minute`() {
+        // Máy tính báo phiên biến mất khi còn 0–1 phút → coi như chạy hết giờ.
+        assertTrue(remoteSessionCompleted(wasActive = true, nowActive = false, lastRemainingMinutes = 0))
+        assertTrue(remoteSessionCompleted(wasActive = true, nowActive = false, lastRemainingMinutes = 1))
+        // Dừng sớm: lần cuối còn thấy là 12 phút.
+        assertFalse(remoteSessionCompleted(true, false, 12))
+        // Chưa từng thấy phiên, hoặc phiên vẫn đang chạy.
+        assertFalse(remoteSessionCompleted(false, false, 0))
+        assertFalse(remoteSessionCompleted(true, true, 0))
     }
 
     @Test
-    fun `ai credit is capped per settle`() {
-        val from = at(14, 0, 0)
-        val (_, aiShort) = studyCreditSeconds(from, from + 3_000, STUDY_AI, from, AI_IDLE_THRESHOLD_SECONDS)
-        assertEquals(3_000L, aiShort)
-        val (_, aiLong) = studyCreditSeconds(from, from + 60_000, STUDY_AI, from, AI_IDLE_THRESHOLD_SECONDS)
-        assertEquals(6_000L, aiLong)
-    }
-
-    @Test
-    fun `night window yields no credit`() {
-        val from = at(23, 30, 0)
-        val to = at(23, 31, 0)
-        val (idle, ai) = studyCreditSeconds(from, to, STUDY_IDLE, from - 60_000, IDLE_THRESHOLD_SECONDS)
-        assertEquals(0L, idle)
-        assertEquals(0L, ai)
-        assertEquals(60_000L, nightOverlapMs(from, to))
-        // Ban ngày không có giờ đêm.
-        assertEquals(0L, nightOverlapMs(at(14, 0), at(14, 30)))
-    }
-
-    @Test
-    fun `night overlap spans midnight`() {
-        val from = at(23, 0, 0)
-        val to = at(1, 0, 0, dayOffset = 1) // 23:00 → 01:00 hôm sau = 2 giờ đêm
-        assertEquals(2 * 3_600_000L, nightOverlapMs(from, to))
-    }
-
-    @Test
-    fun `study mode rules`() {
-        val social = setOf("com.google.android.youtube")
-        val ai = setOf("com.openai.chatgpt")
-        val own = "com.cainghien.companion"
-        // Đang lướt mạng xã hội, màn hình sáng → không cộng điểm.
-        assertEquals(
-            STUDY_NONE,
-            studyModeOf(true, true, false, false, "com.google.android.youtube", own, social, ai, 30, 60, 14),
-        )
-        // Màn hình tắt → tính không đụng điện thoại.
-        assertEquals(
-            STUDY_IDLE,
-            studyModeOf(true, false, false, false, "com.google.android.youtube", own, social, ai, 30, 60, 14),
-        )
-        // Trong app AI còn thao tác (idle < 60) → điểm AI.
-        assertEquals(
-            STUDY_AI,
-            studyModeOf(true, true, false, false, "com.openai.chatgpt", own, social, ai, 5, 60, 14),
-        )
-        // Trong app AI nhưng để yên quá 60 s → chuyển sang điểm không đụng.
-        assertEquals(
-            STUDY_IDLE,
-            studyModeOf(true, true, false, false, "com.openai.chatgpt", own, social, ai, 90, 60, 14),
-        )
-        // Đang gọi → không tính.
-        assertEquals(
-            STUDY_NONE,
-            studyModeOf(true, false, false, true, own, own, social, ai, 300, 60, 14),
-        )
-        // Giờ đêm → không tính.
-        assertEquals(
-            STUDY_NONE,
-            studyModeOf(true, false, false, false, own, own, social, ai, 300, 60, 23),
-        )
-        // Bảo vệ tắt → không tính.
-        assertEquals(
-            STUDY_NONE,
-            studyModeOf(false, false, false, false, own, own, social, ai, 300, 60, 14),
-        )
-        // App thường, màn hình sáng, đang mở → không tính (chống để video/game chạy nền).
-        assertEquals(
-            STUDY_NONE,
-            studyModeOf(true, true, false, false, "com.some.game", own, social, ai, 300, 60, 14),
-        )
-    }
-
-    @Test
-    fun `points and bonus minutes`() {
-        // 1 phút không đụng = 5 điểm; 5 điểm = 1 phút thưởng (mặc định).
-        assertEquals(5, studyPoints(60, 0))
-        assertEquals(60, bonusSeconds(60, 0, DEFAULT_POINTS_PER_MINUTE))
-        // 1 phút trong app AI = 2 điểm.
-        assertEquals(2, studyPoints(0, 60))
+    fun `points convert to bonus minutes, not seconds`() {
+        // 1 phiên = 25 điểm; mặc định 5 điểm = 1 phút → 5 phút = 300 giây.
+        assertEquals(25, POINTS_PER_SESSION)
+        assertEquals(300, bonusSeconds(POINTS_PER_SESSION, DEFAULT_POINTS_PER_MINUTE))
+        assertEquals(60, bonusSeconds(5, DEFAULT_POINTS_PER_MINUTE))
+        // Đổi tỷ lệ: 25 điểm ở mức 25 điểm/phút = 1 phút.
+        assertEquals(60, bonusSeconds(POINTS_PER_SESSION, 25))
+        // Chưa đủ một phút thưởng vẫn ra giây lẻ (4 điểm = 48 giây), tỷ lệ hỏng hoặc điểm âm thì bằng 0.
+        assertEquals(48, bonusSeconds(4, DEFAULT_POINTS_PER_MINUTE))
+        assertEquals(0, bonusSeconds(25, 0))
+        assertEquals(0, bonusSeconds(-25, DEFAULT_POINTS_PER_MINUTE))
         // Trần 120 phút thưởng mỗi ngày.
-        assertEquals(MAX_BONUS_MINUTES * 60, bonusSeconds(1_000_000, 0, DEFAULT_POINTS_PER_MINUTE))
+        assertEquals(MAX_BONUS_MINUTES * 60, bonusSeconds(100_000, DEFAULT_POINTS_PER_MINUTE))
     }
 
     @Test

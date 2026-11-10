@@ -43,7 +43,7 @@ export default function Page() {
             <div className="grid three">
               <div className="card stat">
                 <p className="big">60 <span>phút</span></p>
-                <p>Quỹ mạng xã hội mỗi ngày trên điện thoại, trừ ngay khi bạn mở app. Hết quỹ là hết; chỉ học kiên trì mới được thưởng thêm.</p>
+                <p>Quỹ mạng xã hội mỗi ngày trên điện thoại, trừ ngay khi bạn mở app. Hết quỹ là hết; chỉ hoàn thành phiên tập trung mới được thưởng thêm.</p>
               </div>
               <div className="card stat">
                 <p className="big">10 <span>phút</span></p>
@@ -214,7 +214,7 @@ export default function Page() {
             <div className="head">
               <p className="eyebrow">Cách hoạt động · Android</p>
               <h2>Trên điện thoại: mở app là bắt đầu trừ quỹ của cả ngày</h2>
-              <p className="lede">Mặc định 60 phút cho cả ngày, và nó trừ dần ngay khi bạn mở app trong danh sách chặn. Học kiên trì được thưởng thêm phút, còn đổi mức thì phải qua cổng cam kết.</p>
+              <p className="lede">Mặc định 60 phút cho cả ngày, và nó trừ dần ngay khi bạn mở app trong danh sách chặn. Hoàn thành phiên tập trung thì được thưởng thêm phút, còn đổi mức thì phải qua cổng cam kết.</p>
             </div>
             <div className="steps">
               <div className="step">
@@ -240,7 +240,7 @@ export default function Page() {
                   <ul>
                     <li>Hết quỹ là màn khoá đóng lại tới 0:00, dù đang giữa ngày.</li>
                     <li>Đang chạy phiên tập trung thì app bị khoá và không trừ quỹ.</li>
-                    <li>Không chạm điện thoại hoặc dùng app AI thì được cộng điểm học, đổi thành phút quỹ thưởng.</li>
+                    <li>Hoàn thành một phiên tập trung thì được 25 điểm học, đổi thành phút quỹ thưởng.</li>
                   </ul>
                 </div>
                 <figure className="shot phone-shot step-media">
@@ -387,7 +387,7 @@ export default function Page() {
               <details id="faq-man-hinh">
                 <summary>App có đọc nội dung trên màn hình không?</summary>
                 <div className="body">
-                  <p>Không. Quyền Trợ năng trên Android chỉ được dùng để biết app nào đang ở phía trước, lúc nào có chạm hay cuốn, và để phủ màn khoá. App nào cũng chỉ lấy tên gói và thời điểm, không lấy nội dung.</p>
+                  <p>Không. Quyền Trợ năng trên Android chỉ nhận sự kiện đổi cửa sổ để biết app nào đang ở phía trước và để phủ màn khoá; app không theo dõi chạm, cuốn hay gõ phím.</p>
                   <p>Tuỳ chọn đọc nội dung cửa sổ bị tắt ngay trong file khai báo của app. Ngoại lệ duy nhất là <strong>Chặn ảnh 18+ trên màn hình</strong>: khi bạn tự bật thì app mới chụp màn hình của trình duyệt và các app mạng xã hội đã chọn, chạy mô hình trên máy, không lưu và không gửi đi.</p>
                 </div>
               </details>
@@ -401,8 +401,8 @@ export default function Page() {
               <details id="faq-diem-hoc">
                 <summary>Điểm học là gì và đổi được gì?</summary>
                 <div className="body">
-                  <p>Mỗi phút bạn không chạm điện thoại được 5 điểm; mỗi phút ở trong app AI bạn tự chọn (Gemini, ChatGPT, Claude, Copilot, Perplexity, DeepSeek) được 2 điểm, và khi không thao tác trong app AI một phút thì app chuyển sang tính theo nhịp không chạm. Cứ 5 điểm thành 1 phút quỹ thưởng, mặc định vậy và chỉnh được từ 3 tới 30.</p>
-                  <p>Phút thưởng cộng thẳng vào mức quỹ hôm đó nên học đủ lâu có thể mở lại app đã cạn quỹ. Điểm xoá lúc 0:00, không cộng từ 22:00 đến 07:00, không tính khi đang gọi điện, và trần 120 phút thưởng mỗi ngày. Muốn đổi tỷ lệ điểm thì phải qua cổng cam kết.</p>
+                  <p>Điểm học chỉ đến từ phiên tập trung: hoàn thành một phiên thì được 25 điểm, dù phiên đó bật trên điện thoại hay trên máy tính đã ghép nối. Cứ 5 điểm thành 1 phút quỹ thưởng — mặc định vậy và chỉnh được từ 3 tới 30 điểm một phút.</p>
+                  <p>Dừng phiên giữa chừng thì không có điểm, kể cả khi bạn đã ngồi được 20 phút. Phút thưởng cộng thẳng vào mức quỹ hôm đó nên học đủ nhiều phiên có thể mở lại app đã cạn quỹ. Điểm về 0 lúc 0:00 và trần 120 phút thưởng mỗi ngày. Muốn đổi tỷ lệ điểm thì phải qua cổng cam kết.</p>
                 </div>
               </details>
               <details id="faq-doi-quy">
@@ -415,7 +415,7 @@ export default function Page() {
               <details id="faq-cam-ket">
                 <summary>Một lần cam kết mở được những gì?</summary>
                 <div className="body">
-                  <p>Từ bản 3.15, mọi thao tác nới lỏng trên điện thoại dùng chung một cổng: tăng quỹ, bỏ app ra khỏi danh sách bị chặn, thêm app AI vào nhóm được tính điểm, đổi tỷ lệ điểm học và tắt hẳn bảo vệ. Bạn chỉ phải làm một lần, rồi được quyền chỉnh những thứ đó trong 10 phút; hết 10 phút thì cổng tự đóng lại.</p>
+                  <p>Từ bản 3.15, mọi thao tác nới lỏng trên điện thoại dùng chung một cổng: tăng quỹ, bỏ app ra khỏi danh sách bị chặn, đổi tỷ lệ điểm học và tắt hẳn bảo vệ. Bạn chỉ phải làm một lần, rồi được quyền chỉnh những thứ đó trong 10 phút; hết 10 phút thì cổng tự đóng lại.</p>
                   <p>Siết luật thì làm ngay, không qua cổng: thêm app vào danh sách chặn, giảm quỹ, giảm tỷ lệ điểm.</p>
                   <p>Cổng tính cả hai đồng hồ — giờ hệ thống và thời gian máy đã bật — nên đổi giờ máy không kéo dài được thời gian mở, và khởi động lại máy thì cổng đóng sớm.</p>
                 </div>
