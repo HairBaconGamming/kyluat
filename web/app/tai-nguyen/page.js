@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.18</td>
+                    <td>11/11/2026</td>
+                    <td><strong>Màn tập camera toàn màn hình, đa góc và giọng sửa tư thế.</strong> Camera tràn màn hình, tự nhận góc bên hông / chính diện / chếch 45°; giọng tiếng Việt chỉ đọc câu sửa tư thế khi chưa ổn (tắt được bằng nút loa, máy thiếu giọng thì còn chữ). Đổi tỉ lệ điểm: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Camera vẫn chỉ bật khi bấm Bắt đầu, dừng khi rời màn; ảnh không lưu/gửi, SDK ML Kit có gửi số liệu kỹ thuật tới Google. Chưa kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.17</td>
                     <td>11/11/2026</td>
                     <td><strong>Điểm theo thời gian và bài tập camera.</strong> Phiên tập trung 25/45/60 phút = 25/50/70 điểm; buổi tập 10/20/30/45/60 phút liên tục = 20/40/50/70/100 điểm (chỉ cộng phần chênh). Thêm chống đẩy 1 cái = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. Camera chỉ bật khi bấm Bắt đầu, dừng khi rời màn; ảnh không lưu/gửi, SDK ML Kit có gửi số liệu kỹ thuật tới Google. Bộ đếm chưa được kiểm chứng trên điện thoại thật.</td>

@@ -402,7 +402,7 @@ export default function Page() {
               <details id="faq-diem-hoc">
                 <summary>Điểm học là gì và đổi được gì?</summary>
                 <div className="body">
-                  <p>Điểm học đến từ học và tập. Phiên tập trung chạy hết giờ: 25/45/60 phút được 25/50/70 điểm, dù phiên bật trên điện thoại hay trên máy tính đã ghép nối. Buổi tập đủ thời gian: 10/20/30/45/60 phút liên tục trong app tập được 20/40/50/70/100 điểm, mỗi bậc chỉ cộng thêm phần chênh nên một giờ tập ra đúng 100 điểm. Camera còn tính 1 chống đẩy = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. Cứ 5 điểm thành 1 phút quỹ thưởng — mặc định vậy và chỉnh được từ 3 tới 30 điểm một phút.</p>
+                  <p>Điểm học đến từ học và tập. Phiên tập trung chạy hết giờ: 25/45/60 phút được 25/50/70 điểm, dù phiên bật trên điện thoại hay trên máy tính đã ghép nối. Buổi tập đủ thời gian: 10/20/30/45/60 phút liên tục trong app tập được 20/40/50/70/100 điểm, mỗi bậc chỉ cộng thêm phần chênh nên một giờ tập ra đúng 100 điểm. Camera còn tính 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Cứ 5 điểm thành 1 phút quỹ thưởng — mặc định vậy và chỉnh được từ 3 tới 30 điểm một phút.</p>
                   <p>Dừng phiên giữa chừng thì không có điểm, kể cả khi bạn đã ngồi được 20 phút. Phút thưởng cộng thẳng vào mức quỹ hôm đó nên học đủ nhiều phiên có thể mở lại app đã cạn quỹ. Điểm về 0 lúc 0:00 và trần 120 phút thưởng mỗi ngày. Muốn đổi tỷ lệ điểm thì phải qua cổng cam kết.</p>
                 </div>
               </details>
@@ -482,7 +482,7 @@ export default function Page() {
                 <summary>Buổi gym được tính thế nào?</summary>
                 <div className="body">
                   <p>Giữ app tập của bạn trên màn hình đủ 10 phút liên tục thì được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, nhưng điểm đã nhận không mất. Cùng đồng hồ đó còn tính điểm học: 10/20/30/45/60 phút = 20/40/50/70/100 điểm, đổi ra phút quỹ lướt.</p>
-                  <p>Bản 3.17 có thêm <strong>Buổi tập → Tập với camera</strong>: 1 chống đẩy = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. Phải đủ nhịp động tác hoặc giữ đúng tư thế; camera dừng khi bạn bấm Dừng hay rời màn. Ảnh không lưu hoặc gửi đi; <a href="/an-toan#camera-bai-tap">xem quyền riêng tư của SDK nhận diện</a>.</p>
+                  <p>Bản 3.18 nâng <strong>Buổi tập → Tập với camera</strong> lên màn hình toàn màn hình: tự nhận góc nhìn bên hông, chính diện hoặc chếch 45°, và giọng tiếng Việt đọc câu sửa tư thế khi chưa ổn (tắt được bằng nút loa). Tỉ lệ mới: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Phải đủ nhịp động tác hoặc giữ đúng tư thế; camera dừng khi bạn bấm Dừng hay rời màn. Ảnh không lưu hoặc gửi đi; <a href="/an-toan#camera-bai-tap">xem quyền riêng tư của SDK nhận diện</a>.</p>
                 </div>
               </details>
               <details id="faq-tat">

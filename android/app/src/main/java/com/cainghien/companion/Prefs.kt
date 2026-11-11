@@ -113,6 +113,11 @@ class Prefs(context: Context) {
         get() = store.getInt("gym_session_points", 0)
         set(value) = store.edit().putInt("gym_session_points", value.coerceAtLeast(0)).apply()
 
+    /** Giọng nói sửa tư thế khi tập với camera. Tắt vẫn còn chữ trên màn hình. */
+    var exerciseVoice: Boolean
+        get() = store.getBoolean("exercise_voice", true)
+        set(value) = store.edit().putBoolean("exercise_voice", value).apply()
+
     var autoUpdate: Boolean
         get() = store.getBoolean("auto_update", true)
         set(value) = store.edit().putBoolean("auto_update", value).apply()

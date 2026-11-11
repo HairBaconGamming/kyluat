@@ -735,7 +735,7 @@ class MainActivity : Activity() {
             this,
             "Phiên tập trung 25/45/60 phút = 25/50/70 điểm học, cộng cả phiên chạy trên máy tính. " +
                 "Buổi tập 10/20/30/45/60 phút liên tục = 20/40/50/70/100 điểm. " +
-                "Camera: 1 chống đẩy = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm. " +
+                "Camera: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. " +
                 "Dừng phiên tập trung giữa chừng thì không có điểm; điểm về 0 lúc 0:00, trần ${MAX_BONUS_MINUTES} phút thưởng mỗi ngày.",
             R.drawable.ic_info,
         ))

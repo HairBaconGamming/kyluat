@@ -11,7 +11,7 @@ Kỷ luật là máy chặn xao nhãng gồm bốn phần: một tiến trình n
 | Việc | Bản này |
 | --- | --- |
 | Quỹ mạng xã hội mỗi ngày trên Android | mặc định 60 phút, trừ ngay khi bạn mở app trong danh sách, làm mới lúc 0 giờ, không có nút gia hạn trong ngày |
-| Điểm học thưởng thêm quỹ trên Android | phiên tập trung hoàn thành 25/45/60 phút = 25/50/70 điểm; buổi tập 10/20/30/45/60 phút liên tục = 20/40/50/70/100 điểm; camera: 1 chống đẩy = 1 điểm, mỗi 2 squat = 2 điểm, mỗi 5 giây plank = 1 điểm; 5 điểm = 1 phút quỹ, trần 120 phút thưởng mỗi ngày, điểm về 0 lúc 0 giờ |
+| Điểm học thưởng thêm quỹ trên Android | phiên tập trung hoàn thành 25/45/60 phút = 25/50/70 điểm; buổi tập 10/20/30/45/60 phút liên tục = 20/40/50/70/100 điểm; camera: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm; 5 điểm = 1 phút quỹ, trần 120 phút thưởng mỗi ngày, điểm về 0 lúc 0 giờ |
 | Cổng cam kết 60 giây trên Android | một lần mở (đọc 60 giây + gõ lại đoạn cam kết) được quyền nới lỏng mọi luật trong 10 phút; siết luật luôn miễn phí |
 | Đổi mức quỹ trên Android | 15–120 phút trong 15 bước một; giảm có hiệu lực ngay, tăng chờ đến 0 giờ hôm sau |
 | Xin dừng một phiên tập trung giữa chừng | phải chờ 10 phút |
@@ -29,7 +29,7 @@ Bản phát hành có ba file trên GitHub Releases:
 
 - `KYLUAT-Setup-v1.9.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
 - `KYLUAT-windows-x64-v1.9.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
-- `kyluat-android-v3.17.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
+- `kyluat-android-v3.18.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
 
@@ -92,7 +92,7 @@ DNS không thấy được nội dung bên trong một trang hay một video đ�
 
 Mô hình lấy từ [Déchaîner](https://github.com/warleysr/dechainer), giấy phép Apache-2.0; văn bản giấy phép đi kèm ở `enforcer/data/NOTICE-nsfw-model.txt` và được đóng gói vào cả APK lẫn bản Windows. `Kyluat-cli.exe adult visual` nạp thử mô hình và chấm một ảnh xám, dùng để kiểm tra bản cài mà không cần nội dung thật.
 
-Phần này có trong bản phát hành Windows 1.9 và Android 3.17.
+Phần này có trong bản phát hành Windows 1.9 và Android 3.18.
 
 ## Chạy từ mã nguồn
 
@@ -180,7 +180,7 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 22 tương ứng `versionName` 3.17. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 23 tương ứng `versionName` 3.18. APK build ra nằm ở `android/app/build/` và không được commit.
 
 Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
 
@@ -256,9 +256,9 @@ Cùng nội dung này, viết cho người dùng cuối, ở `/an-toan` trên tr
 
 Lịch sử chặn, check-in và luật đang chạy nằm trong `data\enforcer.db`, một file SQLite duy nhất trên máy bạn, xoá được. Tự động backup giữ 7 bản gần nhất trong `data\backups\`. Dữ liệu không mã hoá: ai mở được máy bạn thì đọc được lịch sử, và token ghép nối cũng nằm trong file đó.
 
-Không có tài khoản. File phát hành để trên GitHub Releases. Bản Android có thể hỏi GitHub mỗi ngày để xem bản mới; tắt trong Cài đặt → Cập nhật. Android 3.17 dùng Google ML Kit: ảnh camera và kết quả tư thế xử lý tại máy, nhưng SDK gửi số liệu kỹ thuật tới Google theo [công bố dữ liệu ML Kit](https://developers.google.com/ml-kit/android-data-disclosure).
+Không có tài khoản. File phát hành để trên GitHub Releases. Bản Android có thể hỏi GitHub mỗi ngày để xem bản mới; tắt trong Cài đặt → Cập nhật. Android 3.18 dùng Google ML Kit: ảnh camera và kết quả tư thế xử lý tại máy, nhưng SDK gửi số liệu kỹ thuật tới Google theo [công bố dữ liệu ML Kit](https://developers.google.com/ml-kit/android-data-disclosure).
 
-**Tập với camera:** vào Hôm nay → Buổi tập → Tập với camera, chọn bài rồi bấm Bắt đầu. Camera là quyền tuỳ chọn, không xin micro; mô hình đóng gói trong APK, không lưu ảnh/video. Đặt máy nhìn ngang toàn thân. Một nhịp chống đẩy hoàn chỉnh được 1 điểm; mỗi cặp squat được 2 điểm; mỗi 5 giây plank cẳng tay đúng tư thế được 1 điểm. Mất tư thế bỏ phần chưa đủ 5 giây, không trừ điểm đã nhận. Dừng camera, rời màn (kể cả chọn app khác trong chia đôi màn hình), xoay máy, khoá máy hoặc lỗi nhận diện đều ngừng tính; từ chối quyền không ảnh hưởng phần khác. Điểm camera chỉ cộng trên điện thoại và không cộng chồng với thời gian app gym. Bộ đếm chưa được kiểm chứng trên thiết bị thật, có thể sai khi thiếu sáng hoặc khuất người.
+**Tập với camera:** vào Hôm nay → Buổi tập → Tập với camera, chọn bài rồi bấm Bắt đầu. Màn tập toàn màn hình, app tự nhận góc nhìn bên hông, chính diện hoặc chếch 45°. Camera là quyền tuỳ chọn, không xin micro; mô hình đóng gói trong APK, không lưu ảnh/video. Đặt máy cố định, thấy đủ vai, tay, hông, gối và mắt cá chân. 3 chống đẩy = 1 điểm; 5 squat = 1 điểm; mỗi 10 giây plank cẳng tay đúng tư thế = 1 điểm. Mất tư thế bỏ phần chưa đủ 10 giây, không trừ điểm đã nhận. Khi tư thế chưa ổn, màn hình hiện câu sửa và có thể đọc bằng giọng tiếng Việt qua bộ đọc chữ có sẵn của máy (nút loa để tắt, không gửi âm thanh đi); máy thiếu giọng thì chỉ còn chữ. Dừng camera, rời màn (kể cả chọn app khác trong chia đôi màn hình), xoay máy, khoá máy hoặc lỗi nhận diện đều ngừng tính; từ chối quyền không ảnh hưởng phần khác. Điểm camera chỉ cộng trên điện thoại và không cộng chồng với thời gian app gym. Bộ đếm chưa được kiểm chứng trên thiết bị thật, có thể sai khi thiếu sáng hoặc khuất người.
 
 ## Giới hạn của bản này
 

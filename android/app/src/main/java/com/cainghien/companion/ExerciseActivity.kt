@@ -1,10 +1,13 @@
 package com.cainghien.companion
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.hardware.display.DisplayManager
 import android.net.Uri
@@ -17,11 +20,12 @@ import android.util.Size
 import android.view.Gravity
 import android.view.Surface
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
@@ -39,21 +43,27 @@ import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.PoseDetector
 import com.google.mlkit.vision.pose.PoseLandmark
 import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
+import kotlin.math.max
 import kotlin.math.min
 
 class ExerciseActivity : ComponentActivity() {
     private lateinit var prefs: Prefs
     private lateinit var quota: QuotaManager
+    private lateinit var voice: VoiceCoach
     private lateinit var preview: PreviewView
     private lateinit var skeleton: ExerciseSkeleton
-    private lateinit var count: TextView
+    private lateinit var title: TextView
+    private lateinit var viewBadge: TextView
+    private lateinit var soundIcon: ImageView
+    private lateinit var countNum: TextView
+    private lateinit var countUnit: TextView
     private lateinit var points: TextView
     private lateinit var feedback: TextView
-    private lateinit var guide: TextView
-    private lateinit var startButton: UiButton
-    private lateinit var lensButton: UiButton
+    private lateinit var startButton: TextView
+    private lateinit var segViews: List<TextView>
     private var counter = ExerciseCounter(ExerciseKind.PUSH_UP)
     private var creditedPoints = 0
+    private var lastCorrection: String? = null
     private var frontCamera = true
     private var permissionDenied = false
     private var provider: ProcessCameraProvider? = null
@@ -83,52 +93,130 @@ class ExerciseActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         quota = QuotaManager(prefs)
-        Ui.chrome(this)
-        setContentView(Ui.scroll(buildPage()))
-        updateGuide()
+        window.statusBarColor = BG
+        window.navigationBarColor = BG
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        voice = VoiceCoach(this) { available ->
+            if (!available && prefs.exerciseVoice) {
+                Toast.makeText(this, "Máy chưa có giọng tiếng Việt. Chữ hướng dẫn vẫn hiện trên màn hình.", Toast.LENGTH_LONG).show()
+            }
+            renderSound()
+        }
+        voice.enabled = prefs.exerciseVoice
+        setContentView(buildRoot())
+        selectSeg(0, notify = false)
         render()
     }
 
-    private fun buildPage(): LinearLayout {
-        val page = Ui.screen(this)
-        page.addView(Ui.backHeader(this, "Tập với camera", "Đếm trên máy · không lưu hình ảnh") { finish() })
-        page.addView(Ui.segmented(this, listOf("Chống đẩy", "Squat", "Plank"), 0) { index ->
-            stopCamera()
-            counter = ExerciseCounter(ExerciseKind.values()[index])
-            creditedPoints = 0
-            updateGuide()
-            render()
-            feedback.text = "Đã đổi bài. Bấm Bắt đầu khi sẵn sàng."
-        }, Ui.match(this, topMarginDp = 8))
-
-        val cameraBox = FrameLayout(this)
-        cameraBox.background = Ui.rounded(Ui.SURFACE, 16, this, Ui.LINE)
-        cameraBox.clipToOutline = true
+    private fun buildRoot(): FrameLayout {
+        val root = FrameLayout(this)
+        root.setBackgroundColor(BG)
+        root.fitsSystemWindows = true
         preview = PreviewView(this).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-            scaleType = PreviewView.ScaleType.FIT_CENTER
+            scaleType = PreviewView.ScaleType.FILL_CENTER
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        cameraBox.addView(preview, FrameLayout.LayoutParams(-1, -1))
+        root.addView(preview, FrameLayout.LayoutParams(-1, -1))
         skeleton = ExerciseSkeleton(this)
-        cameraBox.addView(skeleton, FrameLayout.LayoutParams(-1, -1))
-        page.addView(cameraBox, LinearLayout.LayoutParams(-1, Ui.dp(this, 300)).apply {
-            topMargin = Ui.dp(this@ExerciseActivity, 14)
-        })
-
-        val result = Ui.hero(this)
-        count = Ui.label(this, "0 cái", 34f, Ui.TEXT, true).apply { gravity = Gravity.CENTER }
-        points = Ui.label(this, "0 điểm học", 15f, Ui.ACCENT, true).apply { gravity = Gravity.CENTER }
-        feedback = Ui.label(this, "Bấm Bắt đầu để mở camera.", 14f, Ui.TEXT_2).apply {
+        root.addView(skeleton, FrameLayout.LayoutParams(-1, -1))
+        root.addView(buildTopBar(), FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+        feedback = TextView(this).apply {
+            text = "Bấm Bắt đầu để mở camera."
+            textSize = 12.5f
+            setTextColor(AMBER)
             gravity = Gravity.CENTER
+            setPadding(Ui.dp(this@ExerciseActivity, 14), Ui.dp(this@ExerciseActivity, 9),
+                Ui.dp(this@ExerciseActivity, 14), Ui.dp(this@ExerciseActivity, 9))
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
-        result.addView(count)
-        result.addView(points, Ui.match(this, topMarginDp = 5))
-        result.addView(feedback, Ui.match(this, topMarginDp = 8))
-        page.addView(result, Ui.match(this, topMarginDp = 12))
+        root.addView(feedback, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+            topMargin = Ui.dp(this@ExerciseActivity, 78)
+            leftMargin = Ui.dp(this@ExerciseActivity, 20)
+            rightMargin = Ui.dp(this@ExerciseActivity, 20)
+        })
+        root.addView(buildBottomPanel(), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
+            leftMargin = Ui.dp(this@ExerciseActivity, 10)
+            rightMargin = Ui.dp(this@ExerciseActivity, 10)
+            bottomMargin = Ui.dp(this@ExerciseActivity, 10)
+        })
+        return root
+    }
 
-        startButton = Ui.button(this, "Bắt đầu", Variant.PRIMARY, big = true)
+    private fun circleIcon(res: Int, onClick: () -> Unit): FrameLayout {
+        val box = FrameLayout(this)
+        box.background = Ui.ripple(Ui.rounded(Color.parseColor("#26FFFFFF"), 999, this, LINE), 0x33FFFFFF)
+        box.isClickable = true
+        box.setOnClickListener { onClick() }
+        val icon = Ui.icon(this, res, Color.WHITE, 17)
+        box.addView(icon, FrameLayout.LayoutParams(Ui.dp(this, 17), Ui.dp(this, 17), Gravity.CENTER))
+        box.tag = icon
+        return box
+    }
+
+    private fun buildTopBar(): LinearLayout {
+        val bar = LinearLayout(this)
+        bar.orientation = LinearLayout.HORIZONTAL
+        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.setPadding(Ui.dp(this, 14), Ui.dp(this, 12), Ui.dp(this, 14), 0)
+        bar.addView(circleIcon(R.drawable.ic_chevron_left) { finish() },
+            LinearLayout.LayoutParams(Ui.dp(this, 36), Ui.dp(this, 36)))
+        val titles = LinearLayout(this)
+        titles.orientation = LinearLayout.VERTICAL
+        titles.setPadding(Ui.dp(this, 11), 0, Ui.dp(this, 8), 0)
+        title = Ui.label(this, "Chống đẩy", 17f, Color.WHITE, true)
+        title.setShadowLayer(6f, 0f, Ui.dp(this, 1).toFloat(), 0xB3000000.toInt())
+        titles.addView(title)
+        viewBadge = Ui.label(this, "Góc nhìn: bên hông", 10.5f, Color.parseColor("#E8ECEF"), true)
+        viewBadge.background = Ui.rounded(Color.parseColor("#73000000"), 999, this, LINE)
+        viewBadge.setPadding(Ui.dp(this, 8), Ui.dp(this, 2), Ui.dp(this, 8), Ui.dp(this, 2))
+        titles.addView(viewBadge, LinearLayout.LayoutParams(-2, -2).apply { topMargin = Ui.dp(this@ExerciseActivity, 3) })
+        bar.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
+        val sound = circleIcon(R.drawable.ic_volume_on) { toggleVoice() }
+        soundIcon = sound.tag as ImageView
+        bar.addView(sound, LinearLayout.LayoutParams(Ui.dp(this, 36), Ui.dp(this, 36)))
+        bar.addView(circleIcon(R.drawable.ic_camera_flip) { flipCamera() },
+            LinearLayout.LayoutParams(Ui.dp(this, 36), Ui.dp(this, 36)).apply {
+                leftMargin = Ui.dp(this@ExerciseActivity, 8)
+            })
+        return bar
+    }
+
+    private fun buildBottomPanel(): LinearLayout {
+        val panel = LinearLayout(this)
+        panel.orientation = LinearLayout.VERTICAL
+        panel.background = Ui.rounded(PANEL, 18, this, PANEL_LINE)
+        panel.setPadding(Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 12))
+        val countRow = LinearLayout(this)
+        countRow.orientation = LinearLayout.HORIZONTAL
+        countRow.gravity = Gravity.CENTER_VERTICAL or Gravity.CENTER_HORIZONTAL
+        countNum = Ui.label(this, "0", 40f, Color.WHITE, true)
+        countUnit = Ui.label(this, "cái", 15f, DIM, true)
+        countRow.addView(countNum)
+        countRow.addView(countUnit, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = Ui.dp(this@ExerciseActivity, 6) })
+        panel.addView(countRow, LinearLayout.LayoutParams(-1, -2))
+        points = Ui.label(this, "+0 điểm bài này · hôm nay 0 điểm", 12.5f, GREEN_TEXT, true)
+        points.gravity = Gravity.CENTER
+        panel.addView(points, Ui.match(this, topMarginDp = 4))
+        val seg = LinearLayout(this)
+        seg.orientation = LinearLayout.HORIZONTAL
+        seg.background = Ui.rounded(Color.parseColor("#1AFFFFFF"), 11, this)
+        seg.setPadding(Ui.dp(this, 3), Ui.dp(this, 3), Ui.dp(this, 3), Ui.dp(this, 3))
+        segViews = listOf("Chống đẩy", "Squat", "Plank").mapIndexed { index, label ->
+            val cell = Ui.label(this, label, 12.5f, DIM, true)
+            cell.gravity = Gravity.CENTER
+            cell.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8))
+            cell.isClickable = true
+            cell.setOnClickListener { selectSeg(index, notify = true) }
+            seg.addView(cell, LinearLayout.LayoutParams(0, -2, 1f))
+            cell
+        }
+        panel.addView(seg, Ui.match(this, topMarginDp = 12))
+        startButton = Ui.label(this, "Bắt đầu", 15.5f, Color.WHITE, true)
+        startButton.gravity = Gravity.CENTER
+        startButton.background = Ui.ripple(Ui.rounded(GREEN, 13, this), 0x33FFFFFF)
+        startButton.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14))
+        startButton.isClickable = true
         startButton.setOnClickListener {
             if (session != null) {
                 stopCamera()
@@ -138,36 +226,76 @@ class ExerciseActivity : ComponentActivity() {
                 requestStart()
             }
         }
-        page.addView(startButton, Ui.match(this))
-        lensButton = Ui.button(this, "Dùng camera sau", Variant.GHOST)
-        lensButton.setOnClickListener {
-            stopCamera()
-            frontCamera = !frontCamera
-            lensButton.text = if (frontCamera) "Dùng camera sau" else "Dùng camera trước"
-            feedback.text = "Đã đổi camera. Bấm Bắt đầu để tiếp tục."
-        }
-        page.addView(lensButton, Ui.match(this, topMarginDp = 6))
-        guide = Ui.label(this, "", 13.5f, Ui.TEXT_2)
-        page.addView(guide, Ui.match(this, topMarginDp = 12))
-        page.addView(Ui.note(this,
-            "Camera chỉ bật khi bạn bấm Bắt đầu. Ảnh được xử lý ngay trên máy, không lưu hoặc gửi đi. " +
-                "Rời màn tập hoặc bấm Dừng sẽ tắt camera; phần động tác chưa hoàn thành không có điểm. " +
-                "Google ML Kit gửi số liệu sử dụng, hiệu năng SDK và thông tin kỹ thuật thiết bị/app tới Google, không gửi ảnh hay kết quả nhận diện. " +
-                "Nhận diện có thể sai khi thiếu sáng hoặc khuất người. Dừng tập nếu đau hoặc chóng mặt.",
-            R.drawable.ic_info,
-        ))
-        return page
+        panel.addView(startButton, Ui.match(this, topMarginDp = 10))
+        val privacy = Ui.label(this, "Quyền riêng tư & lưu ý an toàn", 11f, DIM)
+        privacy.gravity = Gravity.CENTER
+        privacy.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_info, 0, 0, 0)
+        privacy.compoundDrawableTintList = ColorStateList.valueOf(DIM)
+        privacy.compoundDrawablePadding = Ui.dp(this, 5)
+        privacy.isClickable = true
+        privacy.setOnClickListener { showPrivacy() }
+        panel.addView(privacy, Ui.match(this, topMarginDp = 9))
+        return panel
     }
 
-    private fun updateGuide() {
-        guide.text = when (counter.kind) {
-            ExerciseKind.PUSH_UP -> "1 cái = 1 điểm. Đặt điện thoại cố định nhìn ngang bên hông, " +
-                "thấy rõ vai, tay, hông và chân. Bắt đầu với tay thẳng, hạ người rồi đẩy lên đủ một nhịp."
-            ExerciseKind.SQUAT -> "Mỗi 2 cái = 2 điểm. Đặt camera nhìn ngang toàn thân. " +
-                "Đứng thẳng, hạ gối rồi đứng lên; một lần lên xuống hoàn chỉnh mới được đếm."
-            ExerciseKind.PLANK -> "Mỗi 5 giây = 1 điểm. Plank (đo sàn) trên cẳng tay, giữ lưng và chân thẳng. " +
-                "Đặt camera nhìn ngang toàn thân. Mất tư thế sẽ bỏ phần chưa đủ 5 giây, không trừ điểm đã nhận."
+    private fun selectSeg(index: Int, notify: Boolean) {
+        segViews.forEachIndexed { i, cell ->
+            if (i == index) { cell.background = Ui.rounded(GREEN, 8, this); cell.setTextColor(Color.WHITE) }
+            else { cell.background = null; cell.setTextColor(DIM) }
         }
+        if (!notify) return
+        stopCamera()
+        counter = ExerciseCounter(ExerciseKind.values()[index])
+        creditedPoints = 0
+        lastCorrection = null
+        title.text = segViews[index].text
+        feedback.text = "Đã đổi bài. Bấm Bắt đầu khi sẵn sàng."
+        render()
+    }
+
+    private fun toggleVoice() {
+        if (!prefs.exerciseVoice && !voice.available) {
+            AlertDialog.Builder(this)
+                .setTitle("Chưa có giọng tiếng Việt")
+                .setMessage("Máy chưa cài giọng đọc tiếng Việt. Bạn có thể cài giọng (tự chọn, không tự tải) hoặc tiếp tục chỉ với chữ trên màn hình.")
+                .setPositiveButton("Cài giọng") { _, _ ->
+                    try { startActivity(VoiceCoach.installVoiceIntent()) }
+                    catch (error: Exception) { Toast.makeText(this, "Không mở được cài đặt giọng đọc.", Toast.LENGTH_SHORT).show() }
+                }
+                .setNegativeButton("Chỉ dùng chữ", null)
+                .show()
+            return
+        }
+        prefs.exerciseVoice = !prefs.exerciseVoice
+        voice.enabled = prefs.exerciseVoice
+        if (!prefs.exerciseVoice) voice.reset()
+        renderSound()
+    }
+
+    private fun renderSound() {
+        soundIcon.setImageResource(if (prefs.exerciseVoice) R.drawable.ic_volume_on else R.drawable.ic_volume_off)
+        soundIcon.alpha = if (prefs.exerciseVoice && voice.available) 1f else 0.55f
+    }
+
+    private fun flipCamera() {
+        stopCamera()
+        frontCamera = !frontCamera
+        feedback.text = "Đã đổi camera. Bấm Bắt đầu để tiếp tục."
+        render()
+    }
+
+    private fun showPrivacy() {
+        AlertDialog.Builder(this)
+            .setTitle("Quyền riêng tư & an toàn")
+            .setMessage(
+                "Camera chỉ bật khi bạn bấm Bắt đầu. Ảnh được xử lý ngay trên máy, không lưu hoặc gửi đi. " +
+                    "Rời màn tập hoặc bấm Dừng sẽ tắt camera; phần động tác chưa hoàn thành không có điểm. " +
+                    "Google ML Kit gửi số liệu sử dụng, hiệu năng SDK và thông tin kỹ thuật thiết bị/app tới Google, không gửi ảnh hay kết quả nhận diện. " +
+                    "Giọng nói dùng TTS có sẵn của máy, không gửi âm thanh đi. " +
+                    "Nhận diện có thể sai khi thiếu sáng hoặc khuất người. Dừng tập nếu đau hoặc chóng mặt."
+            )
+            .setPositiveButton("Đã hiểu", null)
+            .show()
     }
 
     private fun requestStart() {
@@ -194,6 +322,7 @@ class ExerciseActivity : ComponentActivity() {
             session = active
             cameraRotation = preview.display?.rotation ?: Surface.ROTATION_0
             counter.pause()
+            lastCorrection = null
             preview.visibility = View.VISIBLE
             startButton.text = "Dừng"
             feedback.text = "Đang mở camera…"
@@ -229,7 +358,7 @@ class ExerciseActivity : ComponentActivity() {
                             cameraError("Camera đang bận hoặc bị gián đoạn. Đóng app khác dùng camera rồi thử lại.")
                         }
                     }
-                    feedback.text = "Đưa toàn thân vào khung hình, đặt máy nhìn ngang."
+                    feedback.text = "Đưa toàn thân vào khung hình; app tự nhận góc nhìn."
                 } catch (error: Exception) {
                     cameraError("Không mở được camera. Bạn vẫn dùng được các tính năng khác; hãy thử lại.")
                 }
@@ -274,6 +403,7 @@ class ExerciseActivity : ComponentActivity() {
                             creditedPoints = counter.points
                         }
                         skeleton.show(body, width, height, frontCamera)
+                        speakCorrection(counter.correction)
                         feedback.text = counter.feedback
                         render()
                     }
@@ -293,12 +423,21 @@ class ExerciseActivity : ComponentActivity() {
         }
     }
 
+    private fun speakCorrection(correction: String?) {
+        if (correction == null) { lastCorrection = null; return }
+        if (correction != lastCorrection) { lastCorrection = correction; voice.speakCorrection(correction) }
+    }
+
     private fun bodyPose(pose: Pose, width: Int, height: Int): ExercisePose? {
         val sides = listOf(
             intArrayOf(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST,
                 PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE),
             intArrayOf(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_WRIST,
                 PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE),
+        )
+        val otherIds = listOf(
+            listOf(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_HIP),
+            listOf(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP),
         )
         val candidates = sides.mapIndexedNotNull { side, ids ->
             val landmarks = ids.map { pose.getPoseLandmark(it) ?: return@mapIndexedNotNull null }
@@ -307,7 +446,14 @@ class ExerciseActivity : ComponentActivity() {
                 if (position.x !in 0f..width.toFloat() || position.y !in 0f..height.toFloat()) return@mapIndexedNotNull null
                 BodyPoint(position.x, position.y, it.inFrameLikelihood)
             }
-            ExercisePose(p[0], p[1], p[2], p[3], p[4], p[5], side)
+            val other = otherIds[side].mapNotNull { lm ->
+                val landmark = pose.getPoseLandmark(lm) ?: return@mapNotNull null
+                val position = landmark.position
+                if (position.x !in 0f..width.toFloat() || position.y !in 0f..height.toFloat()) return@mapNotNull null
+                BodyPoint(position.x, position.y, landmark.inFrameLikelihood)
+            }
+            ExercisePose(p[0], p[1], p[2], p[3], p[4], p[5], side,
+                otherShoulder = other.getOrNull(0), otherHip = other.getOrNull(1))
         }
         fun confidence(body: ExercisePose) = minOf(body.shoulder.confidence, body.elbow.confidence,
             body.wrist.confidence, body.hip.confidence, body.knee.confidence, body.ankle.confidence)
@@ -318,9 +464,19 @@ class ExerciseActivity : ComponentActivity() {
     }
 
     private fun render() {
-        count.text = if (counter.kind == ExerciseKind.PLANK) "${counter.plankMillis / 1000} giây" else "${counter.reps} cái"
+        countNum.text = if (counter.kind == ExerciseKind.PLANK) "${counter.plankMillis / 1000}" else "${counter.reps}"
+        countUnit.text = if (counter.kind == ExerciseKind.PLANK) "giây" else "cái"
         quota.resetIfNeeded()
         points.text = "+${counter.points} điểm bài này · hôm nay ${quota.pointsToday()} điểm"
+        viewBadge.text = "Góc nhìn: ${counter.viewLabel.lowercase()}"
+        val tone = when {
+            counter.correction != null -> AMBER to AMBER_BG
+            session != null -> GREEN_TEXT to GREEN_BG
+            else -> Color.parseColor("#E8ECEF") to Color.parseColor("#CC111619")
+        }
+        feedback.setTextColor(tone.first)
+        feedback.background = Ui.rounded(tone.second, 999, this, LINE)
+        renderSound()
     }
 
     private fun cameraError(message: String) {
@@ -342,6 +498,8 @@ class ExerciseActivity : ComponentActivity() {
         camera = null
         provider?.unbindAll()
         trackedSide = null
+        lastCorrection = null
+        voice.reset()
         counter.pause()
         skeleton.show(null, 1, 1, false)
         preview.visibility = View.INVISIBLE
@@ -369,17 +527,23 @@ class ExerciseActivity : ComponentActivity() {
         super.onPause()
     }
 
+    override fun onDestroy() {
+        voice.shutdown()
+        super.onDestroy()
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != CAMERA_PERMISSION) return
         permissionDenied = grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED
         feedback.text = if (permissionDenied) "Chưa cấp quyền camera. Không thể tự đếm; các tính năng khác vẫn hoạt động."
         else "Đã cấp quyền camera. Bấm Bắt đầu khi sẵn sàng."
+        render()
     }
 
     private class ExerciseSkeleton(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Ui.ACCENT
+            color = GREEN_TEXT
             strokeWidth = Ui.dp(context, 3).toFloat()
             strokeCap = Paint.Cap.ROUND
         }
@@ -398,7 +562,7 @@ class ExerciseActivity : ComponentActivity() {
 
         override fun onDraw(canvas: Canvas) {
             val p = pose ?: return
-            val scale = min(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
+            val scale = max(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
             val dx = (width - imageWidth * scale) / 2
             val dy = (height - imageHeight * scale) / 2
             fun x(point: BodyPoint) = dx + (if (mirrored) imageWidth - point.x else point.x) * scale
@@ -413,5 +577,15 @@ class ExerciseActivity : ComponentActivity() {
 
     companion object {
         private const val CAMERA_PERMISSION = 47
+        private val BG = Color.parseColor("#0B0E11")
+        private val PANEL = Color.parseColor("#D10B0E11")
+        private val PANEL_LINE = Color.parseColor("#24FFFFFF")
+        private val LINE = Color.parseColor("#33FFFFFF")
+        private val DIM = Color.parseColor("#B7C0C7")
+        private val GREEN = Color.parseColor("#3D8B74")
+        private val GREEN_TEXT = Color.parseColor("#8FD0B9")
+        private val GREEN_BG = Color.parseColor("#EB14332A")
+        private val AMBER = Color.parseColor("#F0C987")
+        private val AMBER_BG = Color.parseColor("#EB3A2E14")
     }
 }

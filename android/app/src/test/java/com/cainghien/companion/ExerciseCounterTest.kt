@@ -46,7 +46,7 @@ class ExerciseCounterTest {
                 assertEquals(1, counter.reps)
                 cycle(counter, 1_600L, side = side)
                 assertEquals(2, counter.reps)
-                assertEquals(2, counter.points)
+                assertEquals(0, counter.points)
                 advance(counter, pose(kind, 170.0, side), 3_000L, 8_000L)
                 assertEquals(2, counter.reps)
                 assertEquals(0L, counter.plankMillis)
@@ -55,9 +55,9 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `squat awards only complete pairs`() {
+    fun `squat awards only complete groups of five`() {
         val counter = ExerciseCounter(ExerciseKind.SQUAT)
-        for ((index, expected) in listOf(0, 2, 2, 4).withIndex()) {
+        for ((index, expected) in listOf(0, 0, 0, 0, 1, 1).withIndex()) {
             cycle(counter, index * 1_600L)
             assertEquals(index + 1, counter.reps)
             assertEquals(expected, counter.points)
@@ -306,14 +306,14 @@ class ExerciseCounterTest {
             counter.pause()
             counter.pause()
             assertEquals(2, counter.reps)
-            assertEquals(2, counter.points)
+            assertEquals(0, counter.points)
             assertTrue(counter.feedback.contains("tạm dừng"))
             counter.update(pose(kind, 170.0), 4_200L)
             counter.update(pose(kind, 170.0), 4_400L)
             assertEquals(2, counter.reps)
             cycle(counter, 4_600L)
             assertEquals(3, counter.reps)
-            assertEquals(if (kind == ExerciseKind.PUSH_UP) 3 else 2, counter.points)
+            assertEquals(if (kind == ExerciseKind.PUSH_UP) 1 else 0, counter.points)
         }
     }
 
@@ -339,7 +339,7 @@ class ExerciseCounterTest {
             assertEquals(1, counter.reps)
         }
         val counter = ExerciseCounter(ExerciseKind.PLANK)
-        hold(counter, mapPoints(plank()) { it.copy(confidence = 0.7f) }, 0L, 5_000L)
+        hold(counter, mapPoints(plank()) { it.copy(confidence = 0.7f) }, 0L, 10_000L)
         assertEquals(1, counter.points)
     }
 
@@ -440,7 +440,7 @@ class ExerciseCounterTest {
         for (side in 0..1) {
             for (degrees in listOf(64.9, 65.1, 90.0, 109.9, 110.1, 170.0)) {
                 val counter = ExerciseCounter(ExerciseKind.PLANK)
-                hold(counter, plank(degrees, side), 0L, 5_000L)
+                hold(counter, plank(degrees, side), 0L, 10_000L)
                 assertEquals("angle $degrees side $side", if (degrees in 65.0..110.0) 1 else 0, counter.points)
             }
         }
@@ -463,18 +463,18 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `plank earns zero at 4999ms one at five seconds and two at ten seconds`() {
+    fun `plank earns zero at 9999ms one at ten seconds and two at twenty seconds`() {
         for (side in 0..1) {
             val counter = ExerciseCounter(ExerciseKind.PLANK)
             val pose = plank(side = side)
-            hold(counter, pose, 0L, 4_999L)
-            assertEquals(4_999L, counter.plankMillis)
+            hold(counter, pose, 0L, 9_999L)
+            assertEquals(9_999L, counter.plankMillis)
             assertEquals(0, counter.points)
-            counter.update(pose, 5_000L)
-            assertEquals(5_000L, counter.plankMillis)
-            assertEquals(1, counter.points)
-            advance(counter, pose, 5_000L, 10_000L, 500L)
+            counter.update(pose, 10_000L)
             assertEquals(10_000L, counter.plankMillis)
+            assertEquals(1, counter.points)
+            advance(counter, pose, 10_000L, 20_000L, 500L)
+            assertEquals(20_000L, counter.plankMillis)
             assertEquals(2, counter.points)
             assertEquals(0, counter.reps)
         }
@@ -484,50 +484,50 @@ class ExerciseCounterTest {
     fun `all plank interruptions preserve whole blocks but discard remainder and gap time`() {
         for (interruption in listOf("pause", "missing", "confidence", "posture", "gap", "regression", "duplicate", "side")) {
             val counter = ExerciseCounter(ExerciseKind.PLANK)
-            hold(counter, plank(), 0L, 7_999L)
+            hold(counter, plank(), 0L, 12_999L)
             val side = if (interruption == "side") 1 else 0
             val resumeAt = when (interruption) {
                 "pause" -> {
                     counter.pause()
                     counter.pause()
-                    10_000L
+                    15_000L
                 }
                 "missing" -> {
-                    counter.update(null, 8_099L)
-                    8_599L
+                    counter.update(null, 13_099L)
+                    13_599L
                 }
                 "confidence" -> {
-                    counter.update(plank().let { it.copy(wrist = it.wrist.copy(confidence = 0.69f)) }, 8_099L)
-                    8_599L
+                    counter.update(plank().let { it.copy(wrist = it.wrist.copy(confidence = 0.69f)) }, 13_099L)
+                    13_599L
                 }
                 "posture" -> {
-                    counter.update(pushUp(170.0), 8_099L)
-                    8_599L
+                    counter.update(pushUp(170.0), 13_099L)
+                    13_599L
                 }
-                "gap" -> 8_500L
-                "regression" -> 7_899L
-                "duplicate" -> 7_999L
-                else -> 8_199L
+                "gap" -> 13_500L
+                "regression" -> 12_899L
+                "duplicate" -> 12_999L
+                else -> 13_199L
             }
             counter.update(plank(side = side), resumeAt)
-            assertEquals(interruption, 5_000L, counter.plankMillis)
-            assertEquals(interruption, 1, counter.points)
-            advance(counter, plank(side = side), resumeAt, resumeAt + 4_999L)
-            assertEquals(interruption, 9_999L, counter.plankMillis)
-            assertEquals(interruption, 1, counter.points)
-            counter.update(plank(side = side), resumeAt + 5_000L)
             assertEquals(interruption, 10_000L, counter.plankMillis)
+            assertEquals(interruption, 1, counter.points)
+            advance(counter, plank(side = side), resumeAt, resumeAt + 9_999L)
+            assertEquals(interruption, 19_999L, counter.plankMillis)
+            assertEquals(interruption, 1, counter.points)
+            counter.update(plank(side = side), resumeAt + 10_000L)
+            assertEquals(interruption, 20_000L, counter.plankMillis)
             assertEquals(interruption, 2, counter.points)
         }
     }
 
     @Test
-    fun `repeated sub five second holds cannot bank hidden partial credit`() {
+    fun `repeated sub ten second holds cannot bank hidden partial credit`() {
         val counter = ExerciseCounter(ExerciseKind.PLANK)
         repeat(10) {
-            val start = it * 10_000L
-            hold(counter, plank(), start, start + 4_999L)
-            counter.update(null, start + 5_000L)
+            val start = it * 20_000L
+            hold(counter, plank(), start, start + 9_999L)
+            counter.update(null, start + 10_000L)
             assertEquals(0L, counter.plankMillis)
             assertEquals(0, counter.points)
         }
@@ -573,12 +573,73 @@ class ExerciseCounterTest {
             val counter = ExerciseCounter(kind)
             repeat(121) { cycle(counter, it * 1_600L) }
             assertEquals(121, counter.reps)
-            assertEquals(if (kind == ExerciseKind.PUSH_UP) 121 else 120, counter.points)
+            assertEquals(if (kind == ExerciseKind.PUSH_UP) 40 else 24, counter.points)
         }
         val counter = ExerciseCounter(ExerciseKind.PLANK)
-        hold(counter, plank(), 0L, 605_000L)
+        hold(counter, plank(), 0L, 1_210_000L)
         assertEquals(121, counter.points)
     }
+
+    @Test
+    fun `front and diagonal camera views count full pushup cycles`() {
+        for ((span, expected) in listOf(200.0 to CameraView.FRONT, 120.0 to CameraView.DIAGONAL)) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            cycle(counter, 0L, transform = { withOther(rotate(it, 90.0), span) })
+            assertEquals(1, counter.reps)
+            assertEquals(expected, counter.view)
+        }
+    }
+
+    @Test
+    fun `front camera view counts full squat cycles`() {
+        val counter = ExerciseCounter(ExerciseKind.SQUAT)
+        cycle(counter, 0L, transform = { withOther(it, 200.0) })
+        assertEquals(1, counter.reps)
+        assertEquals(CameraView.FRONT, counter.view)
+    }
+
+    @Test
+    fun `tilted shoulders are rejected in front view with a correction`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(counter, 0L, transform = {
+            val r = withOther(rotate(it, 90.0), 200.0)
+            val os = r.otherShoulder!!
+            r.copy(otherShoulder = os.copy(y = os.y + 150f))
+        })
+        assertEquals(0, counter.reps)
+        assertTrue(counter.correction != null)
+    }
+
+    @Test
+    fun `switching camera view discards an in-flight repetition`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0), 0L)
+        counter.update(pushUp(170.0), 200L)
+        counter.update(pushUp(90.0), 400L)
+        counter.update(pushUp(90.0), 600L)
+        val frontTop = withOther(rotate(pushUp(170.0), 90.0), 200.0)
+        counter.update(frontTop, 800L)
+        counter.update(frontTop, 1000L)
+        assertEquals(0, counter.reps)
+    }
+
+    @Test
+    fun `view label reflects the detected camera angle`() {
+        val side = ExerciseCounter(ExerciseKind.PUSH_UP)
+        side.update(pushUp(170.0), 0L)
+        assertEquals("Bên hông", side.viewLabel)
+        val front = ExerciseCounter(ExerciseKind.PUSH_UP)
+        front.update(withOther(rotate(pushUp(170.0), 90.0), 200.0), 0L)
+        assertEquals("Chính diện", front.viewLabel)
+        val diagonal = ExerciseCounter(ExerciseKind.PUSH_UP)
+        diagonal.update(withOther(rotate(pushUp(170.0), 90.0), 120.0), 0L)
+        assertEquals("Chếch 45°", diagonal.viewLabel)
+    }
+
+    private fun withOther(pose: ExercisePose, span: Double): ExercisePose = pose.copy(
+        otherShoulder = point(pose.shoulder.x + span, pose.shoulder.y.toDouble()),
+        otherHip = point(pose.hip.x + span * 0.8, pose.hip.y.toDouble())
+    )
 
     private fun cycle(
         counter: ExerciseCounter,

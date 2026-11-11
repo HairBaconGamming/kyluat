@@ -7,6 +7,8 @@ import kotlin.math.sqrt
 
 enum class ExerciseKind { PUSH_UP, SQUAT, PLANK }
 
+enum class CameraView { SIDE, FRONT, DIAGONAL, UNKNOWN }
+
 data class BodyPoint(val x: Float, val y: Float, val confidence: Float)
 
 data class ExercisePose(
@@ -16,7 +18,9 @@ data class ExercisePose(
     val hip: BodyPoint,
     val knee: BodyPoint,
     val ankle: BodyPoint,
-    val side: Int
+    val side: Int,
+    val otherShoulder: BodyPoint? = null,
+    val otherHip: BodyPoint? = null
 )
 
 class ExerciseCounter(val kind: ExerciseKind) {
@@ -28,13 +32,27 @@ class ExerciseCounter(val kind: ExerciseKind) {
 
     val points: Int
         get() = when (kind) {
-            ExerciseKind.PUSH_UP -> reps
-            ExerciseKind.SQUAT -> (reps / 2) * 2
+            ExerciseKind.PUSH_UP -> reps / PUSH_UP_PER_POINT
+            ExerciseKind.SQUAT -> reps / SQUAT_PER_POINT
             ExerciseKind.PLANK -> (plankMillis / PLANK_BLOCK_MS).toInt()
         }
 
     var feedback: String = startingFeedback()
         private set
+
+    var correction: String? = null
+        private set
+
+    var view: CameraView = CameraView.SIDE
+        private set
+
+    val viewLabel: String
+        get() = when (view) {
+            CameraView.SIDE -> "Bên hông"
+            CameraView.FRONT -> "Chính diện"
+            CameraView.DIAGONAL -> "Chếch 45°"
+            CameraView.UNKNOWN -> "Chưa rõ góc"
+        }
 
     private enum class Phase { FIND_TOP, READY, LOWERING, RISING }
     private enum class Extremum { NONE, TOP, BOTTOM }
@@ -45,6 +63,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private var cycleSince: Long? = null
     private var lastTime: Long? = null
     private var lastSide: Int? = null
+    private var lastView: CameraView? = null
 
     fun update(pose: ExercisePose?, nowMs: Long) {
         if (pose == null) {
@@ -55,15 +74,19 @@ class ExerciseCounter(val kind: ExerciseKind) {
             invalidate("Chưa thấy rõ các khớp. Điều chỉnh camera.")
             return
         }
+        correction = null
+        view = classifyView(pose)
+        if (lastView != null && lastView != view) clearInFlight()
+        lastView = view
 
         if (kind == ExerciseKind.SQUAT) {
             if (!upright(pose)) {
-                invalidate("Đặt camera bên hông, đứng thẳng trên sàn.")
+                invalidate("Đứng thẳng trên sàn, đừng nằm hoặc cúi gập người.")
                 return
             }
         } else {
-            if (!horizontal(pose)) {
-                invalidate("Đặt camera bên hông, giữ thân gần song song với sàn.")
+            if (!orientationOk(pose, view)) {
+                invalidate(orientationMessage(view))
                 return
             }
             if (angle(pose.shoulder, pose.hip, pose.knee) < STRAIGHT_ANGLE ||
@@ -105,7 +128,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     fun pause() {
-        invalidate("Đã tạm dừng. Vào tư thế để tiếp tục.")
+        invalidate("Đã tạm dừng. Vào tư thế để tiếp tục.", isCorrection = false)
     }
 
     private fun updateCycle(jointAngle: Double, nowMs: Long) {
@@ -150,7 +173,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
                 feedback = if (current == Extremum.BOTTOM) {
                     "Giữ vị trí thấp một nhịp."
                 } else {
-                    "Hạ thấp thêm, giữ tư thế vững."
+                    "Hạ thấp thêm, giữ tư thế vững.".also { correction = it }
                 }
                 if (current == Extremum.BOTTOM && stable) {
                     phase = Phase.RISING
@@ -169,7 +192,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
                         reps += 1
                         feedback = "Đã ghi nhận. ${lowerFeedback()}"
                     } else {
-                        feedback = "Chậm lại, thực hiện trọn một nhịp."
+                        feedback = "Chậm lại, thực hiện trọn một nhịp.".also { correction = it }
                     }
                     phase = Phase.READY
                     cycleSince = null
@@ -178,9 +201,10 @@ class ExerciseCounter(val kind: ExerciseKind) {
         }
     }
 
-    private fun invalidate(message: String) {
+    private fun invalidate(message: String, isCorrection: Boolean = true) {
         clearInFlight()
         feedback = message
+        correction = if (isCorrection) message else null
     }
 
     private fun clearInFlight() {
@@ -192,6 +216,46 @@ class ExerciseCounter(val kind: ExerciseKind) {
         lastSide = null
         plankMillis -= plankMillis % PLANK_BLOCK_MS
     }
+
+    private fun classifyView(pose: ExercisePose): CameraView {
+        val os = pose.otherShoulder
+        val oh = pose.otherHip
+        if (os == null || oh == null || !pointUsable(os) || !pointUsable(oh)) return CameraView.SIDE
+        val midShoulder = BodyPoint((pose.shoulder.x + os.x) / 2f, (pose.shoulder.y + os.y) / 2f, 1f)
+        val midHip = BodyPoint((pose.hip.x + oh.x) / 2f, (pose.hip.y + oh.y) / 2f, 1f)
+        val torso = distance(midShoulder, midHip)
+        if (torso < MIN_SEGMENT_PX) return CameraView.UNKNOWN
+        val ratio = distance(pose.shoulder, os) / torso
+        return when {
+            ratio >= FRONT_RATIO -> CameraView.FRONT
+            ratio <= SIDE_RATIO -> CameraView.SIDE
+            else -> CameraView.DIAGONAL
+        }
+    }
+
+    private fun orientationOk(pose: ExercisePose, view: CameraView): Boolean = when (view) {
+        CameraView.SIDE -> horizontal(pose, 0.5)
+        CameraView.FRONT -> shouldersLevel(pose)
+        CameraView.DIAGONAL -> horizontal(pose, 1.0) || shouldersLevel(pose)
+        CameraView.UNKNOWN -> false
+    }
+
+    private fun orientationMessage(view: CameraView): String = when (view) {
+        CameraView.FRONT -> "Giữ hai vai ngang nhau, đừng nghiêng người."
+        CameraView.SIDE -> "Đặt camera bên hông, giữ thân gần song song với sàn."
+        else -> "Xoay máy rõ bên hông hoặc chính diện để đếm đúng."
+    }
+
+    private fun shouldersLevel(pose: ExercisePose): Boolean {
+        val os = pose.otherShoulder ?: return false
+        if (!pointUsable(os)) return false
+        val torso = distance(pose.shoulder, pose.hip)
+        if (torso < MIN_SEGMENT_PX) return false
+        return abs(pose.shoulder.y.toDouble() - os.y) <= torso * LEVEL_TOL
+    }
+
+    private fun pointUsable(p: BodyPoint): Boolean =
+        p.x.isFinite() && p.y.isFinite() && p.confidence.isFinite() && p.confidence >= MIN_CONFIDENCE
 
     private fun startingFeedback(): String = when (kind) {
         ExerciseKind.PUSH_UP -> "Duỗi thẳng tay, giữ thân thẳng để bắt đầu."
@@ -224,9 +288,9 @@ class ExerciseCounter(val kind: ExerciseKind) {
             distance(pose.knee, pose.ankle) >= MIN_SEGMENT_PX
     }
 
-    private fun horizontal(pose: ExercisePose): Boolean =
+    private fun horizontal(pose: ExercisePose, slope: Double): Boolean =
         abs(pose.ankle.y.toDouble() - pose.shoulder.y) <=
-            abs(pose.ankle.x.toDouble() - pose.shoulder.x) * 0.5
+            abs(pose.ankle.x.toDouble() - pose.shoulder.x) * slope
 
     private fun upright(pose: ExercisePose): Boolean {
         val torsoDrop = pose.hip.y.toDouble() - pose.shoulder.y
@@ -269,6 +333,11 @@ class ExerciseCounter(val kind: ExerciseKind) {
         const val MIN_CYCLE_MS = 800L
         const val MAX_CYCLE_MS = 10_000L
         const val MAX_INTERVAL_MS = 500L
-        const val PLANK_BLOCK_MS = 5_000L
+        const val PLANK_BLOCK_MS = 10_000L
+        const val PUSH_UP_PER_POINT = 3
+        const val SQUAT_PER_POINT = 5
+        const val FRONT_RATIO = 0.6
+        const val SIDE_RATIO = 0.3
+        const val LEVEL_TOL = 0.25
     }
 }
