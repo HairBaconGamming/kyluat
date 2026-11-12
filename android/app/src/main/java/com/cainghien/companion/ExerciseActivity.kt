@@ -31,7 +31,6 @@ import androidx.activity.ComponentActivity
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
@@ -41,13 +40,14 @@ import androidx.camera.view.PreviewView
 import androidx.camera.view.TransformExperimental
 import androidx.camera.view.transform.CoordinateTransform
 import androidx.camera.view.transform.ImageProxyTransformFactory
+import androidx.camera.view.transform.OutputTransform
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.pose.Pose
-import com.google.mlkit.vision.pose.PoseDetection
-import com.google.mlkit.vision.pose.PoseDetector
-import com.google.mlkit.vision.pose.PoseLandmark
-import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.framework.image.MPImage
+import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 
 @androidx.annotation.OptIn(TransformExperimental::class)
 class ExerciseActivity : ComponentActivity() {
@@ -64,6 +64,12 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var points: TextView
     private lateinit var feedback: TextView
     private lateinit var startButton: TextView
+    private lateinit var bottomPanel: LinearLayout
+    private lateinit var sessionBar: LinearLayout
+    private lateinit var slimCount: TextView
+    private lateinit var slimPoints: TextView
+    private lateinit var collapseLink: TextView
+    private var placementCue: String? = null
     private lateinit var segViews: List<TextView>
     private var counter = ExerciseCounter(ExerciseKind.PUSH_UP)
     private val stabilizer = PoseStabilizer()
@@ -92,9 +98,13 @@ class ExerciseActivity : ComponentActivity() {
         }
     }
 
-    private class CameraSession(val detector: PoseDetector) {
+    private class CameraSession(val landmarker: PoseLandmarker) {
         var closed = false
         var processing = false
+        var source: OutputTransform? = null
+        var target: OutputTransform? = null
+        var width = 0
+        var height = 0
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -148,7 +158,47 @@ class ExerciseActivity : ComponentActivity() {
             rightMargin = Ui.dp(this@ExerciseActivity, 10)
             bottomMargin = Ui.dp(this@ExerciseActivity, 10)
         })
+        root.addView(buildSessionBar(), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
+            leftMargin = Ui.dp(this@ExerciseActivity, 10)
+            rightMargin = Ui.dp(this@ExerciseActivity, 10)
+            bottomMargin = Ui.dp(this@ExerciseActivity, 10)
+        })
         return root
+    }
+
+    private fun buildSessionBar(): LinearLayout {
+        val bar = LinearLayout(this)
+        bar.orientation = LinearLayout.HORIZONTAL
+        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.background = Ui.rounded(PANEL, 14, this, PANEL_LINE)
+        bar.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10))
+        bar.visibility = View.GONE
+        slimCount = Ui.label(this, "0 cái", 20f, Color.WHITE, true)
+        bar.addView(slimCount)
+        slimPoints = Ui.label(this, "+0 điểm · hôm nay 0 điểm", 11.5f, GREEN_TEXT, true)
+        slimPoints.setPadding(Ui.dp(this, 10), 0, 0, 0)
+        bar.addView(slimPoints, LinearLayout.LayoutParams(0, -2, 1f))
+        val stop = Ui.label(this, "Dừng", 13.5f, Color.WHITE, true)
+        stop.gravity = Gravity.CENTER
+        stop.background = Ui.ripple(Ui.rounded(GREEN, 10, this), 0x33FFFFFF)
+        stop.setPadding(Ui.dp(this, 16), Ui.dp(this, 8), Ui.dp(this, 16), Ui.dp(this, 8))
+        stop.isClickable = true
+        stop.setOnClickListener {
+            stopCamera()
+            feedback.text = "Đã dừng camera. Điểm đã nhận được giữ lại."
+            render()
+        }
+        bar.addView(stop)
+        bar.isClickable = true
+        bar.setOnClickListener { setCollapsed(false) }
+        sessionBar = bar
+        return bar
+    }
+
+    private fun setCollapsed(collapsed: Boolean) {
+        bottomPanel.visibility = if (collapsed) View.GONE else View.VISIBLE
+        sessionBar.visibility = if (collapsed) View.VISIBLE else View.GONE
+        collapseLink.visibility = if (!collapsed && session != null) View.VISIBLE else View.GONE
     }
 
     private fun circleIcon(res: Int, onClick: () -> Unit): FrameLayout {
@@ -192,9 +242,16 @@ class ExerciseActivity : ComponentActivity() {
 
     private fun buildBottomPanel(): LinearLayout {
         val panel = LinearLayout(this)
+        bottomPanel = panel
         panel.orientation = LinearLayout.VERTICAL
         panel.background = Ui.rounded(PANEL, 18, this, PANEL_LINE)
         panel.setPadding(Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 12))
+        collapseLink = Ui.label(this, "Thu gọn bảng", 11f, DIM)
+        collapseLink.gravity = Gravity.END
+        collapseLink.visibility = View.GONE
+        collapseLink.isClickable = true
+        collapseLink.setOnClickListener { setCollapsed(true) }
+        panel.addView(collapseLink, Ui.match(this))
         val countRow = LinearLayout(this)
         countRow.orientation = LinearLayout.HORIZONTAL
         countRow.gravity = Gravity.CENTER_VERTICAL or Gravity.CENTER_HORIZONTAL
@@ -299,7 +356,7 @@ class ExerciseActivity : ComponentActivity() {
             .setMessage(
                 "Camera chỉ bật khi bạn bấm Bắt đầu. Ảnh được xử lý ngay trên máy, không lưu hoặc gửi đi. " +
                     "Rời màn tập hoặc bấm Dừng sẽ tắt camera; phần động tác chưa hoàn thành không có điểm. " +
-                    "Google ML Kit gửi số liệu sử dụng, hiệu năng SDK và thông tin kỹ thuật thiết bị/app tới Google, không gửi ảnh hay kết quả nhận diện. " +
+                    "Bộ nhận diện MediaPipe Pose Landmarker (Apache-2.0) chạy hoàn toàn trên máy, không gửi ảnh hay số liệu đi đâu. " +
                     "Giọng nói dùng TTS có sẵn của máy, không gửi âm thanh đi. " +
                     "Nhận diện có thể sai khi thiếu sáng hoặc khuất người. Dừng tập nếu đau hoặc chóng mặt."
             )
@@ -326,12 +383,30 @@ class ExerciseActivity : ComponentActivity() {
     private fun startCamera() {
         if (session != null || isFinishing || isDestroyed) return
         try {
-            val options = PoseDetectorOptions.Builder().setDetectorMode(PoseDetectorOptions.STREAM_MODE).build()
-            val active = CameraSession(PoseDetection.getClient(options))
+            val options = PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_full.task").build())
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setNumPoses(1)
+                .setMinPoseDetectionConfidence(0.5f)
+                .setMinPosePresenceConfidence(0.5f)
+                .setMinTrackingConfidence(0.5f)
+                .setResultListener { result, image ->
+                    val current = session
+                    if (current != null) onPose(current, result, image)
+                }
+                .setErrorListener {
+                    runOnUiThread {
+                        if (session != null) cameraError("Nhận diện bị gián đoạn. Đã dừng camera; bấm Bắt đầu để thử lại.")
+                    }
+                }
+                .build()
+            val active = CameraSession(PoseLandmarker.createFromOptions(this, options))
             session = active
             cameraRotation = preview.display?.rotation ?: Surface.ROTATION_0
             counter.pause()
             lastCorrection = null
+            placementCue = null
+            setCollapsed(true)
             preview.visibility = View.VISIBLE
             startButton.text = "Dừng"
             feedback.text = "Đang mở camera…"
@@ -388,7 +463,6 @@ class ExerciseActivity : ComponentActivity() {
         }
     }
 
-    @androidx.annotation.OptIn(ExperimentalGetImage::class)
     private fun analyze(active: CameraSession, frame: ImageProxy) {
         if (active.closed || active.processing || session !== active) {
             frame.close()
@@ -399,52 +473,64 @@ class ExerciseActivity : ComponentActivity() {
             cameraError("Bảo vệ đã tắt. Đã dừng camera và ngừng cộng điểm.")
             return
         }
-        val image = frame.image
-        if (image == null) {
-            frame.close()
+        val source = transformFactory.getOutputTransform(frame)
+        val target = preview.outputTransform
+        val bitmap = try {
+            frame.toBitmap()
+        } catch (error: Exception) {
+            null
+        }
+        frame.close()
+        if (bitmap == null || target == null) {
             counter.pause()
             return
         }
-        val capturedAt = SystemClock.elapsedRealtime()
-        val rotation = frame.imageInfo.rotationDegrees
-        val rotated = rotation == 90 || rotation == 270
-        val width = if (rotated) frame.height else frame.width
-        val height = if (rotated) frame.width else frame.height
+        active.source = source
+        active.target = target
+        active.width = bitmap.width
+        active.height = bitmap.height
         active.processing = true
         try {
-            active.detector.process(InputImage.fromMediaImage(image, rotation))
-                .addOnSuccessListener { pose ->
-                    if (!active.closed && session === active && prefs.protectionEnabled) {
-                        val body = stabilizer.update(bodyCandidates(pose, width, height), capturedAt)
-                        val target = preview.outputTransform ?: return@addOnSuccessListener
-                        val viewBody = body?.let {
-                            toViewSpace(it, CoordinateTransform(
-                                transformFactory.getOutputTransform(frame), target))
-                        }
-                        counter.update(viewBody, capturedAt)
-                        val delta = counter.points - creditedPoints
-                        if (delta > 0) {
-                            quota.awardSession(delta)
-                            creditedPoints = counter.points
-                        }
-                        skeleton.show(viewBody)
-                        speakCorrection(counter.correction)
-                        feedback.text = counter.feedback
-                        render()
-                    }
-                }
-                .addOnFailureListener {
-                    if (!active.closed && session === active) cameraError("Nhận diện bị gián đoạn. Đã dừng camera; bấm Bắt đầu để thử lại.")
-                }
-                .addOnCompleteListener {
-                    frame.close()
-                    active.processing = false
-                    if (active.closed) active.detector.close()
-                }
+            active.landmarker.detectAsync(BitmapImageBuilder(bitmap).build(), SystemClock.elapsedRealtime())
         } catch (error: Exception) {
-            frame.close()
             active.processing = false
             cameraError("Không xử lý được hình ảnh. Đã dừng camera; hãy thử lại.")
+        }
+    }
+
+    private fun onPose(active: CameraSession, result: PoseLandmarkerResult, image: MPImage) {
+        runOnUiThread {
+            image.close()
+            active.processing = false
+            if (active.closed || session !== active) {
+                if (active.closed) active.landmarker.close()
+                return@runOnUiThread
+            }
+            if (!prefs.protectionEnabled) {
+                cameraError("Bảo vệ đã tắt. Đã dừng camera và ngừng cộng điểm.")
+                return@runOnUiThread
+            }
+            val now = result.timestampMs()
+            val body = stabilizer.update(bodyCandidates(result, active.width, active.height), now)
+            val source = active.source
+            val target = active.target
+            val viewBody = if (body != null && source != null && target != null) {
+                toViewSpace(body, CoordinateTransform(source, target))
+            } else null
+            counter.update(viewBody, now)
+            val delta = counter.points - creditedPoints
+            if (delta > 0) {
+                quota.awardSession(delta)
+                creditedPoints = counter.points
+            }
+            skeleton.show(viewBody)
+            val visibleBottom = (if (sessionBar.visibility == View.VISIBLE) sessionBar.top
+                else bottomPanel.top).toFloat()
+            placementCue = Framing.feetCue(viewBody?.ankle?.y, visibleBottom)
+            speakCorrection(placementCue ?: counter.correction)
+            feedback.text = placementCue ?: counter.feedback
+            render()
+            if (active.closed) active.landmarker.close()
         }
     }
 
@@ -453,22 +539,26 @@ class ExerciseActivity : ComponentActivity() {
         if (correction != lastCorrection) { lastCorrection = correction; voice.speakCorrection(correction) }
     }
 
-    private fun bodyCandidates(pose: Pose, width: Int, height: Int): List<ExercisePose> {
+    private fun bodyCandidates(result: PoseLandmarkerResult, width: Int, height: Int): List<ExercisePose> {
+        val landmarks = result.landmarks().firstOrNull() ?: return emptyList()
+        val world = result.worldLandmarks().firstOrNull()
         val sides = listOf(
-            intArrayOf(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST,
-                PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE),
-            intArrayOf(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_WRIST,
-                PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE),
+            intArrayOf(11, 13, 15, 23, 25, 27),
+            intArrayOf(12, 14, 16, 24, 26, 28),
         )
-        val otherIds = listOf(
-            listOf(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_HIP),
-            listOf(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP),
-        )
-        fun read(type: Int): BodyPoint? {
-            val landmark = pose.getPoseLandmark(type) ?: return null
-            val position = landmark.position
-            if (position.x !in 0f..width.toFloat() || position.y !in 0f..height.toFloat()) return null
-            return BodyPoint(position.x, position.y, landmark.inFrameLikelihood)
+        val otherIds = listOf(intArrayOf(12, 24), intArrayOf(11, 23))
+        fun read(index: Int): BodyPoint? {
+            val landmark = landmarks.getOrNull(index) ?: return null
+            val x = landmark.x() * width
+            val y = landmark.y() * height
+            if (x !in 0f..width.toFloat() || y !in 0f..height.toFloat()) return null
+            return BodyPoint(x, y, landmark.visibility().orElse(0f))
+        }
+        fun readWorld(index: Int): WorldPoint? {
+            val landmark = world?.getOrNull(index) ?: return null
+            val visibility = landmark.visibility().orElse(0f)
+            if (visibility < 0.5f) return null
+            return WorldPoint(landmark.x(), landmark.y(), landmark.z(), visibility)
         }
         return sides.mapIndexedNotNull { side, ids ->
             val shoulder = read(ids[0]) ?: return@mapIndexedNotNull null
@@ -479,8 +569,19 @@ class ExerciseActivity : ComponentActivity() {
             // placeholder joints carry confidence 0 so gates and drawing skip them.
             val elbow = read(ids[1]) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
             val wrist = read(ids[2]) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
+            val chain = if (world != null) {
+                val ws = readWorld(ids[0])
+                val we = readWorld(ids[1])
+                val ww = readWorld(ids[2])
+                val wh = readWorld(ids[3])
+                val wk = readWorld(ids[4])
+                val wa = readWorld(ids[5])
+                if (ws != null && we != null && ww != null && wh != null && wk != null && wa != null) {
+                    WorldChain(ws, we, ww, wh, wk, wa)
+                } else null
+            } else null
             ExercisePose(shoulder, elbow, wrist, hip, knee, ankle, side,
-                otherShoulder = read(otherIds[side][0]), otherHip = read(otherIds[side][1]))
+                otherShoulder = read(otherIds[side][0]), otherHip = read(otherIds[side][1]), world = chain)
         }
     }
 
@@ -507,9 +608,11 @@ class ExerciseActivity : ComponentActivity() {
         countUnit.text = if (counter.kind == ExerciseKind.PLANK) "giây" else "cái"
         quota.resetIfNeeded()
         points.text = "+${counter.points} điểm bài này · hôm nay ${quota.pointsToday()} điểm"
+        slimCount.text = "${countNum.text} ${countUnit.text}"
+        slimPoints.text = "+${counter.points} điểm · hôm nay ${quota.pointsToday()} điểm"
         viewBadge.text = "Góc nhìn: ${counter.viewLabel.lowercase()}"
         val tone = when {
-            counter.correction != null -> AMBER to AMBER_BG
+            placementCue != null || counter.correction != null -> AMBER to AMBER_BG
             session != null -> GREEN_TEXT to GREEN_BG
             else -> Color.parseColor("#E8ECEF") to Color.parseColor("#CC111619")
         }
@@ -529,7 +632,7 @@ class ExerciseActivity : ComponentActivity() {
         session = null
         if (active != null) {
             active.closed = true
-            if (!active.processing) active.detector.close()
+            if (!active.processing) active.landmarker.close()
         }
         analysis?.clearAnalyzer()
         analysis = null
@@ -538,9 +641,11 @@ class ExerciseActivity : ComponentActivity() {
         provider?.unbindAll()
         stabilizer.reset()
         lastCorrection = null
+        placementCue = null
         voice.reset()
         counter.pause()
         skeleton.show(null)
+        setCollapsed(false)
         preview.visibility = View.INVISIBLE
         startButton.text = "Bắt đầu"
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

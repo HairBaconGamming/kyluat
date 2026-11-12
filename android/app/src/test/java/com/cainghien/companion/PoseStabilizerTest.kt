@@ -45,10 +45,20 @@ class PoseStabilizerTest {
     fun `a teleporting landmark is rejected and the last good pose held`() {
         val stabilizer = PoseStabilizer()
         val good = stabilizer.update(listOf(standing()), 0L)!!
-        val jumped = standing(dy = 400f)
+        val jumped = standing(dy = 600f)
         assertEquals(good, stabilizer.update(listOf(jumped), 100L))
         assertEquals(good, stabilizer.update(listOf(jumped), 300L))
         assertNull(stabilizer.update(listOf(jumped), 500L))
+    }
+
+    @Test
+    fun `a single teleporting joint freezes instead of dropping the pose`() {
+        val stabilizer = PoseStabilizer()
+        val good = stabilizer.update(listOf(standing()), 0L)!!
+        val jumped = standing().copy(ankle = point(200.0, 1300.0))
+        val out = stabilizer.update(listOf(jumped), 100L)!!
+        assertEquals(good.ankle.y, out.ankle.y, 0.01f)
+        assertEquals(good.shoulder, out.shoulder)
     }
 
     @Test

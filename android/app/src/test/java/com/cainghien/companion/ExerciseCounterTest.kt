@@ -67,7 +67,7 @@ class ExerciseCounterTest {
     @Test
     fun `top and bottom angle thresholds are distinct for each exercise`() {
         for (kind in repetitionKinds) {
-            val top = if (kind == ExerciseKind.PUSH_UP) 155.0 else 160.0
+            val top = if (kind == ExerciseKind.PUSH_UP) 155.0 else 150.0
             val bottom = if (kind == ExerciseKind.PUSH_UP) 100.0 else 105.0
             val accepted = ExerciseCounter(kind)
             cycle(accepted, 0L, top = top + 0.1, bottom = bottom - 0.1)
@@ -112,11 +112,11 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `initial top and bottom each require 180ms continuously`() {
+    fun `initial top and bottom each require 120ms continuously`() {
         for (kind in repetitionKinds) {
             val shortTop = ExerciseCounter(kind)
             shortTop.update(pose(kind, 170.0), 0L)
-            shortTop.update(pose(kind, 170.0), 179L)
+            shortTop.update(pose(kind, 170.0), 119L)
             shortTop.update(pose(kind, 90.0), 400L)
             shortTop.update(pose(kind, 90.0), 580L)
             shortTop.update(pose(kind, 130.0), 800L)
@@ -129,7 +129,7 @@ class ExerciseCounterTest {
             shortBottom.update(pose(kind, 170.0), 180L)
             shortBottom.update(pose(kind, 130.0), 200L)
             shortBottom.update(pose(kind, 90.0), 400L)
-            shortBottom.update(pose(kind, 90.0), 579L)
+            shortBottom.update(pose(kind, 90.0), 519L)
             shortBottom.update(pose(kind, 130.0), 600L)
             shortBottom.update(pose(kind, 170.0), 1_000L)
             shortBottom.update(pose(kind, 170.0), 1_180L)
@@ -138,14 +138,14 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `returning top must also remain stable for 180ms`() {
+    fun `returning top must also remain stable for 120ms`() {
         for (kind in repetitionKinds) {
             val counter = ExerciseCounter(kind)
             primeBottom(counter)
             counter.update(pose(kind, 170.0), 1_200L)
-            counter.update(pose(kind, 170.0), 1_379L)
+            counter.update(pose(kind, 170.0), 1_319L)
             assertEquals(0, counter.reps)
-            counter.update(pose(kind, 170.0), 1_380L)
+            counter.update(pose(kind, 170.0), 1_320L)
             assertEquals(1, counter.reps)
         }
     }
@@ -651,6 +651,22 @@ class ExerciseCounterTest {
     }
 
     @Test
+    fun `a sustained view switch keeps the cycle when world landmarks drive the angle`() {
+        val counter = ExerciseCounter(ExerciseKind.SQUAT)
+        counter.update(squat(170.0), 0L)
+        counter.update(squat(170.0), 200L)
+        counter.update(squat(90.0), 400L)
+        counter.update(squat(90.0), 600L)
+        val frontBottom = withOther(squat(90.0), 200.0).copy(world = worldChain(90.0))
+        for (time in listOf(800L, 1_000L, 1_200L, 1_400L)) counter.update(frontBottom, time)
+        assertEquals(CameraView.FRONT, counter.view)
+        val frontTop = withOther(squat(170.0), 200.0).copy(world = worldChain(170.0))
+        counter.update(frontTop, 1_600L)
+        counter.update(frontTop, 1_800L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
     fun `a brief view flap does not discard an in-flight repetition`() {
         val counter = ExerciseCounter(ExerciseKind.SQUAT)
         counter.update(squat(170.0), 0L)
@@ -678,6 +694,44 @@ class ExerciseCounterTest {
         val diagonal = ExerciseCounter(ExerciseKind.PUSH_UP)
         diagonal.update(withOther(rotate(pushUp(170.0), 90.0), 120.0), 0L)
         assertEquals("Chếch 45°", diagonal.viewLabel)
+    }
+
+    @Test
+    fun `world landmarks count front squats whose image legs stay straight`() {
+        val angles = listOf(170.0, 170.0, 130.0, 90.0, 90.0, 130.0, 170.0, 170.0)
+        val withWorld = ExerciseCounter(ExerciseKind.SQUAT)
+        angles.forEachIndexed { index, degrees ->
+            withWorld.update(withOther(squat(170.0), 200.0).copy(world = worldChain(degrees)), index * 200L)
+        }
+        assertEquals(1, withWorld.reps)
+        val without = ExerciseCounter(ExerciseKind.SQUAT)
+        angles.forEachIndexed { index, _ -> without.update(withOther(squat(170.0), 200.0), index * 200L) }
+        assertEquals(0, without.reps)
+    }
+
+    @Test
+    fun `world landmarks count pushups whose image elbow stays straight`() {
+        val angles = listOf(170.0, 170.0, 130.0, 90.0, 90.0, 130.0, 170.0, 170.0)
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        angles.forEachIndexed { index, degrees ->
+            counter.update(pushUp(170.0).copy(world = worldChain(180.0, degrees)), index * 200L)
+        }
+        assertEquals(1, counter.reps)
+    }
+
+    private fun worldPoint(x: Double, y: Double, z: Double) =
+        WorldPoint(x.toFloat(), y.toFloat(), z.toFloat(), 0.99f)
+
+    private fun worldChain(kneeDegrees: Double, elbowDegrees: Double = 180.0): WorldChain {
+        val hip = worldPoint(0.0, 0.0, 0.0)
+        val shoulder = worldPoint(0.0, 0.5, 0.0)
+        val knee = worldPoint(0.0, -0.45, 0.0)
+        val kr = Math.toRadians(kneeDegrees)
+        val ankle = worldPoint(knee.x + 0.45 * sin(kr), knee.y + 0.45 * cos(kr), 0.0)
+        val elbow = worldPoint(0.0, 0.2, 0.0)
+        val er = Math.toRadians(elbowDegrees)
+        val wrist = worldPoint(elbow.x + 0.3 * sin(er), elbow.y + 0.3 * cos(er), 0.0)
+        return WorldChain(shoulder, elbow, wrist, hip, knee, ankle)
     }
 
     private fun requiredIndices(kind: ExerciseKind): List<Int> =

@@ -79,28 +79,49 @@ class PoseStabilizer {
         val at = lastGoodAt ?: return next
         val dt = nowMs - at
         if (dt <= 0L) return next
-        val torso = distance(next.shoulder, next.hip)
-        if (torso < MIN_SEGMENT_PX) return next
+        // Torso shrinks at squat bottom, so scale the teleport gate by full body span.
+        // Min of both frames: a teleporting limb must not inflate its own threshold.
+        val span = minOf(
+            distance(previous.shoulder, previous.ankle),
+            distance(next.shoulder, next.ankle)
+        )
+        if (span < MIN_SEGMENT_PX) return next
         val core = listOf(
             previous.shoulder to next.shoulder,
             previous.hip to next.hip,
             previous.knee to next.knee,
             previous.ankle to next.ankle
         )
-        if (core.any { distance(it.first, it.second) > torso * JUMP_RATIO }) return null
+        // A single joint teleport (foot swap, blur) freezes that joint instead of
+        // dropping the whole pose; only a full-body teleport rejects the frame.
+        val gated = core.map { (prev, nxt) ->
+            if (distance(prev, nxt) > span * JUMP_RATIO) null else nxt
+        }
+        if (gated.all { it == null }) return null
         val alpha = (1.0 - exp(-dt.toDouble() / TAU_MS)).toFloat()
         fun blend(a: BodyPoint, b: BodyPoint) =
             BodyPoint(a.x + (b.x - a.x) * alpha, a.y + (b.y - a.y) * alpha, b.confidence)
         fun blendNullable(a: BodyPoint?, b: BodyPoint?) = if (a != null && b != null) blend(a, b) else b
+        fun blendW(a: WorldPoint, b: WorldPoint) =
+            WorldPoint(a.x + (b.x - a.x) * alpha, a.y + (b.y - a.y) * alpha, a.z + (b.z - a.z) * alpha, b.confidence)
+        val pw = previous.world
+        val nw = next.world
+        val world = if (pw != null && nw != null) {
+            WorldChain(
+                blendW(pw.shoulder, nw.shoulder), blendW(pw.elbow, nw.elbow), blendW(pw.wrist, nw.wrist),
+                blendW(pw.hip, nw.hip), blendW(pw.knee, nw.knee), blendW(pw.ankle, nw.ankle)
+            )
+        } else nw
         return next.copy(
-            shoulder = blend(previous.shoulder, next.shoulder),
+            shoulder = blend(previous.shoulder, gated[0] ?: previous.shoulder),
             elbow = blend(previous.elbow, next.elbow),
             wrist = blend(previous.wrist, next.wrist),
-            hip = blend(previous.hip, next.hip),
-            knee = blend(previous.knee, next.knee),
-            ankle = blend(previous.ankle, next.ankle),
+            hip = blend(previous.hip, gated[1] ?: previous.hip),
+            knee = blend(previous.knee, gated[2] ?: previous.knee),
+            ankle = blend(previous.ankle, gated[3] ?: previous.ankle),
             otherShoulder = blendNullable(previous.otherShoulder, next.otherShoulder),
-            otherHip = blendNullable(previous.otherHip, next.otherHip)
+            otherHip = blendNullable(previous.otherHip, next.otherHip),
+            world = world
         )
     }
 
@@ -122,7 +143,7 @@ class PoseStabilizer {
         const val HOLD_MS = 400L
         const val SIDE_HOLD_MS = 600L
         const val TAU_MS = 90.0
-        const val JUMP_RATIO = 0.6
+        const val JUMP_RATIO = 0.8
         const val MIN_CONFIDENCE = 0.7f
         const val MIN_SEGMENT_PX = 8.0
     }

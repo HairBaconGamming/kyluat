@@ -37,8 +37,8 @@ android {
         applicationId = "com.cainghien.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 24
-        versionName = "3.19"
+        versionCode = 25
+        versionName = "3.20"
         // Chỉ máy thật ARM; bỏ x86 để APK không mang thêm thư viện không ai dùng.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -90,7 +90,7 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.3.4")
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
-    implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
     testImplementation("junit:junit:4.13.2")
 }
 

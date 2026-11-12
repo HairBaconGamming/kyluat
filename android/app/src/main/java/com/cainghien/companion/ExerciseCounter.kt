@@ -11,6 +11,17 @@ enum class CameraView { SIDE, FRONT, DIAGONAL, UNKNOWN }
 
 data class BodyPoint(val x: Float, val y: Float, val confidence: Float)
 
+data class WorldPoint(val x: Float, val y: Float, val z: Float, val confidence: Float)
+
+data class WorldChain(
+    val shoulder: WorldPoint,
+    val elbow: WorldPoint,
+    val wrist: WorldPoint,
+    val hip: WorldPoint,
+    val knee: WorldPoint,
+    val ankle: WorldPoint
+)
+
 data class ExercisePose(
     val shoulder: BodyPoint,
     val elbow: BodyPoint,
@@ -20,7 +31,8 @@ data class ExercisePose(
     val ankle: BodyPoint,
     val side: Int,
     val otherShoulder: BodyPoint? = null,
-    val otherHip: BodyPoint? = null
+    val otherHip: BodyPoint? = null,
+    val world: WorldChain? = null
 )
 
 class ExerciseCounter(val kind: ExerciseKind) {
@@ -88,7 +100,8 @@ class ExerciseCounter(val kind: ExerciseKind) {
             } else if (nowMs - pendingViewSince >= VIEW_HOLD_MS) {
                 view = classified
                 pendingView = null
-                clearInFlight()
+                // World angles are view-independent; only 2D fallbacks change meaning.
+                if (pose.world == null) clearInFlight()
             }
         } else {
             pendingView = null
@@ -104,9 +117,15 @@ class ExerciseCounter(val kind: ExerciseKind) {
                 invalidate(orientationMessage(view))
                 return
             }
-            if (angle(pose.shoulder, pose.hip, pose.knee) < STRAIGHT_ANGLE ||
-                angle(pose.hip, pose.knee, pose.ankle) < STRAIGHT_ANGLE
-            ) {
+            val w = pose.world
+            val bodyStraight = if (w != null) {
+                angle3(w.shoulder, w.hip, w.knee) >= STRAIGHT_ANGLE &&
+                    angle3(w.hip, w.knee, w.ankle) >= STRAIGHT_ANGLE
+            } else {
+                angle(pose.shoulder, pose.hip, pose.knee) >= STRAIGHT_ANGLE &&
+                    angle(pose.hip, pose.knee, pose.ankle) >= STRAIGHT_ANGLE
+            }
+            if (!bodyStraight) {
                 invalidate("Giữ vai, hông và chân thành một đường thẳng.")
                 return
             }
@@ -132,7 +151,10 @@ class ExerciseCounter(val kind: ExerciseKind) {
             feedback = "Giữ thân thẳng, chống cẳng tay và thở đều."
         } else {
             val jointAngle = when {
-                kind == ExerciseKind.PUSH_UP -> angle(pose.shoulder, pose.elbow, pose.wrist)
+                kind == ExerciseKind.PUSH_UP ->
+                    pose.world?.let { angle3(it.shoulder, it.elbow, it.wrist) }
+                        ?: angle(pose.shoulder, pose.elbow, pose.wrist)
+                pose.world != null -> angle3(pose.world.hip, pose.world.knee, pose.world.ankle)
                 view == CameraView.SIDE -> angle(pose.hip, pose.knee, pose.ankle)
                 else -> squatDepthAngle(pose)
             }
@@ -151,7 +173,8 @@ class ExerciseCounter(val kind: ExerciseKind) {
             if (nowMs - it > MAX_CYCLE_MS) clearInFlight()
         }
 
-        val topAngle = if (kind == ExerciseKind.PUSH_UP) 155.0 else 160.0
+        // World knee reads ~155° on a fully standing leg, so the squat top sits below that.
+        val topAngle = if (kind == ExerciseKind.PUSH_UP) 155.0 else 150.0
         val bottomAngle = if (kind == ExerciseKind.PUSH_UP) 100.0 else 105.0
         val current = when {
             jointAngle >= topAngle -> Extremum.TOP
@@ -251,6 +274,11 @@ class ExerciseCounter(val kind: ExerciseKind) {
         val torso = distance(midShoulder, midHip)
         if (torso < MIN_SEGMENT_PX) return CameraView.UNKNOWN
         val ratio = distance(pose.shoulder, os) / torso
+        // A horizontal torso projects shoulder width onto the same image axis as the
+        // torso, inflating the ratio; only a near-head-on view must fail the side gate.
+        if (abs(midHip.y - midShoulder.y) <= abs(midHip.x - midShoulder.x)) {
+            return if (ratio >= FRONT_RATIO_HORIZONTAL) CameraView.FRONT else CameraView.SIDE
+        }
         return when {
             ratio >= FRONT_RATIO -> CameraView.FRONT
             ratio <= SIDE_RATIO -> CameraView.SIDE
@@ -357,12 +385,27 @@ class ExerciseCounter(val kind: ExerciseKind) {
         return acos(cosine.coerceIn(-1.0, 1.0)) * 180.0 / PI
     }
 
+    private fun angle3(a: WorldPoint, joint: WorldPoint, b: WorldPoint): Double {
+        val ax = a.x.toDouble() - joint.x
+        val ay = a.y.toDouble() - joint.y
+        val az = a.z.toDouble() - joint.z
+        val bx = b.x.toDouble() - joint.x
+        val by = b.y.toDouble() - joint.y
+        val bz = b.z.toDouble() - joint.z
+        val la = sqrt(ax * ax + ay * ay + az * az)
+        val lb = sqrt(bx * bx + by * by + bz * bz)
+        if (la < 1e-6 || lb < 1e-6) return 180.0
+        val cosine = (ax * bx + ay * by + az * bz) / (la * lb)
+        return acos(cosine.coerceIn(-1.0, 1.0)) * 180.0 / PI
+    }
+
     private companion object {
         const val MIN_CONFIDENCE = 0.7f
         const val MIN_SEGMENT_PX = 8.0
-        const val STRAIGHT_ANGLE = 160.0
+        // World landmarks read ~159° on a straight torso at low resolution.
+        const val STRAIGHT_ANGLE = 150.0
         const val DEPARTURE_MARGIN = 5.0
-        const val STABLE_MS = 180L
+        const val STABLE_MS = 120L
         const val MIN_CYCLE_MS = 800L
         const val MAX_CYCLE_MS = 10_000L
         const val MAX_INTERVAL_MS = 500L
@@ -371,6 +414,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
         const val PUSH_UP_PER_POINT = 3
         const val SQUAT_PER_POINT = 5
         const val FRONT_RATIO = 0.6
+        const val FRONT_RATIO_HORIZONTAL = 0.85
         const val SIDE_RATIO = 0.3
         const val LEVEL_TOL = 0.25
     }

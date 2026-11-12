@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.20</td>
+                    <td>12/11/2026</td>
+                    <td><strong>Bảng đếm thu gọn khi đang tập.</strong> Trong lúc tập, bảng dưới cùng thu thành thanh mỏng (số đếm + điểm + Dừng) để không che bàn chân và khung xương; chạm thanh để mở lại bảng đầy đủ, bấm "Thu gọn bảng" để thu lại. Nếu bàn chân vẫn khuất sau bảng, app hiện và đọc câu nhắc đặt máy xa hơn hoặc nâng camera. Giữ nguyên tỉ lệ 3/5/10 và các sửa nhận diện khớp của 3.19. Thay tầng nhận diện bằng MediaPipe Pose Landmarker (Apache-2.0, chạy cục bộ, không telemetry) với góc khớp 3D không phụ thuộc góc camera; bỏ ML Kit nên APK nhẹ hơn còn 60,60 MB. Chưa kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.19</td>
                     <td>12/11/2026</td>
                     <td><strong>Sửa nhận diện khớp cho màn tập camera.</strong> Khung xương vẽ đúng hệ tọa độ của khung xem trước thay vì phép đổi tự đoán; khớp được làm mượt, giữ tối đa 400ms khi mất dấu thoáng qua và đổi bên chỉ sau 600ms bằng chứng. Squat không cần thấy tay (khoanh tay vẫn đếm) và đo được góc chính diện bằng độ hạ hông; chống đẩy/plank nhìn chính diện sẽ được hướng dẫn xoay máy. Nhãn góc chỉ đổi sau 600ms ổn định nên không xoá nhịp đang đếm. Tỉ lệ điểm giữ nguyên 3/5/10. Chưa kiểm chứng trên điện thoại thật.</td>

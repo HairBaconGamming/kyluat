@@ -367,7 +367,7 @@ export default function Page() {
                 <summary>Dữ liệu của tôi đi đâu?</summary>
                 <div className="body">
                   <p>Luật, lịch sử chặn và sổ học tập nằm trên máy bạn; dữ liệu Windows ở một file SQLite, xem được ở mục Nâng cao. Ảnh camera dùng để đếm bài tập được xử lý tại máy, không lưu hoặc gửi đi.</p>
-                  <p>SDK Google ML Kit trên Android gửi số liệu sử dụng, hiệu năng và thông tin kỹ thuật tới Google, không gửi ảnh hoặc kết quả tư thế. <a href="/an-toan#camera-bai-tap">Đọc chi tiết quyền riêng tư</a>.</p>
+                  <p>Từ 3.20, bộ đếm bài tập dùng MediaPipe Pose Landmarker chạy hoàn toàn trên máy, không gửi số liệu hay ảnh đi đâu; các bản 3.17–3.19 dùng ML Kit có gửi số liệu kỹ thuật tới Google. <a href="/an-toan#camera-bai-tap">Đọc chi tiết quyền riêng tư</a>.</p>
                   <p>Máy tính và điện thoại nói chuyện với nhau qua Wi-Fi nội bộ, không có máy chủ trung gian.</p>
                 </div>
               </details>
@@ -482,7 +482,7 @@ export default function Page() {
                 <summary>Buổi gym được tính thế nào?</summary>
                 <div className="body">
                   <p>Giữ app tập của bạn trên màn hình đủ 10 phút liên tục thì được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, nhưng điểm đã nhận không mất. Cùng đồng hồ đó còn tính điểm học: 10/20/30/45/60 phút = 20/40/50/70/100 điểm, đổi ra phút quỹ lướt.</p>
-                  <p>Bản 3.19 sửa nhận diện khớp của <strong>Buổi tập → Tập với camera</strong>: khung xương bám đúng người, khớp được làm mượt và không xoá nhịp đang đếm khi nhãn góc thoáng đổi. Squat khoanh tay hoặc nhìn chính diện vẫn đếm được; chống đẩy và plank cần góc bên hông hoặc chếch 45°. Màn tập toàn màn hình, giọng tiếng Việt đọc câu sửa tư thế khi chưa ổn (tắt được bằng nút loa). Tỉ lệ: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Phải đủ nhịp động tác hoặc giữ đúng tư thế; camera dừng khi bạn bấm Dừng hay rời màn. Ảnh không lưu hoặc gửi đi; <a href="/an-toan#camera-bai-tap">xem quyền riêng tư của SDK nhận diện</a>.</p>
+                  <p>Bản 3.19–3.20 sửa màn tập camera: khung xương bám đúng người, khớp được làm mượt và không xoá nhịp đang đếm khi nhãn góc thoáng đổi; bảng đếm thu thành thanh mỏng khi đang tập để thấy cả bàn chân, app nhắc khi chân còn khuất. Squat khoanh tay hoặc nhìn chính diện vẫn đếm được; chống đẩy và plank cần góc bên hông hoặc chếch 45°. Màn tập toàn màn hình, giọng tiếng Việt đọc câu sửa tư thế khi chưa ổn (tắt được bằng nút loa). Tỉ lệ: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Phải đủ nhịp động tác hoặc giữ đúng tư thế; camera dừng khi bạn bấm Dừng hay rời màn. Ảnh không lưu hoặc gửi đi; <a href="/an-toan#camera-bai-tap">xem quyền riêng tư của SDK nhận diện</a>.</p>
                 </div>
               </details>
               <details id="faq-tat">
@@ -527,8 +527,8 @@ export default function Page() {
                   </tr>
                   <tr>
                     <td>Số liệu kỹ thuật SDK Android</td>
-                    <td className="yes" data-label="Kỷ luật">Có, ML Kit</td>
-                    <td data-label="Ghi chú">Gửi tới Google, không gồm ảnh hoặc kết quả tư thế. <a href="/an-toan#camera-bai-tap">Chi tiết</a>.</td>
+                    <td className="no" data-label="Kỷ luật">Không, từ 3.20</td>
+                    <td data-label="Ghi chú">MediaPipe chạy cục bộ. Bản 3.17–3.19 dùng ML Kit có gửi số liệu kỹ thuật tới Google, không gồm ảnh. <a href="/an-toan#camera-bai-tap">Chi tiết</a>.</td>
                   </tr>
                   <tr>
                     <td>Đọc nội dung màn hình</td>
