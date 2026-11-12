@@ -258,14 +258,14 @@ Get-DnsClientServerAddress -AddressFamily IPv4`}</code></pre>
       <section className="alt" id="camera-bai-tap">
         <div className="wrap">
           <div className="head">
-            <p className="eyebrow">Camera bài tập · Android 3.18</p>
+            <p className="eyebrow">Camera bài tập · Android 3.19</p>
             <h2>Đếm động tác trên máy, không lưu hình ảnh</h2>
           </div>
           <div className="prose">
             <p>Quyền <strong>Camera</strong> là tuỳ chọn, dùng để quét mã ghép nối hoặc đếm chống đẩy, squat và plank. Màn bài tập chỉ mở camera sau khi bạn bấm <strong>Bắt đầu</strong>; không xin quyền micro, không quay video, không đọc ảnh có sẵn. Mô hình nhận diện được đóng gói trong APK.</p>
             <p>Bấm <strong>Dừng</strong>, chuyển sang app khác (kể cả chia đôi màn hình), xoay máy, khoá máy hoặc gặp lỗi nhận diện là dừng đếm và tắt camera. Bạn luôn rời màn tập được; từ chối quyền không ảnh hưởng tính năng khác. Điểm đã nhận được giữ lại, phần động tác hoặc 10 giây plank còn dở không được cộng.</p>
             <p>Ảnh và kết quả nhận diện được xử lý ngay trên điện thoại, không gửi tới tác giả hay Google. Tuy vậy, <strong>Google ML Kit có gửi số liệu sử dụng, hiệu năng, thông tin thiết bị/app và mã định danh kỹ thuật tới Google</strong>; vì thế không thể gọi bản Android này là “không có telemetry”. Chi tiết trong <a href="https://developers.google.com/ml-kit/terms">điều khoản ML Kit</a> và <a href="https://developers.google.com/ml-kit/android-data-disclosure">công bố dữ liệu SDK Android</a>. Giọng sửa tư thế dùng bộ đọc chữ có sẵn của máy (TTS), không gửi âm thanh đi.</p>
-            <p>Bộ đếm chưa được kiểm chứng trên điện thoại thật. Góc đặt máy, thiếu sáng và khuất người có thể làm đếm sai; đây không phải công cụ đánh giá y khoa hay bảo đảm tư thế an toàn.</p>
+            <p>Bộ đếm chưa được kiểm chứng trên điện thoại thật. Góc đặt máy, thiếu sáng và khuất người có thể làm đếm sai; đây không phải công cụ đánh giá y khoa hay bảo đảm tư thế an toàn. Từ 3.19, khớp được làm mượt và giữ tối đa 400ms khi mất dấu thoáng qua; phần này chạy trên máy và không thêm quyền nào.</p>
           </div>
         </div>
       </section>

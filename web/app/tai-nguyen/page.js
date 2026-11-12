@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.19</td>
+                    <td>12/11/2026</td>
+                    <td><strong>Sửa nhận diện khớp cho màn tập camera.</strong> Khung xương vẽ đúng hệ tọa độ của khung xem trước thay vì phép đổi tự đoán; khớp được làm mượt, giữ tối đa 400ms khi mất dấu thoáng qua và đổi bên chỉ sau 600ms bằng chứng. Squat không cần thấy tay (khoanh tay vẫn đếm) và đo được góc chính diện bằng độ hạ hông; chống đẩy/plank nhìn chính diện sẽ được hướng dẫn xoay máy. Nhãn góc chỉ đổi sau 600ms ổn định nên không xoá nhịp đang đếm. Tỉ lệ điểm giữ nguyên 3/5/10. Chưa kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.18</td>
                     <td>11/11/2026</td>
                     <td><strong>Màn tập camera toàn màn hình, đa góc và giọng sửa tư thế.</strong> Camera tràn màn hình, tự nhận góc bên hông / chính diện / chếch 45°; giọng tiếng Việt chỉ đọc câu sửa tư thế khi chưa ổn (tắt được bằng nút loa, máy thiếu giọng thì còn chữ). Đổi tỉ lệ điểm: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Camera vẫn chỉ bật khi bấm Bắt đầu, dừng khi rời màn; ảnh không lưu/gửi, SDK ML Kit có gửi số liệu kỹ thuật tới Google. Chưa kiểm chứng trên điện thoại thật.</td>

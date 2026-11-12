@@ -482,7 +482,7 @@ export default function Page() {
                 <summary>Buổi gym được tính thế nào?</summary>
                 <div className="body">
                   <p>Giữ app tập của bạn trên màn hình đủ 10 phút liên tục thì được một buổi. Rời app hoặc tắt màn hình là đếm lại từ đầu, nhưng điểm đã nhận không mất. Cùng đồng hồ đó còn tính điểm học: 10/20/30/45/60 phút = 20/40/50/70/100 điểm, đổi ra phút quỹ lướt.</p>
-                  <p>Bản 3.18 nâng <strong>Buổi tập → Tập với camera</strong> lên màn hình toàn màn hình: tự nhận góc nhìn bên hông, chính diện hoặc chếch 45°, và giọng tiếng Việt đọc câu sửa tư thế khi chưa ổn (tắt được bằng nút loa). Tỉ lệ mới: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Phải đủ nhịp động tác hoặc giữ đúng tư thế; camera dừng khi bạn bấm Dừng hay rời màn. Ảnh không lưu hoặc gửi đi; <a href="/an-toan#camera-bai-tap">xem quyền riêng tư của SDK nhận diện</a>.</p>
+                  <p>Bản 3.19 sửa nhận diện khớp của <strong>Buổi tập → Tập với camera</strong>: khung xương bám đúng người, khớp được làm mượt và không xoá nhịp đang đếm khi nhãn góc thoáng đổi. Squat khoanh tay hoặc nhìn chính diện vẫn đếm được; chống đẩy và plank cần góc bên hông hoặc chếch 45°. Màn tập toàn màn hình, giọng tiếng Việt đọc câu sửa tư thế khi chưa ổn (tắt được bằng nút loa). Tỉ lệ: 3 chống đẩy = 1 điểm, 5 squat = 1 điểm, 10 giây plank = 1 điểm. Phải đủ nhịp động tác hoặc giữ đúng tư thế; camera dừng khi bạn bấm Dừng hay rời màn. Ảnh không lưu hoặc gửi đi; <a href="/an-toan#camera-bai-tap">xem quyền riêng tư của SDK nhận diện</a>.</p>
                 </div>
               </details>
               <details id="faq-tat">

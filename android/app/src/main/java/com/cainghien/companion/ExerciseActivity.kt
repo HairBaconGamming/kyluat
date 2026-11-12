@@ -9,6 +9,7 @@ import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.PointF
 import android.hardware.display.DisplayManager
 import android.net.Uri
 import android.os.Bundle
@@ -34,8 +35,12 @@ import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.camera.view.TransformExperimental
+import androidx.camera.view.transform.CoordinateTransform
+import androidx.camera.view.transform.ImageProxyTransformFactory
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.Pose
@@ -43,9 +48,8 @@ import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.PoseDetector
 import com.google.mlkit.vision.pose.PoseLandmark
 import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
-import kotlin.math.max
-import kotlin.math.min
 
+@androidx.annotation.OptIn(TransformExperimental::class)
 class ExerciseActivity : ComponentActivity() {
     private lateinit var prefs: Prefs
     private lateinit var quota: QuotaManager
@@ -62,6 +66,11 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var startButton: TextView
     private lateinit var segViews: List<TextView>
     private var counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+    private val stabilizer = PoseStabilizer()
+    private val transformFactory = ImageProxyTransformFactory().apply {
+        setUsingRotationDegrees(true)
+        setUsingCropRect(false)
+    }
     private var creditedPoints = 0
     private var lastCorrection: String? = null
     private var frontCamera = true
@@ -69,7 +78,6 @@ class ExerciseActivity : ComponentActivity() {
     private var provider: ProcessCameraProvider? = null
     private var analysis: ImageAnalysis? = null
     private var camera: Camera? = null
-    private var trackedSide: Int? = null
     private var session: CameraSession? = null
     private var cameraRotation = Surface.ROTATION_0
     private val displayListener = object : DisplayManager.DisplayListener {
@@ -246,6 +254,7 @@ class ExerciseActivity : ComponentActivity() {
         if (!notify) return
         stopCamera()
         counter = ExerciseCounter(ExerciseKind.values()[index])
+        stabilizer.reset()
         creditedPoints = 0
         lastCorrection = null
         title.text = segViews[index].text
@@ -345,13 +354,24 @@ class ExerciseActivity : ComponentActivity() {
                         .build()
                     cameraPreview.setSurfaceProvider(preview.surfaceProvider)
                     val analyzer = ImageAnalysis.Builder()
-                        .setTargetResolution(Size(640, 480))
+                        .setTargetResolution(Size(960, 720))
                         .setTargetRotation(cameraRotation)
+                        .setOutputImageRotationEnabled(true)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
                     analysis = analyzer
                     analyzer.setAnalyzer(main) { frame -> analyze(active, frame) }
-                    val boundCamera = cameraProvider.bindToLifecycle(this, selector, cameraPreview, analyzer)
+                    val viewPort = preview.viewPort
+                    if (viewPort == null) {
+                        cameraError("Không mở được camera. Bạn vẫn dùng được các tính năng khác; hãy thử lại.")
+                        return@addListener
+                    }
+                    val group = UseCaseGroup.Builder()
+                        .setViewPort(viewPort)
+                        .addUseCase(cameraPreview)
+                        .addUseCase(analyzer)
+                        .build()
+                    val boundCamera = cameraProvider.bindToLifecycle(this, selector, group)
                     camera = boundCamera
                     boundCamera.cameraInfo.cameraState.observe(this) { state ->
                         if (session === active && state.error != null) {
@@ -395,14 +415,19 @@ class ExerciseActivity : ComponentActivity() {
             active.detector.process(InputImage.fromMediaImage(image, rotation))
                 .addOnSuccessListener { pose ->
                     if (!active.closed && session === active && prefs.protectionEnabled) {
-                        val body = bodyPose(pose, width, height)
-                        counter.update(body, capturedAt)
+                        val body = stabilizer.update(bodyCandidates(pose, width, height), capturedAt)
+                        val target = preview.outputTransform ?: return@addOnSuccessListener
+                        val viewBody = body?.let {
+                            toViewSpace(it, CoordinateTransform(
+                                transformFactory.getOutputTransform(frame), target))
+                        }
+                        counter.update(viewBody, capturedAt)
                         val delta = counter.points - creditedPoints
                         if (delta > 0) {
                             quota.awardSession(delta)
                             creditedPoints = counter.points
                         }
-                        skeleton.show(body, width, height, frontCamera)
+                        skeleton.show(viewBody)
                         speakCorrection(counter.correction)
                         feedback.text = counter.feedback
                         render()
@@ -428,7 +453,7 @@ class ExerciseActivity : ComponentActivity() {
         if (correction != lastCorrection) { lastCorrection = correction; voice.speakCorrection(correction) }
     }
 
-    private fun bodyPose(pose: Pose, width: Int, height: Int): ExercisePose? {
+    private fun bodyCandidates(pose: Pose, width: Int, height: Int): List<ExercisePose> {
         val sides = listOf(
             intArrayOf(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST,
                 PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE),
@@ -439,28 +464,42 @@ class ExerciseActivity : ComponentActivity() {
             listOf(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_HIP),
             listOf(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP),
         )
-        val candidates = sides.mapIndexedNotNull { side, ids ->
-            val landmarks = ids.map { pose.getPoseLandmark(it) ?: return@mapIndexedNotNull null }
-            val p = landmarks.map {
-                val position = it.position
-                if (position.x !in 0f..width.toFloat() || position.y !in 0f..height.toFloat()) return@mapIndexedNotNull null
-                BodyPoint(position.x, position.y, it.inFrameLikelihood)
-            }
-            val other = otherIds[side].mapNotNull { lm ->
-                val landmark = pose.getPoseLandmark(lm) ?: return@mapNotNull null
-                val position = landmark.position
-                if (position.x !in 0f..width.toFloat() || position.y !in 0f..height.toFloat()) return@mapNotNull null
-                BodyPoint(position.x, position.y, landmark.inFrameLikelihood)
-            }
-            ExercisePose(p[0], p[1], p[2], p[3], p[4], p[5], side,
-                otherShoulder = other.getOrNull(0), otherHip = other.getOrNull(1))
+        fun read(type: Int): BodyPoint? {
+            val landmark = pose.getPoseLandmark(type) ?: return null
+            val position = landmark.position
+            if (position.x !in 0f..width.toFloat() || position.y !in 0f..height.toFloat()) return null
+            return BodyPoint(position.x, position.y, landmark.inFrameLikelihood)
         }
-        fun confidence(body: ExercisePose) = minOf(body.shoulder.confidence, body.elbow.confidence,
-            body.wrist.confidence, body.hip.confidence, body.knee.confidence, body.ankle.confidence)
-        val selected = candidates.firstOrNull { it.side == trackedSide && confidence(it) >= .7f }
-            ?: candidates.maxByOrNull { confidence(it) }
-        trackedSide = selected?.side
-        return selected
+        return sides.mapIndexedNotNull { side, ids ->
+            val shoulder = read(ids[0]) ?: return@mapIndexedNotNull null
+            val hip = read(ids[3]) ?: return@mapIndexedNotNull null
+            val knee = read(ids[4]) ?: return@mapIndexedNotNull null
+            val ankle = read(ids[5]) ?: return@mapIndexedNotNull null
+            // Occluded arms (crossed arms, hands behind back) must not kill the squat:
+            // placeholder joints carry confidence 0 so gates and drawing skip them.
+            val elbow = read(ids[1]) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
+            val wrist = read(ids[2]) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
+            ExercisePose(shoulder, elbow, wrist, hip, knee, ankle, side,
+                otherShoulder = read(otherIds[side][0]), otherHip = read(otherIds[side][1]))
+        }
+    }
+
+    private fun toViewSpace(pose: ExercisePose, transform: CoordinateTransform): ExercisePose {
+        fun map(point: BodyPoint): BodyPoint {
+            val mapped = PointF(point.x, point.y)
+            transform.mapPoint(mapped)
+            return BodyPoint(mapped.x, mapped.y, point.confidence)
+        }
+        return pose.copy(
+            shoulder = map(pose.shoulder),
+            elbow = map(pose.elbow),
+            wrist = map(pose.wrist),
+            hip = map(pose.hip),
+            knee = map(pose.knee),
+            ankle = map(pose.ankle),
+            otherShoulder = pose.otherShoulder?.let { map(it) },
+            otherHip = pose.otherHip?.let { map(it) }
+        )
     }
 
     private fun render() {
@@ -497,11 +536,11 @@ class ExerciseActivity : ComponentActivity() {
         camera?.cameraInfo?.cameraState?.removeObservers(this)
         camera = null
         provider?.unbindAll()
-        trackedSide = null
+        stabilizer.reset()
         lastCorrection = null
         voice.reset()
         counter.pause()
-        skeleton.show(null, 1, 1, false)
+        skeleton.show(null)
         preview.visibility = View.INVISIBLE
         startButton.text = "Bắt đầu"
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -547,30 +586,29 @@ class ExerciseActivity : ComponentActivity() {
             strokeWidth = Ui.dp(context, 3).toFloat()
             strokeCap = Paint.Cap.ROUND
         }
+        private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = GREEN_TEXT
+            style = Paint.Style.FILL
+        }
+        private val dotRadius = Ui.dp(context, 3.5f).toFloat()
         private var pose: ExercisePose? = null
-        private var imageWidth = 1
-        private var imageHeight = 1
-        private var mirrored = false
 
-        fun show(pose: ExercisePose?, width: Int, height: Int, mirrored: Boolean) {
+        fun show(pose: ExercisePose?) {
             this.pose = pose
-            imageWidth = width
-            imageHeight = height
-            this.mirrored = mirrored
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             val p = pose ?: return
-            val scale = max(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
-            val dx = (width - imageWidth * scale) / 2
-            val dy = (height - imageHeight * scale) / 2
-            fun x(point: BodyPoint) = dx + (if (mirrored) imageWidth - point.x else point.x) * scale
-            fun y(point: BodyPoint) = dy + point.y * scale
+            fun x(point: BodyPoint) = point.x
+            fun y(point: BodyPoint) = point.y
             val lines = listOf(p.wrist to p.elbow, p.elbow to p.shoulder, p.shoulder to p.hip,
                 p.hip to p.knee, p.knee to p.ankle)
             for ((a, b) in lines) {
                 if (a.confidence >= .7f && b.confidence >= .7f) canvas.drawLine(x(a), y(a), x(b), y(b), paint)
+            }
+            for (point in listOf(p.shoulder, p.elbow, p.wrist, p.hip, p.knee, p.ankle)) {
+                if (point.confidence >= .7f) canvas.drawCircle(x(point), y(point), dotRadius, dot)
             }
         }
     }

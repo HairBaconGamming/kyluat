@@ -320,7 +320,7 @@ class ExerciseCounterTest {
     @Test
     fun `low confidence in any required landmark resets a cycle`() {
         for (kind in repetitionKinds) {
-            for (index in 0..5) {
+            for (index in requiredIndices(kind)) {
                 val counter = ExerciseCounter(kind)
                 primeBottom(counter)
                 counter.update(changePoint(pose(kind, 90.0), index) { it.copy(confidence = 0.699f) }, 1_000L)
@@ -349,7 +349,7 @@ class ExerciseCounterTest {
             val missing = ExerciseCounter(kind)
             hold(missing, null, 0L, 6_000L)
             assertEquals(0, missing.points)
-            for (index in 0..5) {
+            for (index in requiredIndices(kind)) {
                 for (value in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
                     for (field in 0..2) {
                         val counter = ExerciseCounter(kind)
@@ -379,7 +379,9 @@ class ExerciseCounterTest {
     @Test
     fun `zero and tiny required segments are rejected`() {
         for (kind in ExerciseKind.values()) {
-            for ((start, end) in listOf(0 to 1, 1 to 2, 0 to 3, 3 to 4, 4 to 5)) {
+            val pairs = if (kind == ExerciseKind.SQUAT) listOf(0 to 3, 3 to 4, 4 to 5)
+            else listOf(0 to 1, 1 to 2, 0 to 3, 3 to 4, 4 to 5)
+            for ((start, end) in pairs) {
                 for (length in listOf(0f, 1f, 7.9f)) {
                     val counter = ExerciseCounter(kind)
                     val collapse: (ExercisePose) -> ExercisePose = { input ->
@@ -581,13 +583,35 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `front and diagonal camera views count full pushup cycles`() {
-        for ((span, expected) in listOf(200.0 to CameraView.FRONT, 120.0 to CameraView.DIAGONAL)) {
-            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
-            cycle(counter, 0L, transform = { withOther(rotate(it, 90.0), span) })
-            assertEquals(1, counter.reps)
-            assertEquals(expected, counter.view)
-        }
+    fun `diagonal view counts pushups but front view asks to turn the phone`() {
+        val diagonal = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(diagonal, 0L, transform = { withOther(rotate(it, 90.0), 120.0) })
+        assertEquals(1, diagonal.reps)
+        assertEquals(CameraView.DIAGONAL, diagonal.view)
+        val front = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(front, 0L, transform = { withOther(rotate(it, 90.0), 200.0) })
+        assertEquals(0, front.reps)
+        assertEquals(CameraView.FRONT, front.view)
+        assertTrue(front.correction != null)
+    }
+
+    @Test
+    fun `squat ignores arm landmarks entirely`() {
+        val counter = ExerciseCounter(ExerciseKind.SQUAT)
+        cycle(counter, 0L, transform = {
+            it.copy(
+                elbow = BodyPoint(Float.NaN, Float.NaN, Float.NaN),
+                wrist = BodyPoint(0f, 0f, 0f)
+            )
+        })
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `front view shallow squats earn nothing`() {
+        val counter = ExerciseCounter(ExerciseKind.SQUAT)
+        repeat(3) { cycle(counter, it * 1_600L, bottom = 130.0, transform = { p -> withOther(p, 200.0) }) }
+        assertEquals(0, counter.reps)
     }
 
     @Test
@@ -611,16 +635,36 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `switching camera view discards an in-flight repetition`() {
-        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
-        counter.update(pushUp(170.0), 0L)
-        counter.update(pushUp(170.0), 200L)
-        counter.update(pushUp(90.0), 400L)
-        counter.update(pushUp(90.0), 600L)
-        val frontTop = withOther(rotate(pushUp(170.0), 90.0), 200.0)
-        counter.update(frontTop, 800L)
-        counter.update(frontTop, 1000L)
+    fun `a sustained camera view switch discards an in-flight repetition`() {
+        val counter = ExerciseCounter(ExerciseKind.SQUAT)
+        counter.update(squat(170.0), 0L)
+        counter.update(squat(170.0), 200L)
+        counter.update(squat(90.0), 400L)
+        counter.update(squat(90.0), 600L)
+        val frontBottom = withOther(squat(90.0), 200.0)
+        for (time in listOf(800L, 1_000L, 1_200L, 1_400L)) counter.update(frontBottom, time)
+        assertEquals(CameraView.FRONT, counter.view)
         assertEquals(0, counter.reps)
+        counter.update(withOther(squat(170.0), 200.0), 1_600L)
+        counter.update(withOther(squat(170.0), 200.0), 1_800L)
+        assertEquals(0, counter.reps)
+    }
+
+    @Test
+    fun `a brief view flap does not discard an in-flight repetition`() {
+        val counter = ExerciseCounter(ExerciseKind.SQUAT)
+        counter.update(squat(170.0), 0L)
+        counter.update(squat(170.0), 200L)
+        counter.update(squat(90.0), 400L)
+        counter.update(squat(90.0), 600L)
+        counter.update(squat(90.0), 800L)
+        val frontTop = withOther(squat(170.0), 200.0)
+        counter.update(frontTop, 1_000L)
+        counter.update(frontTop, 1_200L)
+        counter.update(squat(170.0), 1_400L)
+        counter.update(squat(170.0), 1_600L)
+        assertEquals(1, counter.reps)
+        assertEquals(CameraView.SIDE, counter.view)
     }
 
     @Test
@@ -635,6 +679,9 @@ class ExerciseCounterTest {
         diagonal.update(withOther(rotate(pushUp(170.0), 90.0), 120.0), 0L)
         assertEquals("Chếch 45°", diagonal.viewLabel)
     }
+
+    private fun requiredIndices(kind: ExerciseKind): List<Int> =
+        if (kind == ExerciseKind.SQUAT) listOf(0, 3, 4, 5) else (0..5).toList()
 
     private fun withOther(pose: ExercisePose, span: Double): ExercisePose = pose.copy(
         otherShoulder = point(pose.shoulder.x + span, pose.shoulder.y.toDouble()),
