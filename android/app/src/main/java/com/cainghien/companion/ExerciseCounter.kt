@@ -81,7 +81,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
 
     fun update(pose: ExercisePose?, nowMs: Long) {
         if (pose == null) {
-            invalidate("Đưa toàn thân vào khung hình.")
+            invalidate(if (kind == ExerciseKind.PUSH_UP) "Đưa vai, tay và hông vào khung hình." else "Đưa toàn thân vào khung hình.")
             return
         }
         if (!landmarksValid(pose)) {
@@ -110,6 +110,19 @@ class ExerciseCounter(val kind: ExerciseKind) {
         if (kind == ExerciseKind.SQUAT) {
             if (!upright(pose)) {
                 invalidate("Đứng thẳng trên sàn, đừng nằm hoặc cúi gập người.")
+                return
+            }
+        } else if (kind == ExerciseKind.PUSH_UP && !legsUsable(pose)) {
+            // Upper-body mode: legs out of frame. The rep still comes from the elbow cycle;
+            // a horizontal torso gate keeps standing arm-bends from counting.
+            if (!torsoHorizontal(pose)) {
+                invalidate("Giữ thân gần song song với sàn để đếm chống đẩy.")
+                return
+            }
+            if (view == CameraView.UNKNOWN ||
+                (pose.world == null && view == CameraView.FRONT)
+            ) {
+                invalidate(orientationMessage(view))
                 return
             }
         } else {
@@ -331,23 +344,33 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     private fun landmarksValid(pose: ExercisePose): Boolean {
-        val points = if (kind == ExerciseKind.SQUAT) {
-            listOf(pose.shoulder, pose.hip, pose.knee, pose.ankle)
-        } else {
-            listOf(pose.shoulder, pose.elbow, pose.wrist, pose.hip, pose.knee, pose.ankle)
+        val points = when (kind) {
+            ExerciseKind.SQUAT -> listOf(pose.shoulder, pose.hip, pose.knee, pose.ankle)
+            // Push-up reps come from the elbow cycle; legs are optional so a close side-on
+            // phone that only frames head-to-hip still counts.
+            ExerciseKind.PUSH_UP -> listOf(pose.shoulder, pose.elbow, pose.wrist, pose.hip)
+            ExerciseKind.PLANK -> listOf(pose.shoulder, pose.elbow, pose.wrist, pose.hip, pose.knee, pose.ankle)
         }
         if (points.any { !it.x.isFinite() || !it.y.isFinite() ||
                 !it.confidence.isFinite() || it.confidence < MIN_CONFIDENCE
             }
         ) return false
-        val segments = if (kind == ExerciseKind.SQUAT) {
-            listOf(pose.shoulder to pose.hip, pose.hip to pose.knee, pose.knee to pose.ankle)
-        } else {
-            listOf(pose.shoulder to pose.elbow, pose.elbow to pose.wrist, pose.shoulder to pose.hip,
+        val segments = when (kind) {
+            ExerciseKind.SQUAT -> listOf(pose.shoulder to pose.hip, pose.hip to pose.knee, pose.knee to pose.ankle)
+            ExerciseKind.PUSH_UP -> listOf(pose.shoulder to pose.elbow, pose.elbow to pose.wrist, pose.shoulder to pose.hip)
+            ExerciseKind.PLANK -> listOf(pose.shoulder to pose.elbow, pose.elbow to pose.wrist, pose.shoulder to pose.hip,
                 pose.hip to pose.knee, pose.knee to pose.ankle)
         }
         return segments.all { distance(it.first, it.second) >= MIN_SEGMENT_PX }
     }
+
+    private fun legsUsable(pose: ExercisePose): Boolean =
+        pointUsable(pose.knee) && pointUsable(pose.ankle)
+
+    // Torso near horizontal (up to ~45° for incline push-ups) without needing the legs.
+    private fun torsoHorizontal(pose: ExercisePose): Boolean =
+        abs(pose.hip.y.toDouble() - pose.shoulder.y) <=
+            abs(pose.hip.x.toDouble() - pose.shoulder.x) * 1.0
 
     private fun horizontal(pose: ExercisePose, slope: Double): Boolean =
         abs(pose.ankle.y.toDouble() - pose.shoulder.y) <=

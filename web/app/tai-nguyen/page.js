@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.21</td>
+                    <td>13/11/2026</td>
+                    <td><strong>Sửa khung xương vẽ sai trên máy thật + chống đẩy linh hoạt.</strong> Khớp overlay trước đây chiếu sai hệ tọa độ nên vẽ lệch khỏi người; nay chiếu thẳng từ ảnh camera vào khung nhìn (FILL_CENTER, lật gương camera trước) nên khung xương bám đúng. Chống đẩy không còn bắt buộc thấy cả chân: chỉ cần vai, khuỷu tay, cổ tay và hông, đặt máy gần bên hông vẫn đếm; đếm được cả góc chính diện khi có khớp 3D, với điều kiện thân gần song song sàn để không đếm nhầm động tác khác. Khi thấy đủ chân vẫn kiểm tra thân thẳng như cũ. Squat/plank giữ nguyên. Giữ tỉ lệ 3/5/10. Chưa kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.20</td>
                     <td>12/11/2026</td>
                     <td><strong>Bảng đếm thu gọn khi đang tập.</strong> Trong lúc tập, bảng dưới cùng thu thành thanh mỏng (số đếm + điểm + Dừng) để không che bàn chân và khung xương; chạm thanh để mở lại bảng đầy đủ, bấm "Thu gọn bảng" để thu lại. Nếu bàn chân vẫn khuất sau bảng, app hiện và đọc câu nhắc đặt máy xa hơn hoặc nâng camera. Giữ nguyên tỉ lệ 3/5/10 và các sửa nhận diện khớp của 3.19. Thay tầng nhận diện bằng MediaPipe Pose Landmarker (Apache-2.0, chạy cục bộ, không telemetry) với góc khớp 3D không phụ thuộc góc camera; bỏ ML Kit nên APK nhẹ hơn còn 60,60 MB. Chưa kiểm chứng trên điện thoại thật.</td>

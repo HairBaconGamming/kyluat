@@ -9,7 +9,6 @@ import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PointF
 import android.hardware.display.DisplayManager
 import android.net.Uri
 import android.os.Bundle
@@ -37,10 +36,6 @@ import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.camera.view.TransformExperimental
-import androidx.camera.view.transform.CoordinateTransform
-import androidx.camera.view.transform.ImageProxyTransformFactory
-import androidx.camera.view.transform.OutputTransform
 import androidx.core.content.ContextCompat
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
@@ -49,7 +44,6 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 
-@androidx.annotation.OptIn(TransformExperimental::class)
 class ExerciseActivity : ComponentActivity() {
     private lateinit var prefs: Prefs
     private lateinit var quota: QuotaManager
@@ -73,10 +67,6 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var segViews: List<TextView>
     private var counter = ExerciseCounter(ExerciseKind.PUSH_UP)
     private val stabilizer = PoseStabilizer()
-    private val transformFactory = ImageProxyTransformFactory().apply {
-        setUsingRotationDegrees(true)
-        setUsingCropRect(false)
-    }
     private var creditedPoints = 0
     private var lastCorrection: String? = null
     private var frontCamera = true
@@ -101,10 +91,22 @@ class ExerciseActivity : ComponentActivity() {
     private class CameraSession(val landmarker: PoseLandmarker) {
         var closed = false
         var processing = false
-        var source: OutputTransform? = null
-        var target: OutputTransform? = null
-        var width = 0
-        var height = 0
+        var layout: PreviewLayout? = null
+    }
+
+    /**
+     * Snapshot of everything needed to place a landmark on the overlay: the upright analyzer
+     * bitmap size, whether the preview is mirrored, and the overlay size.
+     */
+    private data class PreviewLayout(
+        val imageWidth: Int,
+        val imageHeight: Int,
+        val mirrored: Boolean,
+        val viewWidth: Int,
+        val viewHeight: Int
+    ) {
+        val content: ViewMapping.ContentRect
+            get() = ViewMapping.contentRect(imageWidth, imageHeight, viewWidth, viewHeight)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -473,22 +475,25 @@ class ExerciseActivity : ComponentActivity() {
             cameraError("Bảo vệ đã tắt. Đã dừng camera và ngừng cộng điểm.")
             return
         }
-        val source = transformFactory.getOutputTransform(frame)
-        val target = preview.outputTransform
         val bitmap = try {
             frame.toBitmap()
         } catch (error: Exception) {
             null
         }
         frame.close()
-        if (bitmap == null || target == null) {
+        if (bitmap == null) {
             counter.pause()
             return
         }
-        active.source = source
-        active.target = target
-        active.width = bitmap.width
-        active.height = bitmap.height
+        // toBitmap() is already upright and cropped to the viewport, so the overlay only needs
+        // FILL_CENTER scaling plus the front-preview mirror; no rotation term.
+        active.layout = PreviewLayout(
+            bitmap.width,
+            bitmap.height,
+            frontCamera,
+            skeleton.width,
+            skeleton.height
+        )
         active.processing = true
         try {
             active.landmarker.detectAsync(BitmapImageBuilder(bitmap).build(), SystemClock.elapsedRealtime())
@@ -511,22 +516,19 @@ class ExerciseActivity : ComponentActivity() {
                 return@runOnUiThread
             }
             val now = result.timestampMs()
-            val body = stabilizer.update(bodyCandidates(result, active.width, active.height), now)
-            val source = active.source
-            val target = active.target
-            val viewBody = if (body != null && source != null && target != null) {
-                toViewSpace(body, CoordinateTransform(source, target))
-            } else null
-            counter.update(viewBody, now)
+            stabilizer.upperBody = counter.kind == ExerciseKind.PUSH_UP
+            val body = stabilizer.update(bodyCandidates(result, active), now)
+            // Candidates are already in view space; no second projection.
+            counter.update(body, now)
             val delta = counter.points - creditedPoints
             if (delta > 0) {
                 quota.awardSession(delta)
                 creditedPoints = counter.points
             }
-            skeleton.show(viewBody)
+            skeleton.show(body)
             val visibleBottom = (if (sessionBar.visibility == View.VISIBLE) sessionBar.top
                 else bottomPanel.top).toFloat()
-            placementCue = Framing.feetCue(viewBody?.ankle?.y, visibleBottom)
+            placementCue = Framing.feetCue(body?.ankle?.y, visibleBottom)
             speakCorrection(placementCue ?: counter.correction)
             feedback.text = placementCue ?: counter.feedback
             render()
@@ -539,19 +541,23 @@ class ExerciseActivity : ComponentActivity() {
         if (correction != lastCorrection) { lastCorrection = correction; voice.speakCorrection(correction) }
     }
 
-    private fun bodyCandidates(result: PoseLandmarkerResult, width: Int, height: Int): List<ExercisePose> {
+    private fun bodyCandidates(result: PoseLandmarkerResult, active: CameraSession): List<ExercisePose> {
         val landmarks = result.landmarks().firstOrNull() ?: return emptyList()
         val world = result.worldLandmarks().firstOrNull()
+        val layout = active.layout ?: return emptyList()
         val sides = listOf(
             intArrayOf(11, 13, 15, 23, 25, 27),
             intArrayOf(12, 14, 16, 24, 26, 28),
         )
         val otherIds = listOf(intArrayOf(12, 24), intArrayOf(11, 23))
+        // Landmarks are projected into overlay pixels once per frame; working in view pixels
+        // the whole way down keeps counter geometry and drawing consistent under preview crop.
         fun read(index: Int): BodyPoint? {
             val landmark = landmarks.getOrNull(index) ?: return null
-            val x = landmark.x() * width
-            val y = landmark.y() * height
-            if (x !in 0f..width.toFloat() || y !in 0f..height.toFloat()) return null
+            val nx = landmark.x()
+            val ny = landmark.y()
+            if (nx !in 0f..1f || ny !in 0f..1f) return null
+            val (x, y) = ViewMapping.toView(nx, ny, layout.content, layout.mirrored)
             return BodyPoint(x, y, landmark.visibility().orElse(0f))
         }
         fun readWorld(index: Int): WorldPoint? {
@@ -563,44 +569,26 @@ class ExerciseActivity : ComponentActivity() {
         return sides.mapIndexedNotNull { side, ids ->
             val shoulder = read(ids[0]) ?: return@mapIndexedNotNull null
             val hip = read(ids[3]) ?: return@mapIndexedNotNull null
-            val knee = read(ids[4]) ?: return@mapIndexedNotNull null
-            val ankle = read(ids[5]) ?: return@mapIndexedNotNull null
-            // Occluded arms (crossed arms, hands behind back) must not kill the squat:
-            // placeholder joints carry confidence 0 so gates and drawing skip them.
+            // Missing joints carry confidence 0 so gates and drawing skip them. Push-up can
+            // count from the upper body alone, so legs out of frame must not drop the side.
             val elbow = read(ids[1]) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
             val wrist = read(ids[2]) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
+            val knee = read(ids[4]) ?: BodyPoint(hip.x, hip.y, 0f)
+            val ankle = read(ids[5]) ?: BodyPoint(hip.x, hip.y, 0f)
             val chain = if (world != null) {
                 val ws = readWorld(ids[0])
                 val we = readWorld(ids[1])
                 val ww = readWorld(ids[2])
                 val wh = readWorld(ids[3])
-                val wk = readWorld(ids[4])
-                val wa = readWorld(ids[5])
-                if (ws != null && we != null && ww != null && wh != null && wk != null && wa != null) {
+                if (ws != null && we != null && ww != null && wh != null) {
+                    val wk = readWorld(ids[4]) ?: WorldPoint(0f, 0f, 0f, 0f)
+                    val wa = readWorld(ids[5]) ?: WorldPoint(0f, 0f, 0f, 0f)
                     WorldChain(ws, we, ww, wh, wk, wa)
                 } else null
             } else null
             ExercisePose(shoulder, elbow, wrist, hip, knee, ankle, side,
                 otherShoulder = read(otherIds[side][0]), otherHip = read(otherIds[side][1]), world = chain)
         }
-    }
-
-    private fun toViewSpace(pose: ExercisePose, transform: CoordinateTransform): ExercisePose {
-        fun map(point: BodyPoint): BodyPoint {
-            val mapped = PointF(point.x, point.y)
-            transform.mapPoint(mapped)
-            return BodyPoint(mapped.x, mapped.y, point.confidence)
-        }
-        return pose.copy(
-            shoulder = map(pose.shoulder),
-            elbow = map(pose.elbow),
-            wrist = map(pose.wrist),
-            hip = map(pose.hip),
-            knee = map(pose.knee),
-            ankle = map(pose.ankle),
-            otherShoulder = pose.otherShoulder?.let { map(it) },
-            otherHip = pose.otherHip?.let { map(it) }
-        )
     }
 
     private fun render() {

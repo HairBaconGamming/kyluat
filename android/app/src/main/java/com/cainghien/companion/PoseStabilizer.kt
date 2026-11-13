@@ -7,6 +7,9 @@ class PoseStabilizer {
     var pose: ExercisePose? = null
         private set
 
+    // Push-up can count from the upper body alone; squat/plank still need the legs.
+    var upperBody: Boolean = false
+
     private var lastGoodAt: Long? = null
     private var currentSide: Int? = null
     private var pendingSide: Int? = null
@@ -81,17 +84,28 @@ class PoseStabilizer {
         if (dt <= 0L) return next
         // Torso shrinks at squat bottom, so scale the teleport gate by full body span.
         // Min of both frames: a teleporting limb must not inflate its own threshold.
-        val span = minOf(
-            distance(previous.shoulder, previous.ankle),
-            distance(next.shoulder, next.ankle)
-        )
+        // Upper-body mode has no reliable legs, so gate by the torso instead.
+        val span = if (upperBody) {
+            minOf(distance(previous.shoulder, previous.hip), distance(next.shoulder, next.hip))
+        } else {
+            minOf(distance(previous.shoulder, previous.ankle), distance(next.shoulder, next.ankle))
+        }
         if (span < MIN_SEGMENT_PX) return next
-        val core = listOf(
-            previous.shoulder to next.shoulder,
-            previous.hip to next.hip,
-            previous.knee to next.knee,
-            previous.ankle to next.ankle
-        )
+        val core = if (upperBody) {
+            listOf(
+                previous.shoulder to next.shoulder,
+                previous.hip to next.hip,
+                previous.elbow to next.elbow,
+                previous.wrist to next.wrist
+            )
+        } else {
+            listOf(
+                previous.shoulder to next.shoulder,
+                previous.hip to next.hip,
+                previous.knee to next.knee,
+                previous.ankle to next.ankle
+            )
+        }
         // A single joint teleport (foot swap, blur) freezes that joint instead of
         // dropping the whole pose; only a full-body teleport rejects the frame.
         val gated = core.map { (prev, nxt) ->
@@ -112,26 +126,44 @@ class PoseStabilizer {
                 blendW(pw.hip, nw.hip), blendW(pw.knee, nw.knee), blendW(pw.ankle, nw.ankle)
             )
         } else nw
-        return next.copy(
-            shoulder = blend(previous.shoulder, gated[0] ?: previous.shoulder),
-            elbow = blend(previous.elbow, next.elbow),
-            wrist = blend(previous.wrist, next.wrist),
-            hip = blend(previous.hip, gated[1] ?: previous.hip),
-            knee = blend(previous.knee, gated[2] ?: previous.knee),
-            ankle = blend(previous.ankle, gated[3] ?: previous.ankle),
-            otherShoulder = blendNullable(previous.otherShoulder, next.otherShoulder),
-            otherHip = blendNullable(previous.otherHip, next.otherHip),
-            world = world
-        )
+        return if (upperBody) {
+            next.copy(
+                shoulder = blend(previous.shoulder, gated[0] ?: previous.shoulder),
+                elbow = blend(previous.elbow, gated[2] ?: previous.elbow),
+                wrist = blend(previous.wrist, gated[3] ?: previous.wrist),
+                hip = blend(previous.hip, gated[1] ?: previous.hip),
+                knee = blend(previous.knee, next.knee),
+                ankle = blend(previous.ankle, next.ankle),
+                otherShoulder = blendNullable(previous.otherShoulder, next.otherShoulder),
+                otherHip = blendNullable(previous.otherHip, next.otherHip),
+                world = world
+            )
+        } else {
+            next.copy(
+                shoulder = blend(previous.shoulder, gated[0] ?: previous.shoulder),
+                elbow = blend(previous.elbow, next.elbow),
+                wrist = blend(previous.wrist, next.wrist),
+                hip = blend(previous.hip, gated[1] ?: previous.hip),
+                knee = blend(previous.knee, gated[2] ?: previous.knee),
+                ankle = blend(previous.ankle, gated[3] ?: previous.ankle),
+                otherShoulder = blendNullable(previous.otherShoulder, next.otherShoulder),
+                otherHip = blendNullable(previous.otherHip, next.otherHip),
+                world = world
+            )
+        }
     }
 
+    private fun coreJoints(pose: ExercisePose): List<BodyPoint> =
+        if (upperBody) listOf(pose.shoulder, pose.hip, pose.elbow, pose.wrist)
+        else listOf(pose.shoulder, pose.hip, pose.knee, pose.ankle)
+
     private fun coreUsable(pose: ExercisePose): Boolean =
-        listOf(pose.shoulder, pose.hip, pose.knee, pose.ankle).all {
+        coreJoints(pose).all {
             it.x.isFinite() && it.y.isFinite() && it.confidence.isFinite() && it.confidence >= MIN_CONFIDENCE
         }
 
     private fun confidence(pose: ExercisePose): Float =
-        minOf(pose.shoulder.confidence, pose.hip.confidence, pose.knee.confidence, pose.ankle.confidence)
+        coreJoints(pose).minOf { it.confidence }
 
     private fun distance(a: BodyPoint, b: BodyPoint): Double {
         val dx = a.x.toDouble() - b.x

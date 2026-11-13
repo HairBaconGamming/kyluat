@@ -78,6 +78,17 @@ class PoseStabilizerTest {
     }
 
     @Test
+    fun `upper-body mode keeps poses whose legs are out of frame`() {
+        val partial = standing().let {
+            it.copy(knee = it.hip.copy(confidence = 0f), ankle = it.hip.copy(confidence = 0f))
+        }
+        val full = PoseStabilizer()
+        assertNull(full.update(listOf(partial), 0L))
+        val upper = PoseStabilizer().apply { upperBody = true }
+        assertNotNull(upper.update(listOf(partial), 0L))
+    }
+
+    @Test
     fun `placeholder arms do not make a candidate unusable`() {
         val stabilizer = PoseStabilizer()
         val pose = standing().let {

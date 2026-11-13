@@ -379,8 +379,11 @@ class ExerciseCounterTest {
     @Test
     fun `zero and tiny required segments are rejected`() {
         for (kind in ExerciseKind.values()) {
-            val pairs = if (kind == ExerciseKind.SQUAT) listOf(0 to 3, 3 to 4, 4 to 5)
-            else listOf(0 to 1, 1 to 2, 0 to 3, 3 to 4, 4 to 5)
+            val pairs = when (kind) {
+                ExerciseKind.SQUAT -> listOf(0 to 3, 3 to 4, 4 to 5)
+                ExerciseKind.PUSH_UP -> listOf(0 to 1, 1 to 2, 0 to 3)
+                ExerciseKind.PLANK -> listOf(0 to 1, 1 to 2, 0 to 3, 3 to 4, 4 to 5)
+            }
             for ((start, end) in pairs) {
                 for (length in listOf(0f, 1f, 7.9f)) {
                     val counter = ExerciseCounter(kind)
@@ -435,6 +438,49 @@ class ExerciseCounterTest {
             hold(plankCounter, bend(plank()), 0L, 6_000L)
             assertEquals(0L, plankCounter.plankMillis)
         }
+    }
+
+    @Test
+    fun `pushup counts from upper body when legs are out of frame`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(counter, 0L, transform = { upperBody(it) })
+        assertEquals(1, counter.reps)
+        cycle(counter, 1_600L, transform = { upperBody(it) })
+        assertEquals(2, counter.reps)
+    }
+
+    @Test
+    fun `pushup upper body accepts front view when a world arm angle is present`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        val front: (ExercisePose) -> ExercisePose = {
+            val degrees = jointAngle(it.shoulder, it.elbow, it.wrist)
+            upperBody(withOther(it, 300.0)).copy(world = worldChain(90.0, degrees))
+        }
+        cycle(counter, 0L, transform = front)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `pushup upper body front view without world landmarks is rejected`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(counter, 0L, transform = { upperBody(withOther(it, 300.0)) })
+        assertEquals(0, counter.reps)
+    }
+
+    @Test
+    fun `standing arm bends with legs out of frame do not count`() {
+        for (side in 0..1) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            cycle(counter, 0L, side = side, transform = { upperBody(standingCurl(90.0, side)) })
+            assertEquals(0, counter.reps)
+        }
+    }
+
+    @Test
+    fun `squat still requires the legs even though pushup does not`() {
+        val counter = ExerciseCounter(ExerciseKind.SQUAT)
+        cycle(counter, 0L, transform = { upperBody(it) })
+        assertEquals(0, counter.reps)
     }
 
     @Test
@@ -734,8 +780,17 @@ class ExerciseCounterTest {
         return WorldChain(shoulder, elbow, wrist, hip, knee, ankle)
     }
 
-    private fun requiredIndices(kind: ExerciseKind): List<Int> =
-        if (kind == ExerciseKind.SQUAT) listOf(0, 3, 4, 5) else (0..5).toList()
+    private fun requiredIndices(kind: ExerciseKind): List<Int> = when (kind) {
+        ExerciseKind.SQUAT -> listOf(0, 3, 4, 5)
+        // Push-up counts from the upper body; legs are optional.
+        ExerciseKind.PUSH_UP -> listOf(0, 1, 2, 3)
+        ExerciseKind.PLANK -> (0..5).toList()
+    }
+
+    private fun upperBody(pose: ExercisePose): ExercisePose = pose.copy(
+        knee = pose.hip.copy(confidence = 0f),
+        ankle = pose.hip.copy(confidence = 0f)
+    )
 
     private fun withOther(pose: ExercisePose, span: Double): ExercisePose = pose.copy(
         otherShoulder = point(pose.shoulder.x + span, pose.shoulder.y.toDouble()),
