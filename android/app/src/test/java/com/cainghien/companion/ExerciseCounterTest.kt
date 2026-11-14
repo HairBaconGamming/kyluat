@@ -5,6 +5,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -105,7 +106,7 @@ class ExerciseCounterTest {
             val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
             cycle(counter, 0L, top = top, bottom = bottom, transform = {
                 val degrees = jointAngle(it.shoulder, it.elbow, it.wrist)
-                withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees))
+                withOther(pushUp(170.0), 300.0).copy(world = pushWorld(degrees))
             })
             assertEquals(CameraView.FRONT, counter.view)
             assertEquals("world valley $bottom", expected, counter.reps)
@@ -126,6 +127,7 @@ class ExerciseCounterTest {
         repeat(12) { index -> counter.update(if (index % 2 == 0) straight else glitch, index * 200L) }
         assertEquals(CameraView.SIDE, counter.view)
         assertEquals(0, counter.reps)
+        assertNotEquals("glitch bends stay silent", "Hạ cả thân trên xuống gần sàn, đừng chỉ gập tay.", counter.feedback)
         cycle(counter, 2_400L, top = 170.0, bottom = 120.0)
         assertEquals(1, counter.reps)
     }
@@ -671,16 +673,53 @@ class ExerciseCounterTest {
     @Test
     fun `sagging hips invalidate plank but pushup tolerates imperfect form`() {
         for (index in listOf(3, 4)) {
-            val bend: (ExercisePose) -> ExercisePose = { input ->
-                changePoint(input, index) { it.copy(y = it.y + 150f) }
-            }
-            val push = ExerciseCounter(ExerciseKind.PUSH_UP)
-            cycle(push, 0L, transform = bend)
-            assertEquals(1, push.reps)
             val plankCounter = ExerciseCounter(ExerciseKind.PLANK)
-            hold(plankCounter, bend(plank()), 0L, 6_000L)
-            assertEquals(0L, plankCounter.plankMillis)
+            hold(plankCounter, changePoint(plank(), index) { it.copy(y = it.y + 150f) }, 0L, 6_000L)
+            assertEquals("plank point $index", 0L, plankCounter.plankMillis)
+            val push = ExerciseCounter(ExerciseKind.PUSH_UP)
+            cycle(push, 0L, transform = { input -> changePoint(input, index) { it.copy(y = it.y + 80f) } })
+            assertEquals("pushup point $index", 1, push.reps)
         }
+    }
+
+    @Test
+    fun `pushup with the torso steeply tilted at the bottom is rejected with a tilt cue`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(counter, 0L, transform = { input -> changePoint(input, 3) { it.copy(y = it.y + 150f) } })
+        assertEquals(0, counter.reps)
+        assertTrue(counter.floor!!.lastTilt!! > 35.0)
+        assertEquals("Giữ thân gần song song với sàn khi hạ xuống.", counter.correction)
+        cycle(counter, 1_600L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `pushup bending the arms with only a partial body descent asks to lower the upper body`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        val straight = pushUp(170.0)
+        val bent = pushUp(90.0)
+        // Whole bent pose lifted so the shoulders sink only 12 px against a 200 px arm.
+        val lift = (bent.shoulder.y - straight.shoulder.y) - 12f
+        val partial = mapPoints(bent) { it.copy(y = it.y - lift) }
+        listOf(straight, straight, partial, partial, straight, straight).forEachIndexed { index, pose ->
+            counter.update(pose, index * 200L)
+        }
+        assertEquals(CameraView.SIDE, counter.view)
+        assertEquals(0, counter.reps)
+        assertEquals(0.06, counter.floor!!.lastDrop!!, 0.005)
+        assertEquals("Hạ cả thân trên xuống gần sàn, đừng chỉ gập tay.", counter.correction)
+    }
+
+    @Test
+    fun `pushup floor metrics follow the torso and the whole arm`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0), 0L)
+        val top = counter.floor!!
+        assertEquals(15.4, top.tilt, 0.2)
+        assertEquals(0.996, top.height, 0.002)
+        assertEquals(90.0, top.armAngle, 0.1)
+        counter.update(pushUp(90.0), 200L)
+        assertEquals(0.29, counter.floor!!.drop!!, 0.005)
     }
 
     @Test
@@ -697,7 +736,7 @@ class ExerciseCounterTest {
         val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
         val front: (ExercisePose) -> ExercisePose = {
             val degrees = jointAngle(it.shoulder, it.elbow, it.wrist)
-            upperBody(withOther(it, 300.0)).copy(world = worldChain(90.0, degrees))
+            upperBody(withOther(it, 300.0)).copy(world = pushWorld(degrees))
         }
         cycle(counter, 0L, transform = front)
         assertEquals(1, counter.reps)
@@ -755,22 +794,62 @@ class ExerciseCounterTest {
 
     @Test
     fun `plank tolerates moderate hip bends and elbow offsets`() {
-        for (offset in listOf(-60f, 60f)) {
+        for (offset in listOf(-60f, 25f)) {
             val base = plank()
             val counter = ExerciseCounter(ExerciseKind.PLANK)
             hold(counter, base.copy(hip = base.hip.copy(y = base.hip.y + offset)), 0L, 10_000L)
-            assertEquals(1, counter.points)
+            assertEquals("hip offset $offset", 1, counter.points)
         }
         for (rotation in listOf(-45.0, 45.0)) {
             val base = plank()
             val moved = rotate(base, rotation, base.shoulder)
             val counter = ExerciseCounter(ExerciseKind.PLANK)
             hold(counter, base.copy(elbow = moved.elbow, wrist = moved.wrist), 0L, 10_000L)
-            assertEquals(1, counter.points)
+            assertEquals("elbow offset $rotation", 1, counter.points)
         }
-        val tilted = ExerciseCounter(ExerciseKind.PLANK)
-        hold(tilted, rotate(plank(), 25.0), 0L, 10_000L)
-        assertEquals(1, tilted.points)
+        for (rotation in listOf(-10.0, 10.0)) {
+            val tilted = ExerciseCounter(ExerciseKind.PLANK)
+            hold(tilted, rotate(plank(), rotation), 0L, 10_000L)
+            assertEquals("rotation $rotation", 1, tilted.points)
+        }
+    }
+
+    @Test
+    fun `plank floor metrics are measured above the forearm support line`() {
+        val counter = ExerciseCounter(ExerciseKind.PLANK)
+        counter.update(plank(), 0L)
+        val level = counter.floor!!
+        assertEquals(9.0, level.tilt, 0.1)
+        assertEquals(1.0, level.height, 0.001)
+        assertEquals(89.1, level.armAngle, 0.2)
+        assertEquals(0.6, level.hipHeight!!, 0.01)
+        for (rotation in listOf(-10.0, 10.0)) {
+            val rolled = ExerciseCounter(ExerciseKind.PLANK)
+            rolled.update(rotate(plank(), rotation), 0L)
+            val m = rolled.floor!!
+            assertEquals(level.height, m.height, 0.001)
+            assertEquals(level.armAngle, m.armAngle, 0.1)
+            assertEquals(level.hipHeight!!, m.hipHeight!!, 0.001)
+            assertEquals(Math.abs(level.tilt + rotation), m.tilt, 0.2)
+        }
+    }
+
+    @Test
+    fun `plank rejects a steep body, sagging hips and a pike with a floor cue`() {
+        val base = plank()
+        val cases = listOf(
+            rotate(base, 20.0) to "Hạ thân gần song song với sàn, chỉ nghiêng nhẹ.",
+            base.copy(hip = base.hip.copy(y = base.hip.y + 60f)) to "Nâng hông lên, đừng để thân võng xuống sàn.",
+            // Pike whose shoulder-hip-knee line still passes the 135° straightness gate.
+            base.copy(hip = base.hip.copy(y = base.hip.y - 120f), knee = base.knee.copy(y = base.knee.y - 60f)) to
+                "Hạ hông xuống, giữ thân song song với sàn."
+        )
+        for ((pose, message) in cases) {
+            val counter = ExerciseCounter(ExerciseKind.PLANK)
+            hold(counter, pose, 0L, 6_000L)
+            assertEquals(message, 0L, counter.plankMillis)
+            assertEquals(message, counter.correction)
+        }
     }
 
     @Test
@@ -1024,7 +1103,7 @@ class ExerciseCounterTest {
         val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
         angles.forEachIndexed { index, degrees ->
             // Front view: the 2D elbow is foreshortened, so the world arm angle must drive.
-            counter.update(withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees)), index * 200L)
+            counter.update(withOther(pushUp(170.0), 300.0).copy(world = pushWorld(degrees)), index * 200L)
         }
         assertEquals(1, counter.reps)
     }
@@ -1037,7 +1116,7 @@ class ExerciseCounterTest {
             point(200.0, 200.0), point(200.0, 300.0), point(300.0, 300.0),
             point(300.0, 360.0), point(400.0, 380.0), point(500.0, 400.0), 0,
             otherShoulder = point(280.0, 200.0), otherHip = point(380.0, 360.0),
-            world = worldChain(180.0, 135.0)
+            world = pushWorld(135.0)
         )
         repeat(6) { index ->
             val pose = if (index % 2 == 0) base else base.copy(
@@ -1050,7 +1129,7 @@ class ExerciseCounterTest {
         assertEquals(0, counter.reps)
         listOf(170.0, 130.0, 90.0, 120.0, 170.0).forEachIndexed { index, degrees ->
             val t = 1_200L + index * 200L
-            val pose = base.copy(world = worldChain(180.0, degrees))
+            val pose = base.copy(world = pushWorld(degrees))
             counter.update(stabilizer.update(listOf(pose), t), t)
         }
         assertEquals(1, counter.reps)
@@ -1062,7 +1141,7 @@ class ExerciseCounterTest {
             val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
             listOf(170.0, 130.0, 90.0, 90.0, 90.0, 100.0).forEachIndexed { index, degrees ->
                 val base = pushUp(if (toWorld) 170.0 else degrees)
-                    .copy(world = worldChain(180.0, if (toWorld) degrees else 170.0))
+                    .copy(world = pushWorld(if (toWorld) degrees else 170.0))
                 val front = if (index == 0) !toWorld else toWorld
                 counter.update(if (front) withOther(base, 300.0) else base, index * 200L)
             }
@@ -1075,7 +1154,7 @@ class ExerciseCounterTest {
     fun `view changes cannot count a stationary arm with differing image and world angles`() {
         val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
         repeat(24) { index ->
-            val base = pushUp(90.0).copy(world = worldChain(180.0, 135.0))
+            val base = pushUp(90.0).copy(world = pushWorld(135.0))
             val pose = if (index / 6 % 2 == 0) base else withOther(base, 300.0)
             counter.update(pose, index * 200L)
         }
@@ -1085,18 +1164,18 @@ class ExerciseCounterTest {
     @Test
     fun `switching to a delayed world valley cannot credit the same rep twice`() {
         val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
-        counter.update(pushUp(170.0).copy(world = worldChain(180.0, 170.0)), 0L)
-        counter.update(pushUp(90.0).copy(world = worldChain(180.0, 130.0)), 200L)
-        counter.update(pushUp(100.0).copy(world = worldChain(180.0, 90.0)), 400L)
+        counter.update(pushUp(170.0).copy(world = pushWorld(170.0)), 0L)
+        counter.update(pushUp(90.0).copy(world = pushWorld(130.0)), 200L)
+        counter.update(pushUp(100.0).copy(world = pushWorld(90.0)), 400L)
         assertEquals(1, counter.reps)
         listOf(90.0, 90.0, 90.0, 100.0, 130.0).forEachIndexed { index, degrees ->
-            val pose = withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees))
+            val pose = withOther(pushUp(170.0), 300.0).copy(world = pushWorld(degrees))
             counter.update(pose, 600L + index * 200L)
         }
         assertEquals(CameraView.FRONT, counter.view)
         assertEquals(1, counter.reps)
         listOf(170.0, 90.0, 100.0).forEachIndexed { index, degrees ->
-            val pose = withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees))
+            val pose = withOther(pushUp(170.0), 300.0).copy(world = pushWorld(degrees))
             counter.update(pose, 1_600L + index * 200L)
         }
         assertEquals(2, counter.reps)
@@ -1112,7 +1191,7 @@ class ExerciseCounterTest {
                 val slow = listOf(170.0, 170.0, 150.0, 140.0, 90.0, 110.0)
                 fast.indices.forEach { index ->
                     val base = pushUp(if (toWorld) fast[index] else slow[index])
-                        .copy(world = worldChain(180.0, if (toWorld) slow[index] else fast[index]))
+                        .copy(world = pushWorld(if (toWorld) slow[index] else fast[index]))
                     val front = if (toWorld) index > 0 else index == 0
                     val pose = if (front) withOther(base, 300.0) else base
                     val t = index * 200L
@@ -1120,7 +1199,7 @@ class ExerciseCounterTest {
                 }
                 assertEquals("toWorld=$toWorld smooth=$smooth", 1, counter.reps)
                 listOf(170.0, 170.0, 90.0, 90.0, 130.0, 170.0, 170.0).forEachIndexed { index, degrees ->
-                    val base = pushUp(degrees).copy(world = worldChain(180.0, degrees))
+                    val base = pushUp(degrees).copy(world = pushWorld(degrees))
                     val pose = if (toWorld) withOther(base, 300.0) else base
                     val t = 1_200L + index * 200L
                     counter.update(if (smooth) stabilizer.update(listOf(pose), t) else pose, t)
@@ -1136,7 +1215,7 @@ class ExerciseCounterTest {
         val image = listOf(170.0, 90.0, 110.0, 170.0, 170.0, 170.0)
         val world = listOf(170.0, 170.0, 150.0, null, 90.0, 110.0)
         image.indices.forEach { index ->
-            val base = pushUp(image[index]).copy(world = world[index]?.let { worldChain(180.0, it) })
+            val base = pushUp(image[index]).copy(world = world[index]?.let { pushWorld(it) })
             val pose = if (index == 0) base else withOther(base, 300.0)
             counter.update(pose, index * 200L)
         }
@@ -1171,6 +1250,13 @@ class ExerciseCounterTest {
         val er = Math.toRadians(elbowDegrees)
         val wrist = worldPoint(elbow.x + 0.3 * sin(er), elbow.y + 0.3 * cos(er), 0.0)
         return WorldChain(shoulder, elbow, wrist, hip, knee, ankle)
+    }
+
+    // Push-up chain in metres (y down, hip-centred): wrists planted, shoulders sinking as the elbows bend.
+    private fun pushWorld(elbowDegrees: Double): WorldChain {
+        val body = pushUp(elbowDegrees)
+        fun w(p: BodyPoint) = worldPoint((p.x - body.hip.x) * 0.0015, (p.y - body.hip.y) * 0.0015, 0.0)
+        return WorldChain(w(body.shoulder), w(body.elbow), w(body.wrist), w(body.hip), w(body.knee), w(body.ankle))
     }
 
     private fun requiredIndices(kind: ExerciseKind): List<Int> = when (kind) {

@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.25</td>
+                    <td>15/11/2026</td>
+                    <td><strong>Chống đẩy và plank được kiểm so với mặt sàn, ngưỡng nới rộng.</strong> Ở đáy mỗi nhịp chống đẩy, vai phải hạ ít nhất 8% chiều dài cả cánh tay ở mọi góc nhìn (3.24 là 5% và chỉ ở góc bên hông), và đường vai–hông nghiêng không quá 35° so với sàn. Plank đo so với đường khuỷu tay–cổ chân: thân vai–cổ chân nghiêng không quá 25°, cánh tay trên tạo với sàn ít nhất 40°, hông cao 0,3–1,6 lần độ cao vai. Sai tiêu chí thì không đếm và hiện câu sửa; khớp tay nhảy trong khi vai đứng yên thì không đếm và không nhắc. Đặt máy nghiêng làm số đo độ nghiêng thân lệch theo. Replay video pushup đếm 4/4 và plank 11 giây; các mẫu khác giữ app_test 4/4, 76/76, 87/86, 2/2, 4/4 và squat 7/7. Không thêm quyền hoặc lưu/gửi hình ảnh. Chưa kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.24</td>
                     <td>14/11/2026</td>
                     <td><strong>Nhận đúng tư thế khi khoá xoay màn hình và đếm chống đẩy bên hông chính xác hơn.</strong> App đọc hướng cầm máy bằng cảm biến gia tốc và xoay khung hình cho thẳng trước khi nhận diện, nên đặt máy nằm ngang khi đã khoá xoay không còn bị báo sai tư thế; máy gần nằm phẳng thì app ngừng đếm và nhắc dựng máy đứng hơn. Ở góc bên hông, chống đẩy được tính khi khuỷu tay gập tới 125° (trước là 100°) và vai hạ ít nhất 5% chiều dài tay, nên khớp tay nhận nhầm khi vai đứng yên không tạo lần đếm giả; góc chếch/chính diện vẫn cần khớp 3D gập tới 100°. Replay video app_test đếm 4/4, đúng thời điểm từng lần (bản cũ đếm 4 nhưng chỉ 1 lần đúng); các mẫu cũ giữ 76/76, 87/86, 2/2, 4/4, 4/4, squat 7/7 và plank 11 giây. Không thêm quyền hoặc lưu/gửi hình ảnh. Chưa kiểm chứng trên điện thoại thật.</td>

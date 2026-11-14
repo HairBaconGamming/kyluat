@@ -39,10 +39,10 @@ export const WINDOWS_ZIP = {
 };
 
 export const ANDROID = {
-  file: "kyluat-android-v3.24.apk",
-  url: `${RELEASE}/kyluat-android-v3.24.apk`,
+  file: "kyluat-android-v3.25.apk",
+  url: `${RELEASE}/kyluat-android-v3.25.apk`,
   size: "60,62 MB",
-  note: "phiên bản 3.24 (số 29)",
-  bytes: "60.620.301",
-  sha256: "e4608e485797d0b72bc87aec00c839fd8cb65e0550fef245e12c62b42a04d5a4",
+  note: "phiên bản 3.25 (số 30)",
+  bytes: "60.620.305",
+  sha256: "7d2d331c35735541772cc6d902274e1167fec2f521a0b625091a0ed943ca11dd",
 };

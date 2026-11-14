@@ -3,6 +3,9 @@ package com.cainghien.companion
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.acos
+import kotlin.math.asin
+import kotlin.math.atan2
+import kotlin.math.hypot
 import kotlin.math.sqrt
 
 enum class ExerciseKind { PUSH_UP, SQUAT, PLANK }
@@ -35,6 +38,17 @@ data class ExercisePose(
     val world: WorldChain? = null
 )
 
+// Tilt is against gravity (horizontal in the upright frame); heights are above the body's support.
+data class FloorMetrics(
+    val tilt: Double, // degrees: push-up torso (shoulder→hip), plank body (shoulder→ankle)
+    val height: Double, // shoulder height ÷ whole arm (push-up, above wrists) or upper arm (plank, above elbows)
+    val armAngle: Double, // degrees to the floor, 90 = perpendicular
+    val drop: Double? = null, // push-up: shoulder descent since the last top ÷ arm
+    val lastDrop: Double? = null, // push-up: descent at the last judged valley ÷ arm
+    val lastTilt: Double? = null, // push-up: torso tilt at the last judged valley
+    val hipHeight: Double? = null // plank: hip height ÷ shoulder height
+)
+
 class ExerciseCounter(val kind: ExerciseKind) {
     var reps: Int = 0
         private set
@@ -58,6 +72,9 @@ class ExerciseCounter(val kind: ExerciseKind) {
     var view: CameraView = CameraView.SIDE
         private set
 
+    var floor: FloorMetrics? = null
+        private set
+
     val viewLabel: String
         get() = when (view) {
             CameraView.SIDE -> "Bên hông"
@@ -73,9 +90,11 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private var extremum = Extremum.NONE
     private var extremumSince: Long = 0L
     private var cycleSince: Long? = null
-    private val imagePushCycle = PushCycle(PUSH_IMAGE_BOTTOM, PUSH_SINK)
-    private val worldPushCycle = PushCycle(PUSH_WORLD_BOTTOM, 0.0)
+    private val imagePushCycle = PushCycle(PUSH_IMAGE_BOTTOM)
+    private val worldPushCycle = PushCycle(PUSH_WORLD_BOTTOM)
     private var pushLastRep = -PUSH_MIN_REP_MS
+    private var pushRejection: String? = null
+    private var pushRejectionUntil = 0L
     private var lastTime: Long? = null
     private var lastSide: Int? = null
     private var viewInitialized = false
@@ -84,10 +103,12 @@ class ExerciseCounter(val kind: ExerciseKind) {
 
     fun update(pose: ExercisePose?, nowMs: Long) {
         if (pose == null) {
+            floor = null
             invalidate(if (kind == ExerciseKind.PUSH_UP) "Đưa vai, tay và hông vào khung hình." else "Đưa toàn thân vào khung hình.")
             return
         }
         if (!landmarksValid(pose)) {
+            floor = null
             invalidate("Chưa thấy rõ các khớp. Điều chỉnh camera.")
             return
         }
@@ -108,6 +129,11 @@ class ExerciseCounter(val kind: ExerciseKind) {
             }
         } else {
             pendingView = null
+        }
+        floor = when (kind) {
+            ExerciseKind.PUSH_UP -> pushMetrics(pose)
+            ExerciseKind.PLANK -> plankMetrics(pose)
+            ExerciseKind.SQUAT -> null
         }
 
         if (kind == ExerciseKind.SQUAT) {
@@ -147,9 +173,15 @@ class ExerciseCounter(val kind: ExerciseKind) {
             }
         }
 
-        if (kind == ExerciseKind.PLANK && !forearmSupport(pose)) {
-            invalidate("Đặt khuỷu tay dưới vai, gập tay gần vuông góc.")
-            return
+        if (kind == ExerciseKind.PLANK) {
+            if (!forearmSupport(pose)) {
+                invalidate("Đặt khuỷu tay dưới vai, gập tay gần vuông góc.")
+                return
+            }
+            floor?.let(::plankFloorIssue)?.let {
+                invalidate(it)
+                return
+            }
         }
 
         val previousTime = lastTime
@@ -166,7 +198,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
             lastTime?.let { plankMillis += nowMs - it }
             feedback = "Giữ thân thẳng, chống cẳng tay và thở đều."
         } else if (kind == ExerciseKind.PUSH_UP) {
-            updatePushCycle(pose, nowMs)
+            updatePushCycle(pose, pushMetrics(pose), nowMs)
         } else {
             val jointAngle = when {
                 pose.world != null -> angle3(pose.world.hip, pose.world.knee, pose.world.ankle)
@@ -254,34 +286,56 @@ class ExerciseCounter(val kind: ExerciseKind) {
         }
     }
 
-    private fun updatePushCycle(pose: ExercisePose, nowMs: Long) {
+    private fun updatePushCycle(pose: ExercisePose, metrics: FloorMetrics, nowMs: Long) {
         val imageAngle = angle(pose.shoulder, pose.elbow, pose.wrist)
         val worldAngle = pose.world?.let { angle3(it.shoulder, it.elbow, it.wrist) }
-        val shoulderY = pose.shoulder.y.toDouble()
-        val arm = distance(pose.shoulder, pose.elbow) + distance(pose.elbow, pose.wrist)
         val ready = nowMs - pushLastRep >= PUSH_MIN_REP_MS
         // Independent histories preserve a real descent without treating a source switch as motion.
-        val imageCounted = imagePushCycle.update(imageAngle, shoulderY, arm, ready)
-        val worldCounted = if (worldAngle != null) worldPushCycle.update(worldAngle, shoulderY, arm, ready)
-            else false.also { worldPushCycle.reset(preserveSuppression = true) }
+        // Depth grows as the shoulders sink towards the floor. The image floor is fixed in the
+        // upright frame, so image depth is the shoulder moving along gravity (per-frame wrists
+        // glitch too much); world points are hip-centred, so world depth is relative to the wrists.
+        val arm = distance(pose.shoulder, pose.elbow) + distance(pose.elbow, pose.wrist)
+        val imageResult = imagePushCycle.update(imageAngle, pose.shoulder.y.toDouble(), arm, metrics.tilt, ready)
+        val world = pose.world
+        val worldResult = if (world != null && worldAngle != null) {
+            worldPushCycle.update(
+                worldAngle, world.shoulder.y.toDouble() - world.wrist.y,
+                length3(world.shoulder, world.elbow) + length3(world.elbow, world.wrist), metrics.tilt, ready
+            )
+        } else PushResult.NONE.also { worldPushCycle.reset(preserveSuppression = true) }
         val usesWorld = view != CameraView.SIDE && worldAngle != null
-        val counted = if (usesWorld) worldCounted else imageCounted
+        val active = if (usesWorld) worldPushCycle else imagePushCycle
+        val result = if (usesWorld) worldResult else imageResult
+        val counted = result == PushResult.COUNTED
         if (counted) {
             reps += 1
             pushLastRep = nowMs
+            pushRejection = null
             // The unselected source must not credit the same descent after a view change.
             if (usesWorld) imagePushCycle.suppress(imageAngle) else worldPushCycle.suppress(worldAngle)
+        } else if (result == PushResult.TILTED ||
+            // A bend with level shoulders is arm-landmark noise, not an attempt: stay silent.
+            (result == PushResult.SHALLOW && (active.lastDrop ?: 0.0) >= PUSH_DROP / 2)
+        ) {
+            pushRejection = if (result == PushResult.SHALLOW) "Hạ cả thân trên xuống gần sàn, đừng chỉ gập tay."
+                else "Giữ thân gần song song với sàn khi hạ xuống."
+            pushRejectionUntil = nowMs + PUSH_REJECTION_MS
         }
+        floor = metrics.copy(drop = active.drop, lastDrop = active.lastDrop, lastTilt = active.lastTilt)
         val jointAngle = if (usesWorld) worldAngle!! else imageAngle
         val bottom = if (usesWorld) PUSH_WORLD_BOTTOM else PUSH_IMAGE_BOTTOM
+        val rejection = pushRejection?.takeIf { nowMs < pushRejectionUntil }
         feedback = when {
             counted -> "Đã ghi nhận. ${lowerFeedback()}"
+            rejection != null -> rejection.also { correction = it }
             jointAngle <= bottom + 10.0 -> riseFeedback()
             else -> lowerFeedback()
         }
     }
 
-    private class PushCycle(private val bottom: Double, private val minSink: Double) {
+    private enum class PushResult { NONE, COUNTED, SHALLOW, TILTED }
+
+    private class PushCycle(private val bottom: Double) {
         private var peak = 0.0
         private var candidate = 180.0
         private var swing = 0.0
@@ -291,47 +345,66 @@ class ExerciseCounter(val kind: ExerciseKind) {
         private var suppressedValley = 180.0
         private var top = Double.MAX_VALUE
         private var sink = 0.0
+        private var valleyTilt = 0.0
         private var reach = 0.0
+        private var depth = Double.NaN
 
-        fun update(jointAngle: Double, shoulderY: Double, arm: Double, ready: Boolean): Boolean {
+        var lastDrop: Double? = null
+            private set
+        var lastTilt: Double? = null
+            private set
+        val drop: Double?
+            get() = if (reach > 0.0 && depth.isFinite()) (depth - top).coerceAtLeast(0.0) / reach else null
+
+        fun update(jointAngle: Double, depth: Double, arm: Double, tilt: Double, ready: Boolean): PushResult {
             if (suppressed) {
                 suppressedValley = minOf(suppressedValley, jointAngle)
-                if (jointAngle < suppressedValley + PUSH_REARM) return false
+                if (jointAngle < suppressedValley + PUSH_REARM) return PushResult.NONE
                 reset()
             }
+            this.depth = depth
             if (!armed) {
-                if (jointAngle < valley + PUSH_REARM) return false
+                if (jointAngle < valley + PUSH_REARM) return PushResult.NONE
                 armed = true
                 peak = jointAngle
                 candidate = jointAngle
                 swing = 0.0
-                restartSink(shoulderY, arm)
+                restartSink(depth, arm)
             }
-            top = minOf(top, shoulderY)
+            top = minOf(top, depth)
             reach = maxOf(reach, arm)
             peak = maxOf(peak, jointAngle)
-            var counted = false
+            var result = PushResult.NONE
             if (jointAngle <= candidate) {
                 candidate = jointAngle
                 swing = maxOf(swing, peak - candidate)
                 // Read at the valley frame: a glitching arm bends while the shoulder stays level.
-                sink = shoulderY - top
+                sink = depth - top
+                valleyTilt = tilt
             } else if (jointAngle >= candidate + PUSH_CONFIRM) {
-                counted = candidate <= bottom && swing >= PUSH_AMP && sink >= minSink * reach && ready
-                if (counted) {
+                if (candidate <= bottom && swing >= PUSH_AMP && ready) {
+                    lastDrop = sink / reach
+                    lastTilt = valleyTilt
+                    result = when {
+                        sink < PUSH_DROP * reach -> PushResult.SHALLOW
+                        valleyTilt > PUSH_MAX_TILT -> PushResult.TILTED
+                        else -> PushResult.COUNTED
+                    }
+                }
+                if (result == PushResult.COUNTED) {
                     armed = false
                     valley = candidate
                 }
                 peak = jointAngle
                 candidate = 180.0
                 swing = 0.0
-                restartSink(shoulderY, arm)
+                restartSink(depth, arm)
             }
-            return counted
+            return result
         }
 
-        private fun restartSink(shoulderY: Double, arm: Double) {
-            top = shoulderY
+        private fun restartSink(depth: Double, arm: Double) {
+            top = depth
             sink = 0.0
             reach = arm
         }
@@ -349,7 +422,9 @@ class ExerciseCounter(val kind: ExerciseKind) {
             valley = 0.0
             top = Double.MAX_VALUE
             sink = 0.0
+            valleyTilt = 0.0
             reach = 0.0
+            depth = Double.NaN
             if (!preserveSuppression) {
                 suppressed = false
                 suppressedValley = 180.0
@@ -371,6 +446,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
         imagePushCycle.reset()
         worldPushCycle.reset()
         pushLastRep = -PUSH_MIN_REP_MS
+        pushRejection = null
         lastTime = null
         lastSide = null
         pendingView = null
@@ -408,7 +484,8 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     private fun orientationOk(pose: ExercisePose, view: CameraView): Boolean = when (view) {
-        CameraView.SIDE -> horizontal(pose, 0.75)
+        // The side-view body angle is judged against the floor in plankFloorIssue.
+        CameraView.SIDE -> true
         CameraView.FRONT -> kind == ExerciseKind.SQUAT && shouldersLevel(pose)
         CameraView.DIAGONAL -> horizontal(pose, 1.0) || shouldersLevel(pose)
         CameraView.UNKNOWN -> false
@@ -490,12 +567,81 @@ class ExerciseCounter(val kind: ExerciseKind) {
             abs(pose.ankle.x.toDouble() - pose.shoulder.x) <= fullDrop * 0.8
     }
 
-    private fun forearmSupport(pose: ExercisePose): Boolean {
-        val elbowAngle = angle(pose.shoulder, pose.elbow, pose.wrist)
-        val upperArm = distance(pose.shoulder, pose.elbow)
-        return elbowAngle in 45.0..135.0 &&
-            pose.elbow.y.toDouble() - pose.shoulder.y >= upperArm * 0.35 &&
-            abs(pose.elbow.x.toDouble() - pose.shoulder.x) <= upperArm * 0.9
+    private fun forearmSupport(pose: ExercisePose): Boolean =
+        angle(pose.shoulder, pose.elbow, pose.wrist) in 45.0..135.0
+
+    private fun pushMetrics(pose: ExercisePose): FloorMetrics {
+        val w = pose.world?.takeIf { view != CameraView.SIDE }
+        val rise: Double
+        val run: Double
+        val arm: Double
+        if (w != null) {
+            rise = w.wrist.y.toDouble() - w.shoulder.y
+            run = hypot(w.wrist.x.toDouble() - w.shoulder.x, w.wrist.z.toDouble() - w.shoulder.z)
+            arm = length3(w.shoulder, w.elbow) + length3(w.elbow, w.wrist)
+        } else {
+            rise = pose.wrist.y.toDouble() - pose.shoulder.y
+            run = abs(pose.wrist.x.toDouble() - pose.shoulder.x)
+            arm = distance(pose.shoulder, pose.elbow) + distance(pose.elbow, pose.wrist)
+        }
+        return FloorMetrics(
+            tilt = floorTilt(pose.shoulder, pose.hip, pose.world?.shoulder, pose.world?.hip),
+            height = if (arm > 0.0) rise / arm else 0.0,
+            armAngle = Math.toDegrees(atan2(rise, run))
+        )
+    }
+
+    // Heights are measured above the elbow→ankle support line, so camera roll cancels out.
+    private fun plankMetrics(pose: ExercisePose): FloorMetrics {
+        val ux = pose.ankle.x.toDouble() - pose.elbow.x
+        val uy = pose.ankle.y.toDouble() - pose.elbow.y
+        val length = hypot(ux, uy)
+        var nx = 0.0
+        var ny = -1.0
+        if (length >= MIN_SEGMENT_PX) {
+            nx = uy / length
+            ny = -ux / length
+            if (ny > 0.0) {
+                nx = -nx
+                ny = -ny
+            }
+        }
+        fun above(p: BodyPoint) = (p.x.toDouble() - pose.elbow.x) * nx + (p.y.toDouble() - pose.elbow.y) * ny
+        val shoulderHeight = above(pose.shoulder)
+        val height = shoulderHeight / distance(pose.shoulder, pose.elbow)
+        return FloorMetrics(
+            tilt = floorTilt(pose.shoulder, pose.ankle, pose.world?.shoulder, pose.world?.ankle),
+            height = height,
+            armAngle = Math.toDegrees(asin(height.coerceIn(-1.0, 1.0))),
+            hipHeight = if (shoulderHeight > 0.0) above(pose.hip) / shoulderHeight else null
+        )
+    }
+
+    // Angle of a→b against the floor; world points remove the foreshortening of non-side views.
+    private fun floorTilt(a: BodyPoint, b: BodyPoint, wa: WorldPoint?, wb: WorldPoint?): Double {
+        if (view != CameraView.SIDE && wa != null && wb != null) {
+            val run = hypot(wb.x.toDouble() - wa.x, wb.z.toDouble() - wa.z)
+            return Math.toDegrees(atan2(abs(wb.y.toDouble() - wa.y), run))
+        }
+        return Math.toDegrees(atan2(abs(b.y.toDouble() - a.y), abs(b.x.toDouble() - a.x)))
+    }
+
+    private fun plankFloorIssue(m: FloorMetrics): String? {
+        val hip = m.hipHeight
+        return when {
+            m.tilt > PLANK_MAX_TILT -> "Hạ thân gần song song với sàn, chỉ nghiêng nhẹ."
+            m.armAngle < PLANK_MIN_ARM -> "Đặt khuỷu tay dưới vai, gập tay gần vuông góc."
+            hip == null || hip < PLANK_HIP_LOW -> "Nâng hông lên, đừng để thân võng xuống sàn."
+            hip > PLANK_HIP_HIGH -> "Hạ hông xuống, giữ thân song song với sàn."
+            else -> null
+        }
+    }
+
+    private fun length3(a: WorldPoint, b: WorldPoint): Double {
+        val dx = a.x.toDouble() - b.x
+        val dy = a.y.toDouble() - b.y
+        val dz = a.z.toDouble() - b.z
+        return sqrt(dx * dx + dy * dy + dz * dz)
     }
 
     private fun distance(a: BodyPoint, b: BodyPoint): Double {
@@ -543,14 +689,22 @@ class ExerciseCounter(val kind: ExerciseKind) {
         // Push-up valley detector: depth, swing below the recent peak, confirmation rise,
         // re-arm rise above the counted valley, and refractory gap between credited reps.
         const val PUSH_WORLD_BOTTOM = 100.0
-        // 2D side-view valleys often stay above 100°, so the image gate is looser but needs the
-        // shoulder to sink by a share of arm length; arm-landmark glitches bend with level shoulders.
+        // 2D side-view valleys often stay above 100°, so the image gate is looser.
         const val PUSH_IMAGE_BOTTOM = 125.0
-        const val PUSH_SINK = 0.05
         const val PUSH_AMP = 30.0
         const val PUSH_CONFIRM = 10.0
         const val PUSH_REARM = 20.0
         const val PUSH_MIN_REP_MS = 300L
+        // Floor gates at the valley: the shoulders must sink towards the floor by a share of the
+        // whole arm (arm-landmark glitches bend with level shoulders; a 125° elbow sinks ~0.11),
+        // with the torso only tilted. Real fixture reps sink ≥0.31 and tilt ≤21°.
+        const val PUSH_DROP = 0.08
+        const val PUSH_MAX_TILT = 35.0
+        const val PUSH_REJECTION_MS = 1500L
+        const val PLANK_MAX_TILT = 25.0
+        const val PLANK_MIN_ARM = 40.0
+        const val PLANK_HIP_LOW = 0.3
+        const val PLANK_HIP_HIGH = 1.6
         const val FRONT_RATIO = 0.6
         const val FRONT_RATIO_HORIZONTAL = 0.85
         const val SIDE_RATIO = 0.3

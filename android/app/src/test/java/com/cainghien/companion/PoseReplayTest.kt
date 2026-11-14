@@ -33,9 +33,13 @@ class PoseReplayTest {
             var reps = 0
             val repTimes = mutableListOf<Long>()
             var correction: String? = null
+            val dumpDir = java.io.File("build/replay-metrics").apply { mkdirs() }
+            val dump = java.io.File(dumpDir, file.nameWithoutExtension + ".tsv").printWriter()
+            dump.println(DUMP_HEADER)
             for ((t, candidates) in byTime) {
                 val pose = stabilizer.update(candidates, t)
                 counter.update(pose, t)
+                dump.println(dumpRow(t, pose, counter))
                 if (counter.reps != reps) {
                     repeat(counter.reps - reps) { repTimes.add(t) }
                     reps = counter.reps
@@ -46,6 +50,7 @@ class PoseReplayTest {
                     if (correction != null) println("CORR ${file.name} t=$t $correction")
                 }
             }
+            dump.close()
             val measured = if (kind == ExerciseKind.PLANK) counter.plankMillis / 1000 else counter.reps.toLong()
             println("REPLAY ${file.name}: reps=${counter.reps} plankSeconds=${counter.plankMillis / 1000} points=${counter.points}")
             assertTrue("replay produced no feedback", counter.feedback.isNotBlank())
@@ -59,6 +64,29 @@ class PoseReplayTest {
             assertEquals("$name rep times $times", windows.size, times.size)
             times.zip(windows).forEach { (t, window) -> assertTrue("$name rep at $t outside $window", t in window) }
         }
+    }
+
+    // Per-frame trace for tools/render_count_overlay.py and threshold calibration.
+    private fun dumpRow(t: Long, pose: ExercisePose?, counter: ExerciseCounter): String {
+        fun p(b: BodyPoint?) = if (b == null) "\t\t" else "${b.x}\t${b.y}\t${b.confidence}"
+        fun w(b: WorldPoint?) = if (b == null) "\t\t\t" else "${b.x}\t${b.y}\t${b.z}\t${b.confidence}"
+        val joints = listOf(pose?.shoulder, pose?.elbow, pose?.wrist, pose?.hip, pose?.knee, pose?.ankle).joinToString("\t") { p(it) }
+        val world = pose?.world.let { c -> listOf(c?.shoulder, c?.elbow, c?.wrist, c?.hip, c?.knee, c?.ankle) }.joinToString("\t") { w(it) }
+        val m = counter.floor
+        val metrics = listOf(m?.tilt, m?.height, m?.armAngle, m?.drop, m?.lastDrop, m?.lastTilt, m?.hipHeight)
+            .joinToString("\t") { it?.let { v -> "%.4f".format(java.util.Locale.ROOT, v) } ?: "" }
+        return listOf(
+            t, counter.reps, counter.plankMillis, counter.view, pose?.side ?: "",
+            if (counter.correction != null) 1 else 0, counter.feedback, joints, world, metrics
+        ).joinToString("\t")
+    }
+
+    private companion object {
+        val DUMP_HEADER = (listOf("t", "reps", "plank_ms", "view", "side", "corr", "feedback") +
+            listOf("s", "e", "w", "h", "k", "a").flatMap { listOf("${it}x", "${it}y", "${it}c") } +
+            listOf("s", "e", "w", "h", "k", "a").flatMap { listOf("w${it}x", "w${it}y", "w${it}z", "w${it}c") } +
+            listOf("tilt", "height", "arm", "drop", "last_drop", "last_tilt", "hip")
+            ).joinToString("\t")
     }
 
     private fun parse(line: String): Pair<Long, ExercisePose>? {
