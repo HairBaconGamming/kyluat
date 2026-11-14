@@ -1,5 +1,6 @@
 package com.cainghien.companion
 
+import kotlin.math.hypot
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -69,5 +70,38 @@ class ViewMappingTest {
         val (x, y) = ViewMapping.toView(0.5f, 0.5f, r, mirrored = false)
         assertEquals(100f, x, 1e-3f)
         assertEquals(100f, y, 1e-3f)
+    }
+
+    @Test
+    fun `landmarks from a rotated frame land on the unrotated preview`() {
+        val r = ViewMapping.contentRect(300, 400, 300, 400)
+        for (mirrored in listOf(false, true)) {
+            for (rotation in listOf(0, 90, 180, 270)) {
+                val (x, y) = rotated(0.2f, 0.7f, rotation)
+                val (vx, vy) = ViewMapping.toView(x, y, r, mirrored, rotation)
+                val label = "rotation=$rotation mirrored=$mirrored"
+                assertEquals(label, if (mirrored) 240f else 60f, vx, 1e-3f)
+                assertEquals(label, 280f, vy, 1e-3f)
+            }
+        }
+    }
+
+    @Test
+    fun `upright coordinates keep pixel distances for every rotation`() {
+        val r = ViewMapping.contentRect(300, 400, 300, 400)
+        val expected = hypot((0.5f - 0.2f) * 300f, (0.1f - 0.7f) * 400f)
+        for (rotation in listOf(0, 90, 180, 270)) {
+            val (ax, ay) = rotated(0.2f, 0.7f, rotation).let { ViewMapping.toUpright(it.first, it.second, r, rotation) }
+            val (bx, by) = rotated(0.5f, 0.1f, rotation).let { ViewMapping.toUpright(it.first, it.second, r, rotation) }
+            assertEquals("rotation=$rotation", expected, hypot(ax - bx, ay - by), 1e-2f)
+        }
+    }
+
+    // Normalised position after Matrix.postRotate turns the frame clockwise.
+    private fun rotated(x: Float, y: Float, rotation: Int): Pair<Float, Float> = when (rotation) {
+        90 -> (1f - y) to x
+        180 -> (1f - x) to (1f - y)
+        270 -> y to (1f - x)
+        else -> x to y
     }
 }

@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.24</td>
+                    <td>14/11/2026</td>
+                    <td><strong>Nhận đúng tư thế khi khoá xoay màn hình và đếm chống đẩy bên hông chính xác hơn.</strong> App đọc hướng cầm máy bằng cảm biến gia tốc và xoay khung hình cho thẳng trước khi nhận diện, nên đặt máy nằm ngang khi đã khoá xoay không còn bị báo sai tư thế; máy gần nằm phẳng thì app ngừng đếm và nhắc dựng máy đứng hơn. Ở góc bên hông, chống đẩy được tính khi khuỷu tay gập tới 125° (trước là 100°) và vai hạ ít nhất 5% chiều dài tay, nên khớp tay nhận nhầm khi vai đứng yên không tạo lần đếm giả; góc chếch/chính diện vẫn cần khớp 3D gập tới 100°. Replay video app_test đếm 4/4, đúng thời điểm từng lần (bản cũ đếm 4 nhưng chỉ 1 lần đúng); các mẫu cũ giữ 76/76, 87/86, 2/2, 4/4, 4/4, squat 7/7 và plank 11 giây. Không thêm quyền hoặc lưu/gửi hình ảnh. Chưa kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.23</td>
                     <td>14/11/2026</td>
                     <td><strong>Chống đẩy và plank dễ nhận hơn khi tư thế chưa hoàn hảo.</strong> Chống đẩy theo dõi thân trên liên tục, không đổi bộ lọc khi chân khuất; tay bị che thoáng qua không còn xoá nhịp, biên độ tối thiểu giảm từ 35° xuống 30°. Góc 2D/3D được theo dõi riêng để đổi góc nhìn không tạo thêm lần đếm. App không nhắc đưa chân vào khung khi chống đẩy. Plank chấp nhận hông, gối và khuỷu tay lệch vừa phải, vẫn loại tư thế đứng, gập người quá mức và tay duỗi thẳng. Replay dữ liệu LIVE_STREAM của pushup5 đếm 4/4; các mẫu cũ giữ kết quả 76/76, 87/86, 2/2, 4/4, squat 7/7 và plank 11 giây. Không thêm quyền hoặc lưu/gửi hình ảnh. Chưa kiểm chứng trên điện thoại thật.</td>

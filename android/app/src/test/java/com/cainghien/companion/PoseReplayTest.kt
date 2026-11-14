@@ -13,11 +13,17 @@ class PoseReplayTest {
         val files = java.io.File(dir.toURI()).listFiles { f -> f.extension == "csv" }?.sorted() ?: emptyList()
         assumeTrue("no replay fixtures yet", files.isNotEmpty())
         val results = mutableListOf<Triple<String, Long, Long?>>()
+        val timings = mutableListOf<Triple<String, List<Long>, List<LongRange>>>()
         for (file in files) {
             val reader = file.bufferedReader()
             val meta = reader.readLine() ?: continue
             val kind = ExerciseKind.valueOf(Regex("kind=(\\w+)").find(meta)!!.groupValues[1])
             val expected = Regex("expected=(\\d+)").find(meta)?.groupValues?.get(1)?.toInt()
+            // Optional per-rep windows taken from the video, so spurious counts cannot stand in for missed reps.
+            val windows = Regex("rep_ms=(\\S+)").find(meta)?.groupValues?.get(1)?.split(",")?.map { window ->
+                val (from, to) = window.split("-").map(String::toLong)
+                from..to
+            }
             reader.readLine()
             val counter = ExerciseCounter(kind)
             val stabilizer = PoseStabilizer().apply { upperBody = kind == ExerciseKind.PUSH_UP }
@@ -25,11 +31,13 @@ class PoseReplayTest {
             reader.forEachLine { line -> parse(line)?.let { (t, pose) -> byTime.getOrPut(t) { mutableListOf() }.add(pose) } }
             reader.close()
             var reps = 0
+            val repTimes = mutableListOf<Long>()
             var correction: String? = null
             for ((t, candidates) in byTime) {
                 val pose = stabilizer.update(candidates, t)
                 counter.update(pose, t)
                 if (counter.reps != reps) {
+                    repeat(counter.reps - reps) { repTimes.add(t) }
                     reps = counter.reps
                     println("REP ${file.name} t=$t reps=$reps")
                 }
@@ -42,9 +50,14 @@ class PoseReplayTest {
             println("REPLAY ${file.name}: reps=${counter.reps} plankSeconds=${counter.plankMillis / 1000} points=${counter.points}")
             assertTrue("replay produced no feedback", counter.feedback.isNotBlank())
             results.add(Triple(file.name, measured, expected?.toLong()))
+            windows?.let { timings.add(Triple(file.name, repTimes, it)) }
         }
         for ((name, measured, expected) in results) {
             if (expected != null) assertEquals(name, expected, measured)
+        }
+        for ((name, times, windows) in timings) {
+            assertEquals("$name rep times $times", windows.size, times.size)
+            times.zip(windows).forEach { (t, window) -> assertTrue("$name rep at $t outside $window", t in window) }
         }
     }
 

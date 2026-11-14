@@ -6,8 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.hardware.display.DisplayManager
 import android.net.Uri
@@ -18,6 +20,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.util.Size
 import android.view.Gravity
+import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.View
 import android.view.WindowManager
@@ -77,6 +80,8 @@ class ExerciseActivity : ComponentActivity() {
     private var camera: Camera? = null
     private var session: CameraSession? = null
     private var cameraRotation = Surface.ROTATION_0
+    private val poseOrientation = PoseOrientation()
+    private var orientationListener: OrientationEventListener? = null
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
         override fun onDisplayRemoved(displayId: Int) {}
@@ -95,16 +100,14 @@ class ExerciseActivity : ComponentActivity() {
         var layout: PreviewLayout? = null
     }
 
-    /**
-     * Snapshot of everything needed to place a landmark on the overlay: the upright analyzer
-     * bitmap size, whether the preview is mirrored, and the overlay size.
-     */
     private data class PreviewLayout(
         val imageWidth: Int,
         val imageHeight: Int,
         val mirrored: Boolean,
         val viewWidth: Int,
-        val viewHeight: Int
+        val viewHeight: Int,
+        val inputRotation: Int,
+        val orientationRevision: Long
     ) {
         val content: ViewMapping.ContentRect
             get() = ViewMapping.contentRect(imageWidth, imageHeight, viewWidth, viewHeight)
@@ -125,6 +128,18 @@ class ExerciseActivity : ComponentActivity() {
         }
         voice.enabled = prefs.exerciseVoice
         setContentView(buildRoot())
+        // Without an accelerometer, keep the display rotation as the gravity reference.
+        orientationListener = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (!poseOrientation.update(orientation)) return
+                stabilizer.reset()
+                counter.pause()
+                lastCorrection = null
+                placementCue = null
+                voice.reset()
+                skeleton.show(null)
+            }
+        }.takeIf { it.canDetectOrientation() }
         selectSeg(0, notify = false)
         render()
     }
@@ -491,6 +506,20 @@ class ExerciseActivity : ComponentActivity() {
             cameraError("Bảo vệ đã tắt. Đã dừng camera và ngừng cộng điểm.")
             return
         }
+        val cameraInfo = camera?.cameraInfo
+        if (cameraInfo == null) {
+            frame.close()
+            return
+        }
+        val targetRotation = if (orientationListener == null) cameraRotation else poseOrientation.targetRotation
+        if (targetRotation == null) {
+            frame.close()
+            placementCue = ORIENTATION_CUE
+            speakCorrection(ORIENTATION_CUE)
+            feedback.text = ORIENTATION_CUE
+            render()
+            return
+        }
         val bitmap = try {
             frame.toBitmap()
         } catch (error: Exception) {
@@ -498,21 +527,30 @@ class ExerciseActivity : ComponentActivity() {
         }
         frame.close()
         if (bitmap == null) {
+            stabilizer.reset()
             counter.pause()
             return
         }
-        // toBitmap() is already upright and cropped to the viewport, so the overlay only needs
-        // FILL_CENTER scaling plus the front-preview mirror; no rotation term.
+        val rotation = PoseOrientation.inputRotation(
+            cameraInfo.getSensorRotationDegrees(cameraRotation),
+            cameraInfo.getSensorRotationDegrees(targetRotation)
+        )
         active.layout = PreviewLayout(
             bitmap.width,
             bitmap.height,
             frontCamera,
             skeleton.width,
-            skeleton.height
+            skeleton.height,
+            rotation,
+            poseOrientation.revision
         )
         active.processing = true
         try {
-            active.landmarker.detectAsync(BitmapImageBuilder(bitmap).build(), SystemClock.elapsedRealtime())
+            val upright = if (rotation == 0) bitmap else Bitmap.createBitmap(
+                bitmap, 0, 0, bitmap.width, bitmap.height,
+                Matrix().apply { postRotate(rotation.toFloat()) }, false
+            )
+            active.landmarker.detectAsync(BitmapImageBuilder(upright).build(), SystemClock.elapsedRealtime())
         } catch (error: Exception) {
             active.processing = false
             cameraError("Không xử lý được hình ảnh. Đã dừng camera; hãy thử lại.")
@@ -531,22 +569,26 @@ class ExerciseActivity : ComponentActivity() {
                 cameraError("Bảo vệ đã tắt. Đã dừng camera và ngừng cộng điểm.")
                 return@runOnUiThread
             }
+            if (active.layout?.orientationRevision != poseOrientation.revision) return@runOnUiThread
             val now = result.timestampMs()
             val candidates = bodyCandidates(result, active)
             stabilizer.upperBody = counter.kind == ExerciseKind.PUSH_UP
             val body = stabilizer.update(candidates, now)
-            // Candidates are already in view space; no second projection.
             counter.update(body, now)
             val delta = counter.points - creditedPoints
             if (delta > 0) {
                 quota.awardSession(delta)
                 creditedPoints = counter.points
             }
-            skeleton.show(fullViewLandmarks(result, active))
+            val viewLandmarks = fullViewLandmarks(result, active)
+            skeleton.show(viewLandmarks)
             val visibleBottom = (if (sessionBar.visibility == View.VISIBLE) sessionBar.top
                 else bottomPanel.top).toFloat()
+            val ankleInView = body?.let {
+                viewLandmarks?.getOrNull(if (it.side == 0) 27 else 28)?.takeIf { p -> p.confidence >= 0.5f }
+            }
             placementCue = if (counter.kind == ExerciseKind.PUSH_UP) null
-                else Framing.feetCue(body?.ankle?.y, visibleBottom)
+                else Framing.feetCue(ankleInView?.y, visibleBottom)
             speakCorrection(placementCue ?: counter.correction)
             feedback.text = placementCue ?: counter.feedback
             render()
@@ -565,7 +607,7 @@ class ExerciseActivity : ComponentActivity() {
         val landmarks = result.landmarks().firstOrNull() ?: return null
         val layout = active.layout ?: return null
         return landmarks.map { lm ->
-            val (x, y) = ViewMapping.toView(lm.x(), lm.y(), layout.content, layout.mirrored)
+            val (x, y) = ViewMapping.toView(lm.x(), lm.y(), layout.content, layout.mirrored, layout.inputRotation)
             BodyPoint(x, y, lm.visibility().orElse(0f))
         }
     }
@@ -579,14 +621,12 @@ class ExerciseActivity : ComponentActivity() {
             intArrayOf(12, 14, 16, 24, 26, 28),
         )
         val otherIds = listOf(intArrayOf(12, 24), intArrayOf(11, 23))
-        // Landmarks are projected into overlay pixels once per frame; working in view pixels
-        // the whole way down keeps counter geometry and drawing consistent under preview crop.
         fun read(index: Int): BodyPoint? {
             val landmark = landmarks.getOrNull(index) ?: return null
             val nx = landmark.x()
             val ny = landmark.y()
             if (nx !in 0f..1f || ny !in 0f..1f) return null
-            val (x, y) = ViewMapping.toView(nx, ny, layout.content, layout.mirrored)
+            val (x, y) = ViewMapping.toUpright(nx, ny, layout.content, layout.inputRotation)
             return BodyPoint(x, y, landmark.visibility().orElse(0f))
         }
         fun readWorld(index: Int): WorldPoint? {
@@ -671,6 +711,7 @@ class ExerciseActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         getSystemService(DisplayManager::class.java).registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
+        orientationListener?.enable()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -681,6 +722,8 @@ class ExerciseActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        // Keep the last orientation: after enable() the listener only reports changes, so a still phone sends nothing.
+        orientationListener?.disable()
         getSystemService(DisplayManager::class.java).unregisterDisplayListener(displayListener)
         stopCamera()
         feedback.text = "Đã dừng camera. Bấm Bắt đầu để tiếp tục."
@@ -751,6 +794,7 @@ class ExerciseActivity : ComponentActivity() {
 
     companion object {
         private const val CAMERA_PERMISSION = 47
+        private const val ORIENTATION_CUE = "Dựng máy đứng hơn, camera hướng về phía bạn."
         private val BG = Color.parseColor("#0B0E11")
         private val PANEL = Color.parseColor("#D10B0E11")
         private val PANEL_LINE = Color.parseColor("#24FFFFFF")

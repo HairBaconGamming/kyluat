@@ -1,20 +1,5 @@
 package com.cainghien.companion
 
-/**
- * Maps normalized pose landmarks onto the on-screen skeleton view.
- *
- * The analyzer bitmap handed to MediaPipe comes from `ImageProxy.toBitmap()`, which is already
- * upright (rotation baked in) and cropped to the viewport. The preview is drawn with
- * [androidx.camera.view.PreviewView.ScaleType.FILL_CENTER]: scaled to cover the view, overflow
- * cropped symmetrically. Because both share the viewport FOV, overlaying is just FILL_CENTER of
- * the upright bitmap into the view, plus a horizontal flip for the mirrored front preview.
- *
- * Earlier builds routed joints through `CoordinateTransform(imageProxyTransform, previewTransform)`
- * from a factory with `setUsingCropRect(false)`. That transform expects unrotated full-buffer
- * coordinates, but the bitmap is rotated and cropped, so on a real phone every joint landed
- * somewhere else — the reported "joints are wildly wrong". This object replaces it with
- * arithmetic we control and can unit-test. No rotation term: the bitmap is already upright.
- */
 object ViewMapping {
     /** Where the scaled preview lands inside the view, in view pixels. */
     data class ContentRect(val left: Float, val top: Float, val right: Float, val bottom: Float) {
@@ -41,12 +26,24 @@ object ViewMapping {
         return ContentRect(left, top, left + drawnWidth, top + drawnHeight)
     }
 
-    /**
-     * Map a normalized landmark (0..1 in upright bitmap space, y down) to view pixels.
-     * [mirrored] flips horizontally to match the mirrored front-camera preview.
-     */
-    fun toView(x: Float, y: Float, content: ContentRect, mirrored: Boolean): Pair<Float, Float> {
-        val u = if (mirrored) 1f - x else x
-        return (content.left + u * content.width) to (content.top + y * content.height)
+    fun toView(
+        x: Float, y: Float, content: ContentRect, mirrored: Boolean, inputRotation: Int = 0
+    ): Pair<Float, Float> {
+        // Undo only the extra gravity rotation before applying the preview mirror.
+        val (sourceX, sourceY) = when (inputRotation) {
+            90 -> y to (1f - x)
+            180 -> (1f - x) to (1f - y)
+            270 -> (1f - y) to x
+            else -> x to y
+        }
+        val u = if (mirrored) 1f - sourceX else sourceX
+        return (content.left + u * content.width) to (content.top + sourceY * content.height)
     }
+
+    fun toUpright(x: Float, y: Float, content: ContentRect, inputRotation: Int): Pair<Float, Float> =
+        if (inputRotation == 90 || inputRotation == 270) {
+            (x * content.height) to (y * content.width)
+        } else {
+            (x * content.width) to (y * content.height)
+        }
 }

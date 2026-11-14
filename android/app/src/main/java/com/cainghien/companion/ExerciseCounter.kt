@@ -73,8 +73,8 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private var extremum = Extremum.NONE
     private var extremumSince: Long = 0L
     private var cycleSince: Long? = null
-    private val imagePushCycle = PushCycle()
-    private val worldPushCycle = PushCycle()
+    private val imagePushCycle = PushCycle(PUSH_IMAGE_BOTTOM, PUSH_SINK)
+    private val worldPushCycle = PushCycle(PUSH_WORLD_BOTTOM, 0.0)
     private var pushLastRep = -PUSH_MIN_REP_MS
     private var lastTime: Long? = null
     private var lastSide: Int? = null
@@ -257,10 +257,12 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private fun updatePushCycle(pose: ExercisePose, nowMs: Long) {
         val imageAngle = angle(pose.shoulder, pose.elbow, pose.wrist)
         val worldAngle = pose.world?.let { angle3(it.shoulder, it.elbow, it.wrist) }
+        val shoulderY = pose.shoulder.y.toDouble()
+        val arm = distance(pose.shoulder, pose.elbow) + distance(pose.elbow, pose.wrist)
         val ready = nowMs - pushLastRep >= PUSH_MIN_REP_MS
         // Independent histories preserve a real descent without treating a source switch as motion.
-        val imageCounted = imagePushCycle.update(imageAngle, ready)
-        val worldCounted = if (worldAngle != null) worldPushCycle.update(worldAngle, ready)
+        val imageCounted = imagePushCycle.update(imageAngle, shoulderY, arm, ready)
+        val worldCounted = if (worldAngle != null) worldPushCycle.update(worldAngle, shoulderY, arm, ready)
             else false.also { worldPushCycle.reset(preserveSuppression = true) }
         val usesWorld = view != CameraView.SIDE && worldAngle != null
         val counted = if (usesWorld) worldCounted else imageCounted
@@ -271,14 +273,15 @@ class ExerciseCounter(val kind: ExerciseKind) {
             if (usesWorld) imagePushCycle.suppress(imageAngle) else worldPushCycle.suppress(worldAngle)
         }
         val jointAngle = if (usesWorld) worldAngle!! else imageAngle
+        val bottom = if (usesWorld) PUSH_WORLD_BOTTOM else PUSH_IMAGE_BOTTOM
         feedback = when {
             counted -> "Đã ghi nhận. ${lowerFeedback()}"
-            jointAngle <= PUSH_BOTTOM + 10.0 -> riseFeedback()
+            jointAngle <= bottom + 10.0 -> riseFeedback()
             else -> lowerFeedback()
         }
     }
 
-    private class PushCycle {
+    private class PushCycle(private val bottom: Double, private val minSink: Double) {
         private var peak = 0.0
         private var candidate = 180.0
         private var swing = 0.0
@@ -286,8 +289,11 @@ class ExerciseCounter(val kind: ExerciseKind) {
         private var valley = 0.0
         private var suppressed = false
         private var suppressedValley = 180.0
+        private var top = Double.MAX_VALUE
+        private var sink = 0.0
+        private var reach = 0.0
 
-        fun update(jointAngle: Double, ready: Boolean): Boolean {
+        fun update(jointAngle: Double, shoulderY: Double, arm: Double, ready: Boolean): Boolean {
             if (suppressed) {
                 suppressedValley = minOf(suppressedValley, jointAngle)
                 if (jointAngle < suppressedValley + PUSH_REARM) return false
@@ -299,14 +305,19 @@ class ExerciseCounter(val kind: ExerciseKind) {
                 peak = jointAngle
                 candidate = jointAngle
                 swing = 0.0
+                restartSink(shoulderY, arm)
             }
+            top = minOf(top, shoulderY)
+            reach = maxOf(reach, arm)
             peak = maxOf(peak, jointAngle)
             var counted = false
             if (jointAngle <= candidate) {
                 candidate = jointAngle
                 swing = maxOf(swing, peak - candidate)
+                // Read at the valley frame: a glitching arm bends while the shoulder stays level.
+                sink = shoulderY - top
             } else if (jointAngle >= candidate + PUSH_CONFIRM) {
-                counted = candidate <= PUSH_BOTTOM && swing >= PUSH_AMP && ready
+                counted = candidate <= bottom && swing >= PUSH_AMP && sink >= minSink * reach && ready
                 if (counted) {
                     armed = false
                     valley = candidate
@@ -314,8 +325,15 @@ class ExerciseCounter(val kind: ExerciseKind) {
                 peak = jointAngle
                 candidate = 180.0
                 swing = 0.0
+                restartSink(shoulderY, arm)
             }
             return counted
+        }
+
+        private fun restartSink(shoulderY: Double, arm: Double) {
+            top = shoulderY
+            sink = 0.0
+            reach = arm
         }
 
         fun suppress(jointAngle: Double?) {
@@ -329,6 +347,9 @@ class ExerciseCounter(val kind: ExerciseKind) {
             swing = 0.0
             armed = true
             valley = 0.0
+            top = Double.MAX_VALUE
+            sink = 0.0
+            reach = 0.0
             if (!preserveSuppression) {
                 suppressed = false
                 suppressedValley = 180.0
@@ -521,7 +542,11 @@ class ExerciseCounter(val kind: ExerciseKind) {
         const val SQUAT_PER_POINT = 5
         // Push-up valley detector: depth, swing below the recent peak, confirmation rise,
         // re-arm rise above the counted valley, and refractory gap between credited reps.
-        const val PUSH_BOTTOM = 100.0
+        const val PUSH_WORLD_BOTTOM = 100.0
+        // 2D side-view valleys often stay above 100°, so the image gate is looser but needs the
+        // shoulder to sink by a share of arm length; arm-landmark glitches bend with level shoulders.
+        const val PUSH_IMAGE_BOTTOM = 125.0
+        const val PUSH_SINK = 0.05
         const val PUSH_AMP = 30.0
         const val PUSH_CONFIRM = 10.0
         const val PUSH_REARM = 20.0

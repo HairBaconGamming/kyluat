@@ -85,15 +85,49 @@ class ExerciseCounterTest {
         val partial = ExerciseCounter(ExerciseKind.PUSH_UP)
         cycle(partial, 0L, top = 130.0, bottom = 90.0)
         assertEquals("partial lockout with a 40 degree swing", 1, partial.reps)
+        val sideShallow = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(sideShallow, 0L, top = 170.0, bottom = 120.0)
+        assertEquals("2D side valley above 100 degrees while the shoulders sink", 1, sideShallow.reps)
         val boundary = ExerciseCounter(ExerciseKind.PUSH_UP)
-        cycle(boundary, 0L, top = 150.0, bottom = 99.9)
-        assertEquals("valley just inside the depth gate", 1, boundary.reps)
+        cycle(boundary, 0L, top = 160.0, bottom = 124.9)
+        assertEquals("valley just inside the image depth gate", 1, boundary.reps)
         val shallow = ExerciseCounter(ExerciseKind.PUSH_UP)
-        cycle(shallow, 0L, top = 155.0, bottom = 100.1)
-        assertEquals("valley above the depth gate", 0, shallow.reps)
+        cycle(shallow, 0L, top = 165.0, bottom = 125.1)
+        assertEquals("valley above the image depth gate", 0, shallow.reps)
         val smallSwing = ExerciseCounter(ExerciseKind.PUSH_UP)
         cycle(smallSwing, 0L, top = 125.0, bottom = 96.0)
         assertEquals("swing below the amplitude gate", 0, smallSwing.reps)
+    }
+
+    @Test
+    fun `world pushup depth gate stays at 100 degrees`() {
+        for ((top, bottom, expected) in listOf(Triple(150.0, 99.9, 1), Triple(155.0, 100.1, 0))) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            cycle(counter, 0L, top = top, bottom = bottom, transform = {
+                val degrees = jointAngle(it.shoulder, it.elbow, it.wrist)
+                withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees))
+            })
+            assertEquals(CameraView.FRONT, counter.view)
+            assertEquals("world valley $bottom", expected, counter.reps)
+        }
+    }
+
+    @Test
+    fun `arm landmarks bending while the shoulders stay level cannot count`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        val straight = pushUp(170.0)
+        val bent = pushUp(80.0)
+        val lift = bent.shoulder.y - straight.shoulder.y
+        val glitch = straight.copy(
+            elbow = bent.elbow.copy(y = bent.elbow.y - lift),
+            wrist = bent.wrist.copy(y = bent.wrist.y - lift)
+        )
+        assertEquals(80.0, jointAngle(glitch.shoulder, glitch.elbow, glitch.wrist), 0.01)
+        repeat(12) { index -> counter.update(if (index % 2 == 0) straight else glitch, index * 200L) }
+        assertEquals(CameraView.SIDE, counter.view)
+        assertEquals(0, counter.reps)
+        cycle(counter, 2_400L, top = 170.0, bottom = 120.0)
+        assertEquals(1, counter.reps)
     }
 
     @Test
