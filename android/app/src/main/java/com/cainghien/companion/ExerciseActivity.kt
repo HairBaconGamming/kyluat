@@ -40,6 +40,7 @@ import androidx.core.content.ContextCompat
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
@@ -67,6 +68,9 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var segViews: List<TextView>
     private var counter = ExerciseCounter(ExerciseKind.PUSH_UP)
     private val stabilizer = PoseStabilizer()
+    // Fallback for push-ups whose legs are out of frame; the full-body stabilizer stays
+    // primary so the tuned full-body path is unchanged when legs are visible.
+    private val upperStabilizer = PoseStabilizer().apply { upperBody = true }
     private var creditedPoints = 0
     private var lastCorrection: String? = null
     private var frontCamera = true
@@ -314,6 +318,7 @@ class ExerciseActivity : ComponentActivity() {
         stopCamera()
         counter = ExerciseCounter(ExerciseKind.values()[index])
         stabilizer.reset()
+        upperStabilizer.reset()
         creditedPoints = 0
         lastCorrection = null
         title.text = segViews[index].text
@@ -382,27 +387,41 @@ class ExerciseActivity : ComponentActivity() {
         startCamera()
     }
 
+    // GPU delegate cuts inference latency on device; fall back to CPU where unsupported.
+    private fun createLandmarker(): PoseLandmarker {
+        fun options(delegate: Delegate) = PoseLandmarker.PoseLandmarkerOptions.builder()
+            .setBaseOptions(
+                BaseOptions.builder()
+                    .setModelAssetPath("pose_landmarker_full.task")
+                    .setDelegate(delegate)
+                    .build()
+            )
+            .setRunningMode(RunningMode.LIVE_STREAM)
+            .setNumPoses(1)
+            .setMinPoseDetectionConfidence(0.5f)
+            .setMinPosePresenceConfidence(0.5f)
+            .setMinTrackingConfidence(0.5f)
+            .setResultListener { result, image ->
+                val current = session
+                if (current != null) onPose(current, result, image)
+            }
+            .setErrorListener {
+                runOnUiThread {
+                    if (session != null) cameraError("Nhận diện bị gián đoạn. Đã dừng camera; bấm Bắt đầu để thử lại.")
+                }
+            }
+            .build()
+        return try {
+            PoseLandmarker.createFromOptions(this, options(Delegate.GPU))
+        } catch (error: Exception) {
+            PoseLandmarker.createFromOptions(this, options(Delegate.CPU))
+        }
+    }
+
     private fun startCamera() {
         if (session != null || isFinishing || isDestroyed) return
         try {
-            val options = PoseLandmarker.PoseLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_full.task").build())
-                .setRunningMode(RunningMode.LIVE_STREAM)
-                .setNumPoses(1)
-                .setMinPoseDetectionConfidence(0.5f)
-                .setMinPosePresenceConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
-                .setResultListener { result, image ->
-                    val current = session
-                    if (current != null) onPose(current, result, image)
-                }
-                .setErrorListener {
-                    runOnUiThread {
-                        if (session != null) cameraError("Nhận diện bị gián đoạn. Đã dừng camera; bấm Bắt đầu để thử lại.")
-                    }
-                }
-                .build()
-            val active = CameraSession(PoseLandmarker.createFromOptions(this, options))
+            val active = CameraSession(createLandmarker())
             session = active
             cameraRotation = preview.display?.rotation ?: Surface.ROTATION_0
             counter.pause()
@@ -516,8 +535,11 @@ class ExerciseActivity : ComponentActivity() {
                 return@runOnUiThread
             }
             val now = result.timestampMs()
-            stabilizer.upperBody = counter.kind == ExerciseKind.PUSH_UP
-            val body = stabilizer.update(bodyCandidates(result, active), now)
+            val candidates = bodyCandidates(result, active)
+            var body = stabilizer.update(candidates, now)
+            if (body == null && counter.kind == ExerciseKind.PUSH_UP) {
+                body = upperStabilizer.update(candidates, now)
+            }
             // Candidates are already in view space; no second projection.
             counter.update(body, now)
             val delta = counter.points - creditedPoints
@@ -525,7 +547,7 @@ class ExerciseActivity : ComponentActivity() {
                 quota.awardSession(delta)
                 creditedPoints = counter.points
             }
-            skeleton.show(body)
+            skeleton.show(fullViewLandmarks(result, active))
             val visibleBottom = (if (sessionBar.visibility == View.VISIBLE) sessionBar.top
                 else bottomPanel.top).toFloat()
             placementCue = Framing.feetCue(body?.ankle?.y, visibleBottom)
@@ -539,6 +561,17 @@ class ExerciseActivity : ComponentActivity() {
     private fun speakCorrection(correction: String?) {
         if (correction == null) { lastCorrection = null; return }
         if (correction != lastCorrection) { lastCorrection = correction; voice.speakCorrection(correction) }
+    }
+
+    // All 33 landmarks in view space for the full-body overlay (both sides), independent of
+    // the single side the counter tracks.
+    private fun fullViewLandmarks(result: PoseLandmarkerResult, active: CameraSession): List<BodyPoint>? {
+        val landmarks = result.landmarks().firstOrNull() ?: return null
+        val layout = active.layout ?: return null
+        return landmarks.map { lm ->
+            val (x, y) = ViewMapping.toView(lm.x(), lm.y(), layout.content, layout.mirrored)
+            BodyPoint(x, y, lm.visibility().orElse(0f))
+        }
     }
 
     private fun bodyCandidates(result: PoseLandmarkerResult, active: CameraSession): List<ExercisePose> {
@@ -628,6 +661,7 @@ class ExerciseActivity : ComponentActivity() {
         camera = null
         provider?.unbindAll()
         stabilizer.reset()
+        upperStabilizer.reset()
         lastCorrection = null
         placementCue = null
         voice.reset()
@@ -684,25 +718,39 @@ class ExerciseActivity : ComponentActivity() {
             style = Paint.Style.FILL
         }
         private val dotRadius = Ui.dp(context, 3.5f).toFloat()
-        private var pose: ExercisePose? = null
+        private var points: List<BodyPoint>? = null
 
-        fun show(pose: ExercisePose?) {
-            this.pose = pose
+        fun show(points: List<BodyPoint>?) {
+            this.points = points
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
-            val p = pose ?: return
-            fun x(point: BodyPoint) = point.x
-            fun y(point: BodyPoint) = point.y
-            val lines = listOf(p.wrist to p.elbow, p.elbow to p.shoulder, p.shoulder to p.hip,
-                p.hip to p.knee, p.knee to p.ankle)
-            for ((a, b) in lines) {
-                if (a.confidence >= .7f && b.confidence >= .7f) canvas.drawLine(x(a), y(a), x(b), y(b), paint)
+            val p = points ?: return
+            fun at(i: Int): BodyPoint? = p.getOrNull(i)?.takeIf { it.confidence >= .5f }
+            for ((a, b) in CONNECTIONS) {
+                val pa = at(a) ?: continue
+                val pb = at(b) ?: continue
+                if (pa.confidence >= .7f && pb.confidence >= .7f) {
+                    canvas.drawLine(pa.x, pa.y, pb.x, pb.y, paint)
+                }
             }
-            for (point in listOf(p.shoulder, p.elbow, p.wrist, p.hip, p.knee, p.ankle)) {
-                if (point.confidence >= .7f) canvas.drawCircle(x(point), y(point), dotRadius, dot)
+            for (i in p.indices) {
+                val pt = at(i) ?: continue
+                if (pt.confidence >= .7f) canvas.drawCircle(pt.x, pt.y, dotRadius, dot)
             }
+        }
+
+        private companion object {
+            // Full BlazePose topology: both arms, both legs, torso and head, so the overlay
+            // shows the whole body rather than a single side.
+            val CONNECTIONS = listOf(
+                0 to 1, 1 to 2, 2 to 3, 3 to 7, 0 to 4, 4 to 5, 5 to 6, 6 to 8, 9 to 10,
+                11 to 12, 11 to 13, 13 to 15, 15 to 17, 15 to 19, 15 to 21, 17 to 19,
+                12 to 14, 14 to 16, 16 to 18, 16 to 20, 16 to 22, 18 to 20,
+                11 to 23, 12 to 24, 23 to 24, 23 to 25, 24 to 26, 25 to 27, 26 to 28,
+                27 to 29, 28 to 30, 29 to 31, 30 to 32, 27 to 31, 28 to 32
+            )
         }
     }
 

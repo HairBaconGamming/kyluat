@@ -21,13 +21,16 @@ class PoseReplayTest {
             reader.readLine()
             val counter = ExerciseCounter(kind)
             val stabilizer = PoseStabilizer()
+            val upperStabilizer = PoseStabilizer().apply { upperBody = true }
             val byTime = sortedMapOf<Long, MutableList<ExercisePose>>()
             reader.forEachLine { line -> parse(line)?.let { (t, pose) -> byTime.getOrPut(t) { mutableListOf() }.add(pose) } }
             reader.close()
             var reps = 0
             var correction: String? = null
             for ((t, candidates) in byTime) {
-                counter.update(stabilizer.update(candidates, t), t)
+                var pose = stabilizer.update(candidates, t)
+                if (pose == null && kind == ExerciseKind.PUSH_UP) pose = upperStabilizer.update(candidates, t)
+                counter.update(pose, t)
                 if (counter.reps != reps) {
                     reps = counter.reps
                     println("REP ${file.name} t=$t reps=$reps")

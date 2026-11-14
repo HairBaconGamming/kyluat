@@ -73,6 +73,12 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private var extremum = Extremum.NONE
     private var extremumSince: Long = 0L
     private var cycleSince: Long? = null
+    private var pushPeak = 0.0
+    private var pushCandidate = 180.0
+    private var pushSwing = 0.0
+    private var pushArmed = true
+    private var pushValley = 0.0
+    private var pushLastRep = -PUSH_MIN_REP_MS
     private var lastTime: Long? = null
     private var lastSide: Int? = null
     private var viewInitialized = false
@@ -112,11 +118,11 @@ class ExerciseCounter(val kind: ExerciseKind) {
                 invalidate("Đứng thẳng trên sàn, đừng nằm hoặc cúi gập người.")
                 return
             }
-        } else if (kind == ExerciseKind.PUSH_UP && !legsUsable(pose)) {
-            // Upper-body mode: legs out of frame. The rep still comes from the elbow cycle;
-            // a horizontal torso gate keeps standing arm-bends from counting.
-            if (!torsoHorizontal(pose)) {
-                invalidate("Giữ thân gần song song với sàn để đếm chống đẩy.")
+        } else if (kind == ExerciseKind.PUSH_UP) {
+            // Imperfect form (piked hips, sagging belly) still counts: only reject an upright
+            // torso with no hands-down support, which is a standing arm-bend, not a push-up.
+            if (!pushupPosture(pose)) {
+                invalidate("Vào tư thế chống đẩy: tay chống sàn, thân không dựng đứng.")
                 return
             }
             if (view == CameraView.UNKNOWN ||
@@ -164,6 +170,10 @@ class ExerciseCounter(val kind: ExerciseKind) {
             feedback = "Giữ thân thẳng, chống cẳng tay và thở đều."
         } else {
             val jointAngle = when {
+                // Side view: the 2D elbow is clean and stable; world 3D can read low at the
+                // top on some footage. Front/diagonal: 2D foreshortens, so prefer world 3D.
+                kind == ExerciseKind.PUSH_UP && view == CameraView.SIDE ->
+                    angle(pose.shoulder, pose.elbow, pose.wrist)
                 kind == ExerciseKind.PUSH_UP ->
                     pose.world?.let { angle3(it.shoulder, it.elbow, it.wrist) }
                         ?: angle(pose.shoulder, pose.elbow, pose.wrist)
@@ -182,13 +192,17 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     private fun updateCycle(jointAngle: Double, nowMs: Long) {
+        if (kind == ExerciseKind.PUSH_UP) {
+            updatePushCycle(jointAngle, nowMs)
+            return
+        }
         cycleSince?.let {
             if (nowMs - it > MAX_CYCLE_MS) clearInFlight()
         }
 
-        // World knee reads ~155° on a fully standing leg, so the squat top sits below that.
-        val topAngle = if (kind == ExerciseKind.PUSH_UP) 155.0 else 150.0
-        val bottomAngle = if (kind == ExerciseKind.PUSH_UP) 100.0 else 105.0
+        // 150° rather than full extension: world knees read ~155° standing.
+        val topAngle = 150.0
+        val bottomAngle = 105.0
         val current = when {
             jointAngle >= topAngle -> Extremum.TOP
             jointAngle <= bottomAngle -> Extremum.BOTTOM
@@ -252,6 +266,49 @@ class ExerciseCounter(val kind: ExerciseKind) {
         }
     }
 
+    // Fast reps and partial lockouts never dwell at a 150° top, so a push-up is credited at
+    // each confirmed valley: deep enough, descended PUSH_AMP from a peak, and followed by a
+    // PUSH_CONFIRM rise so one long descent cannot count twice. The swing is measured during
+    // the descent so merely rising from a low start is not a rep. After a rep the angle must
+    // rise PUSH_REARM above the counted valley before a new descent can count, so resting at
+    // the bottom and standing up is not a second rep.
+    private fun updatePushCycle(jointAngle: Double, nowMs: Long) {
+        if (!pushArmed) {
+            if (jointAngle >= pushValley + PUSH_REARM) {
+                pushArmed = true
+                pushPeak = jointAngle
+                pushCandidate = jointAngle
+                pushSwing = 0.0
+            } else {
+                feedback = if (jointAngle <= PUSH_BOTTOM + 10.0) riseFeedback() else lowerFeedback()
+                return
+            }
+        }
+        pushPeak = maxOf(pushPeak, jointAngle)
+        var counted = false
+        if (jointAngle <= pushCandidate) {
+            pushCandidate = jointAngle
+            pushSwing = maxOf(pushSwing, pushPeak - pushCandidate)
+        } else if (jointAngle >= pushCandidate + PUSH_CONFIRM) {
+            counted = pushCandidate <= PUSH_BOTTOM && pushSwing >= PUSH_AMP &&
+                nowMs - pushLastRep >= PUSH_MIN_REP_MS
+            if (counted) {
+                reps += 1
+                pushLastRep = nowMs
+                pushArmed = false
+                pushValley = pushCandidate
+            }
+            pushPeak = jointAngle
+            pushCandidate = 180.0
+            pushSwing = 0.0
+        }
+        feedback = when {
+            counted -> "Đã ghi nhận. ${lowerFeedback()}"
+            jointAngle <= PUSH_BOTTOM + 10.0 -> riseFeedback()
+            else -> lowerFeedback()
+        }
+    }
+
     private fun invalidate(message: String, isCorrection: Boolean = true) {
         clearInFlight()
         feedback = message
@@ -263,6 +320,12 @@ class ExerciseCounter(val kind: ExerciseKind) {
         extremum = Extremum.NONE
         extremumSince = 0L
         cycleSince = null
+        pushPeak = 0.0
+        pushCandidate = 180.0
+        pushSwing = 0.0
+        pushArmed = true
+        pushValley = 0.0
+        pushLastRep = -PUSH_MIN_REP_MS
         lastTime = null
         lastSide = null
         pendingView = null
@@ -364,13 +427,13 @@ class ExerciseCounter(val kind: ExerciseKind) {
         return segments.all { distance(it.first, it.second) >= MIN_SEGMENT_PX }
     }
 
-    private fun legsUsable(pose: ExercisePose): Boolean =
-        pointUsable(pose.knee) && pointUsable(pose.ankle)
-
-    // Torso near horizontal (up to ~45° for incline push-ups) without needing the legs.
-    private fun torsoHorizontal(pose: ExercisePose): Boolean =
-        abs(pose.hip.y.toDouble() - pose.shoulder.y) <=
-            abs(pose.hip.x.toDouble() - pose.shoulder.x) * 1.0
+    // A push-up (even piked or sagged) has the hands below the shoulder and the torso leaning
+    // away from vertical; a standing arm-bend has a vertical torso. Tolerates imperfect form.
+    private fun pushupPosture(pose: ExercisePose): Boolean {
+        val dx = abs(pose.hip.x.toDouble() - pose.shoulder.x)
+        val dy = abs(pose.hip.y.toDouble() - pose.shoulder.y)
+        return pose.wrist.y > pose.shoulder.y && dx >= dy * 0.5
+    }
 
     private fun horizontal(pose: ExercisePose, slope: Double): Boolean =
         abs(pose.ankle.y.toDouble() - pose.shoulder.y) <=
@@ -436,6 +499,13 @@ class ExerciseCounter(val kind: ExerciseKind) {
         const val PLANK_BLOCK_MS = 10_000L
         const val PUSH_UP_PER_POINT = 3
         const val SQUAT_PER_POINT = 5
+        // Push-up valley detector: depth, swing below the recent peak, confirmation rise,
+        // re-arm rise above the counted valley, and refractory gap between credited reps.
+        const val PUSH_BOTTOM = 100.0
+        const val PUSH_AMP = 35.0
+        const val PUSH_CONFIRM = 10.0
+        const val PUSH_REARM = 20.0
+        const val PUSH_MIN_REP_MS = 300L
         const val FRONT_RATIO = 0.6
         const val FRONT_RATIO_HORIZONTAL = 0.85
         const val SIDE_RATIO = 0.3

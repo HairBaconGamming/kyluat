@@ -131,6 +131,11 @@ export default function Page() {
                 </thead>
                 <tbody>
                   <tr>
+                    <td className="yes">Android 3.22</td>
+                    <td>14/11/2026</td>
+                    <td><strong>Khung xương đủ hai bên + đếm chống đẩy thông minh.</strong> Overlay vẽ đủ 33 khớp của cả hai bên tay và chân thay vì chỉ một bên; nhận diện ưu tiên GPU cho nhanh hơn và tự chuyển về CPU khi máy không hỗ trợ. Chống đẩy không còn bắt buộc duỗi thẳng tay hay giữ một nhịp tối thiểu 800ms: mỗi lần hạ đủ sâu rồi đẩy lên được tính một nhịp, nên tập nhanh (cỡ 1 nhịp/giây) hoặc chưa duỗi hết tay vẫn đếm đúng. Có khoảng nghỉ 300ms giữa hai nhịp để chống nảy, và chỉ đếm lại sau khi đã lên đủ cao nên nghỉ ở đáy rồi đứng lên không bị tính thêm. Squat và plank giữ nguyên. Trên video thử nghiệm: chống đẩy 76/76 và 87/86 (lệch một lần nảy người), squat 7/7, plank 11 giây. Chưa kiểm chứng trên điện thoại thật.</td>
+                  </tr>
+                  <tr>
                     <td className="yes">Android 3.21</td>
                     <td>13/11/2026</td>
                     <td><strong>Sửa khung xương vẽ sai trên máy thật + chống đẩy linh hoạt.</strong> Khớp overlay trước đây chiếu sai hệ tọa độ nên vẽ lệch khỏi người; nay chiếu thẳng từ ảnh camera vào khung nhìn (FILL_CENTER, lật gương camera trước) nên khung xương bám đúng. Chống đẩy không còn bắt buộc thấy cả chân: chỉ cần vai, khuỷu tay, cổ tay và hông, đặt máy gần bên hông vẫn đếm; đếm được cả góc chính diện khi có khớp 3D, với điều kiện thân gần song song sàn để không đếm nhầm động tác khác. Khi thấy đủ chân vẫn kiểm tra thân thẳng như cũ. Squat/plank giữ nguyên. Giữ tỉ lệ 3/5/10. Chưa kiểm chứng trên điện thoại thật.</td>

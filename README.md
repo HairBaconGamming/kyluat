@@ -29,7 +29,7 @@ Bản phát hành có ba file trên GitHub Releases:
 
 - `KYLUAT-Setup-v1.9.exe` cho Windows 10 và 11 bản 64-bit. Bộ cài đặt vào `%LOCALAPPDATA%\Programs\Kyluat`, không đòi quyền quản trị, có lối tắt Start Menu và gỡ qua Add or remove programs.
 - `KYLUAT-windows-x64-v1.9.zip` cùng bản, cho ai muốn giải nén rồi chạy mà không cài gì.
-- `kyluat-android-v3.21.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
+- `kyluat-android-v3.22.apk` cho Android 8.0 trở lên. Cài thủ công, không lên CH Play, ký bằng key phát hành riêng.
 
 File exe chưa có chữ ký số, nên SmartScreen cảnh báo một lần: chọn More info rồi Run anyway sau khi đã so SHA-256 ghi trong trang release. Xem mục "Vì sao không phải virus" bên dưới để biết app thay đổi những gì trên máy.
 
@@ -92,7 +92,7 @@ DNS không thấy được nội dung bên trong một trang hay một video đ�
 
 Mô hình lấy từ [Déchaîner](https://github.com/warleysr/dechainer), giấy phép Apache-2.0; văn bản giấy phép đi kèm ở `enforcer/data/NOTICE-nsfw-model.txt` và được đóng gói vào cả APK lẫn bản Windows. `Kyluat-cli.exe adult visual` nạp thử mô hình và chấm một ảnh xám, dùng để kiểm tra bản cài mà không cần nội dung thật.
 
-Phần này có trong bản phát hành Windows 1.9 và Android 3.21.
+Phần này có trong bản phát hành Windows 1.9 và Android 3.22.
 
 ## Chạy từ mã nguồn
 
@@ -180,7 +180,7 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
-`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 26 tương ứng `versionName` 3.21. APK build ra nằm ở `android/app/build/` và không được commit.
+`applicationId` là `com.cainghien.companion`, `minSdk` 26, `versionCode` 27 tương ứng `versionName` 3.22. APK build ra nằm ở `android/app/build/` và không được commit.
 
 Bản phát hành phải ký bằng key riêng, không dùng chữ ký debug: APK ký debug là loại Play Protect chặn nặng nhất vì mọi máy Android SDK đều có chung con `CN=Android Debug`. `android/app/build.gradle.kts` đọc `kyluat.storeFile`, `kyluat.storePassword`, `kyluat.keyAlias`, `kyluat.keyPassword` từ `android/local.properties` (file này đã gitignore), hoặc từ biến môi trường `KYLUAT_STOREFILE`, `KYLUAT_STOREPASSWORD`, `KYLUAT_KEYALIAS`, `KYLUAT_KEYPASSWORD` khi build ở máy khác. Chạy `assembleRelease` mà thiếu bốn dòng đó thì Gradle báo lỗi ngay thay vì âm thầm xuất ra bản unsigned.
 
@@ -256,9 +256,9 @@ Cùng nội dung này, viết cho người dùng cuối, ở `/an-toan` trên tr
 
 Lịch sử chặn, check-in và luật đang chạy nằm trong `data\enforcer.db`, một file SQLite duy nhất trên máy bạn, xoá được. Tự động backup giữ 7 bản gần nhất trong `data\backups\`. Dữ liệu không mã hoá: ai mở được máy bạn thì đọc được lịch sử, và token ghép nối cũng nằm trong file đó.
 
-Không có tài khoản. File phát hành để trên GitHub Releases. Bản Android có thể hỏi GitHub mỗi ngày để xem bản mới; tắt trong Cài đặt → Cập nhật. Android 3.21 dùng MediaPipe Pose Landmarker (Apache-2.0): ảnh camera và kết quả tư thế xử lý tại máy, không gửi số liệu đi đâu; các bản 3.17–3.19 dùng Google ML Kit có gửi số liệu kỹ thuật tới Google theo [công bố dữ liệu ML Kit](https://developers.google.com/ml-kit/android-data-disclosure).
+Không có tài khoản. File phát hành để trên GitHub Releases. Bản Android có thể hỏi GitHub mỗi ngày để xem bản mới; tắt trong Cài đặt → Cập nhật. Android 3.22 dùng MediaPipe Pose Landmarker (Apache-2.0): ảnh camera và kết quả tư thế xử lý tại máy, không gửi số liệu đi đâu; các bản 3.17–3.19 dùng Google ML Kit có gửi số liệu kỹ thuật tới Google theo [công bố dữ liệu ML Kit](https://developers.google.com/ml-kit/android-data-disclosure).
 
-**Tập với camera:** vào Hôm nay → Buổi tập → Tập với camera, chọn bài rồi bấm Bắt đầu. Màn tập toàn màn hình, app tự nhận góc nhìn bên hông, chính diện hoặc chếch 45°; góc khớp tính trong không gian 3D (world landmarks) nên không phụ thuộc góc camera, mô hình MediaPipe Pose Landmarker giấy phép Apache-2.0 đóng gói trong APK; khớp được làm mượt, giữ tối đa 400ms khi mất dấu thoáng qua, và nhãn góc chỉ đổi sau 600ms ổn định. Squat không cần thấy tay và đo được góc chính diện bằng độ hạ hông; plank cần góc bên hông hoặc chếch 45° và thấy cả chân. Chống đẩy từ 3.21 chỉ cần vai, khuỷu tay, cổ tay và hông: đặt máy gần bên hông thấy nửa người trên vẫn đếm được, và đếm được cả góc chính diện khi có khớp 3D; thân phải gần song song sàn để không đếm nhầm động tác khác. Camera là quyền tuỳ chọn, không xin micro; mô hình đóng gói trong APK, không lưu ảnh/video. Đặt máy cố định; squat và plank thấy đủ vai, hông, gối và mắt cá chân, chống đẩy chỉ cần tới hông. 3 chống đẩy = 1 điểm; 5 squat = 1 điểm; mỗi 10 giây plank cẳng tay đúng tư thế = 1 điểm. Mất tư thế bỏ phần chưa đủ 10 giây, không trừ điểm đã nhận. Khi tư thế chưa ổn, màn hình hiện câu sửa và có thể đọc bằng giọng tiếng Việt qua bộ đọc chữ có sẵn của máy (nút loa để tắt, không gửi âm thanh đi); máy thiếu giọng thì chỉ còn chữ. Dừng camera, rời màn (kể cả chọn app khác trong chia đôi màn hình), xoay máy, khoá máy hoặc lỗi nhận diện đều ngừng tính; từ chối quyền không ảnh hưởng phần khác. Điểm camera chỉ cộng trên điện thoại và không cộng chồng với thời gian app gym. Khi đang tập, bảng đếm thu thành thanh mỏng để không che bàn chân và khung xương; chạm thanh để mở lại bảng đầy đủ. Nếu bàn chân vẫn khuất sau bảng, app hiện và đọc câu nhắc đặt máy xa hơn hoặc nâng camera. Bộ đếm chưa được kiểm chứng trên thiết bị thật, có thể sai khi thiếu sáng hoặc khuất người.
+**Tập với camera:** vào Hôm nay → Buổi tập → Tập với camera, chọn bài rồi bấm Bắt đầu. Màn tập toàn màn hình, app tự nhận góc nhìn bên hông, chính diện hoặc chếch 45°; góc khớp tính trong không gian 3D (world landmarks) nên không phụ thuộc góc camera, mô hình MediaPipe Pose Landmarker giấy phép Apache-2.0 đóng gói trong APK; khớp được làm mượt, giữ tối đa 400ms khi mất dấu thoáng qua, và nhãn góc chỉ đổi sau 600ms ổn định. Squat không cần thấy tay và đo được góc chính diện bằng độ hạ hông; plank cần góc bên hông hoặc chếch 45° và thấy cả chân. Chống đẩy từ 3.21 chỉ cần vai, khuỷu tay, cổ tay và hông: đặt máy gần bên hông thấy nửa người trên vẫn đếm được, và đếm được cả góc chính diện khi có khớp 3D; thân phải gần song song sàn để không đếm nhầm động tác khác. Từ 3.22, overlay vẽ đủ khớp của cả hai bên và chống đẩy đếm mỗi lần hạ đủ sâu rồi đẩy lên, không bắt buộc duỗi thẳng tay hết cỡ nên tập nhanh vẫn đếm đúng, có khoảng nghỉ 300ms chống đếm lặp khi nảy người. Camera là quyền tuỳ chọn, không xin micro; mô hình đóng gói trong APK, không lưu ảnh/video. Đặt máy cố định; squat và plank thấy đủ vai, hông, gối và mắt cá chân, chống đẩy chỉ cần tới hông. 3 chống đẩy = 1 điểm; 5 squat = 1 điểm; mỗi 10 giây plank cẳng tay đúng tư thế = 1 điểm. Mất tư thế bỏ phần chưa đủ 10 giây, không trừ điểm đã nhận. Khi tư thế chưa ổn, màn hình hiện câu sửa và có thể đọc bằng giọng tiếng Việt qua bộ đọc chữ có sẵn của máy (nút loa để tắt, không gửi âm thanh đi); máy thiếu giọng thì chỉ còn chữ. Dừng camera, rời màn (kể cả chọn app khác trong chia đôi màn hình), xoay máy, khoá máy hoặc lỗi nhận diện đều ngừng tính; từ chối quyền không ảnh hưởng phần khác. Điểm camera chỉ cộng trên điện thoại và không cộng chồng với thời gian app gym. Khi đang tập, bảng đếm thu thành thanh mỏng để không che bàn chân và khung xương; chạm thanh để mở lại bảng đầy đủ. Nếu bàn chân vẫn khuất sau bảng, app hiện và đọc câu nhắc đặt máy xa hơn hoặc nâng camera. Bộ đếm chưa được kiểm chứng trên thiết bị thật, có thể sai khi thiếu sáng hoặc khuất người.
 
 ## Giới hạn của bản này
 

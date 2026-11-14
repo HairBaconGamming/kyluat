@@ -65,20 +65,35 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `top and bottom angle thresholds are distinct for each exercise`() {
-        for (kind in repetitionKinds) {
-            val top = if (kind == ExerciseKind.PUSH_UP) 155.0 else 150.0
-            val bottom = if (kind == ExerciseKind.PUSH_UP) 100.0 else 105.0
-            val accepted = ExerciseCounter(kind)
-            cycle(accepted, 0L, top = top + 0.1, bottom = bottom - 0.1)
-            assertEquals("$kind just inside thresholds", 1, accepted.reps)
-            val insufficientTop = ExerciseCounter(kind)
-            cycle(insufficientTop, 0L, top = top - 0.1, bottom = bottom - 5.0)
-            assertEquals("$kind below top threshold", 0, insufficientTop.reps)
-            val insufficientDepth = ExerciseCounter(kind)
-            cycle(insufficientDepth, 0L, top = top + 5.0, bottom = bottom + 0.1)
-            assertEquals("$kind above bottom threshold", 0, insufficientDepth.reps)
-        }
+    fun `squat top and bottom angle thresholds are distinct`() {
+        val kind = ExerciseKind.SQUAT
+        val top = 150.0
+        val bottom = 105.0
+        val accepted = ExerciseCounter(kind)
+        cycle(accepted, 0L, top = top + 0.1, bottom = bottom - 0.1)
+        assertEquals("just inside thresholds", 1, accepted.reps)
+        val insufficientTop = ExerciseCounter(kind)
+        cycle(insufficientTop, 0L, top = top - 0.1, bottom = bottom - 5.0)
+        assertEquals("below top threshold", 0, insufficientTop.reps)
+        val insufficientDepth = ExerciseCounter(kind)
+        cycle(insufficientDepth, 0L, top = top + 5.0, bottom = bottom + 0.1)
+        assertEquals("above bottom threshold", 0, insufficientDepth.reps)
+    }
+
+    @Test
+    fun `pushup counts partial lockout reps but gates depth and swing`() {
+        val partial = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(partial, 0L, top = 130.0, bottom = 90.0)
+        assertEquals("partial lockout with a 40 degree swing", 1, partial.reps)
+        val boundary = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(boundary, 0L, top = 150.0, bottom = 99.9)
+        assertEquals("valley just inside the depth gate", 1, boundary.reps)
+        val shallow = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(shallow, 0L, top = 155.0, bottom = 100.1)
+        assertEquals("valley above the depth gate", 0, shallow.reps)
+        val smallSwing = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(smallSwing, 0L, top = 125.0, bottom = 96.0)
+        assertEquals("swing below the amplitude gate", 0, smallSwing.reps)
     }
 
     @Test
@@ -112,222 +127,407 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `initial top and bottom each require 120ms continuously`() {
-        for (kind in repetitionKinds) {
-            val shortTop = ExerciseCounter(kind)
-            shortTop.update(pose(kind, 170.0), 0L)
-            shortTop.update(pose(kind, 170.0), 119L)
-            shortTop.update(pose(kind, 90.0), 400L)
-            shortTop.update(pose(kind, 90.0), 580L)
-            shortTop.update(pose(kind, 130.0), 800L)
-            shortTop.update(pose(kind, 170.0), 1_000L)
-            shortTop.update(pose(kind, 170.0), 1_180L)
-            assertEquals(0, shortTop.reps)
+    fun `squat initial top and bottom each require 120ms continuously`() {
+        val kind = ExerciseKind.SQUAT
+        val shortTop = ExerciseCounter(kind)
+        shortTop.update(pose(kind, 170.0), 0L)
+        shortTop.update(pose(kind, 170.0), 119L)
+        shortTop.update(pose(kind, 90.0), 400L)
+        shortTop.update(pose(kind, 90.0), 580L)
+        shortTop.update(pose(kind, 130.0), 800L)
+        shortTop.update(pose(kind, 170.0), 1_000L)
+        shortTop.update(pose(kind, 170.0), 1_180L)
+        assertEquals(0, shortTop.reps)
 
-            val shortBottom = ExerciseCounter(kind)
-            shortBottom.update(pose(kind, 170.0), 0L)
-            shortBottom.update(pose(kind, 170.0), 180L)
-            shortBottom.update(pose(kind, 130.0), 200L)
-            shortBottom.update(pose(kind, 90.0), 400L)
-            shortBottom.update(pose(kind, 90.0), 519L)
-            shortBottom.update(pose(kind, 130.0), 600L)
-            shortBottom.update(pose(kind, 170.0), 1_000L)
-            shortBottom.update(pose(kind, 170.0), 1_180L)
-            assertEquals(0, shortBottom.reps)
-        }
+        val shortBottom = ExerciseCounter(kind)
+        shortBottom.update(pose(kind, 170.0), 0L)
+        shortBottom.update(pose(kind, 170.0), 180L)
+        shortBottom.update(pose(kind, 130.0), 200L)
+        shortBottom.update(pose(kind, 90.0), 400L)
+        shortBottom.update(pose(kind, 90.0), 519L)
+        shortBottom.update(pose(kind, 130.0), 600L)
+        shortBottom.update(pose(kind, 170.0), 1_000L)
+        shortBottom.update(pose(kind, 170.0), 1_180L)
+        assertEquals(0, shortBottom.reps)
     }
 
     @Test
-    fun `returning top must also remain stable for 120ms`() {
-        for (kind in repetitionKinds) {
-            val counter = ExerciseCounter(kind)
-            primeBottom(counter)
-            counter.update(pose(kind, 170.0), 1_200L)
-            counter.update(pose(kind, 170.0), 1_319L)
-            assertEquals(0, counter.reps)
-            counter.update(pose(kind, 170.0), 1_320L)
-            assertEquals(1, counter.reps)
-        }
+    fun `pushup credits a fast descent without any dwell`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0), 0L)
+        counter.update(pushUp(130.0), 100L)
+        counter.update(pushUp(90.0), 200L)
+        assertEquals(0, counter.reps)
+        counter.update(pushUp(100.0), 300L)
+        assertEquals(1, counter.reps)
     }
 
     @Test
-    fun `alternating top noise cannot arm the counter`() {
-        for (kind in repetitionKinds) {
-            val counter = ExerciseCounter(kind)
-            repeat(10) {
-                counter.update(pose(kind, if (it % 2 == 0) 170.0 else 145.0), it * 100L)
-            }
-            counter.update(pose(kind, 90.0), 1_000L)
-            counter.update(pose(kind, 90.0), 1_200L)
-            counter.update(pose(kind, 170.0), 1_400L)
-            counter.update(pose(kind, 170.0), 1_600L)
-            assertEquals(0, counter.reps)
-        }
+    fun `squat returning top must also remain stable for 120ms`() {
+        val kind = ExerciseKind.SQUAT
+        val counter = ExerciseCounter(kind)
+        primeBottom(counter)
+        counter.update(pose(kind, 170.0), 1_200L)
+        counter.update(pose(kind, 170.0), 1_319L)
+        assertEquals(0, counter.reps)
+        counter.update(pose(kind, 170.0), 1_320L)
+        assertEquals(1, counter.reps)
     }
 
     @Test
-    fun `bottom noise cannot accumulate disjoint stable intervals`() {
-        for (kind in repetitionKinds) {
+    fun `pushup credits the valley before the return to the top`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0), 0L)
+        counter.update(pushUp(90.0), 200L)
+        assertEquals(0, counter.reps)
+        counter.update(pushUp(100.0), 400L)
+        assertEquals(1, counter.reps)
+        counter.update(pushUp(170.0), 600L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `squat alternating top noise cannot arm the counter`() {
+        val kind = ExerciseKind.SQUAT
+        val counter = ExerciseCounter(kind)
+        repeat(10) {
+            counter.update(pose(kind, if (it % 2 == 0) 170.0 else 145.0), it * 100L)
+        }
+        counter.update(pose(kind, 90.0), 1_000L)
+        counter.update(pose(kind, 90.0), 1_200L)
+        counter.update(pose(kind, 170.0), 1_400L)
+        counter.update(pose(kind, 170.0), 1_600L)
+        assertEquals(0, counter.reps)
+    }
+
+    @Test
+    fun `pushup top noise never counts but a genuine descent still does`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        repeat(10) {
+            counter.update(pushUp(if (it % 2 == 0) 170.0 else 145.0), it * 100L)
+        }
+        assertEquals(0, counter.reps)
+        counter.update(pushUp(90.0), 1_000L)
+        counter.update(pushUp(100.0), 1_100L)
+        assertEquals(1, counter.reps)
+        counter.update(pushUp(170.0), 1_300L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `squat bottom noise cannot accumulate disjoint stable intervals`() {
+        val kind = ExerciseKind.SQUAT
+        val counter = ExerciseCounter(kind)
+        counter.update(pose(kind, 170.0), 0L)
+        counter.update(pose(kind, 170.0), 200L)
+        repeat(10) {
+            counter.update(pose(kind, if (it % 2 == 0) 90.0 else 120.0), 400L + it * 100L)
+        }
+        counter.update(pose(kind, 170.0), 1_500L)
+        counter.update(pose(kind, 170.0), 1_700L)
+        assertEquals(0, counter.reps)
+    }
+
+    @Test
+    fun `pushup bottom jitter after a rep adds nothing`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0), 0L)
+        counter.update(pushUp(90.0), 200L)
+        counter.update(pushUp(130.0), 400L)
+        assertEquals(1, counter.reps)
+        repeat(10) {
+            counter.update(pushUp(if (it % 2 == 0) 100.0 else 120.0), 600L + it * 100L)
+        }
+        counter.update(pushUp(170.0), 1_700L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `squat returning top noise postpones credit until a stable top`() {
+        val kind = ExerciseKind.SQUAT
+        val counter = ExerciseCounter(kind)
+        primeBottom(counter)
+        repeat(8) {
+            counter.update(pose(kind, if (it % 2 == 0) 170.0 else 145.0), 1_000L + it * 100L)
+        }
+        assertEquals(0, counter.reps)
+        counter.update(pose(kind, 170.0), 1_800L)
+        counter.update(pose(kind, 170.0), 1_980L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `pushup top noise after a credited valley changes nothing`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0), 0L)
+        counter.update(pushUp(90.0), 200L)
+        counter.update(pushUp(100.0), 400L)
+        assertEquals(1, counter.reps)
+        repeat(8) {
+            counter.update(pushUp(if (it % 2 == 0) 170.0 else 145.0), 600L + it * 100L)
+        }
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `squat cycle minimum is 800ms and a rejected fast cycle cannot mature while stationary`() {
+        val kind = ExerciseKind.SQUAT
+        for (duration in listOf(799L, 800L)) {
             val counter = ExerciseCounter(kind)
             counter.update(pose(kind, 170.0), 0L)
-            counter.update(pose(kind, 170.0), 200L)
-            repeat(10) {
-                counter.update(pose(kind, if (it % 2 == 0) 90.0 else 120.0), 400L + it * 100L)
-            }
-            counter.update(pose(kind, 170.0), 1_500L)
-            counter.update(pose(kind, 170.0), 1_700L)
-            assertEquals(0, counter.reps)
+            counter.update(pose(kind, 170.0), 180L)
+            counter.update(pose(kind, 130.0), 200L)
+            counter.update(pose(kind, 90.0), 400L)
+            counter.update(pose(kind, 90.0), 580L)
+            counter.update(pose(kind, 130.0), 600L)
+            counter.update(pose(kind, 170.0), 200L + duration - 180L)
+            counter.update(pose(kind, 170.0), 200L + duration)
+            val expected = if (duration == 800L) 1 else 0
+            assertEquals(expected, counter.reps)
+            advance(counter, pose(kind, 170.0), 200L + duration, 4_000L)
+            assertEquals(expected, counter.reps)
         }
     }
 
     @Test
-    fun `returning top noise postpones credit until a stable top`() {
-        for (kind in repetitionKinds) {
+    fun `pushup allows fast reps but a refractory window blocks double bounces`() {
+        val fast = ExerciseCounter(ExerciseKind.PUSH_UP)
+        fast.update(pushUp(170.0), 0L)
+        fast.update(pushUp(90.0), 200L)
+        fast.update(pushUp(130.0), 400L)
+        assertEquals(1, fast.reps)
+        fast.update(pushUp(170.0), 600L)
+        fast.update(pushUp(90.0), 800L)
+        fast.update(pushUp(130.0), 1_000L)
+        assertEquals(2, fast.reps)
+        val bounce = ExerciseCounter(ExerciseKind.PUSH_UP)
+        bounce.update(pushUp(170.0), 0L)
+        bounce.update(pushUp(90.0), 200L)
+        bounce.update(pushUp(130.0), 400L)
+        assertEquals(1, bounce.reps)
+        bounce.update(pushUp(90.0), 500L)
+        bounce.update(pushUp(130.0), 600L)
+        assertEquals(1, bounce.reps)
+        bounce.update(pushUp(170.0), 800L)
+        bounce.update(pushUp(90.0), 1_000L)
+        bounce.update(pushUp(130.0), 1_200L)
+        assertEquals(2, bounce.reps)
+    }
+
+    @Test
+    fun `squat waiting at the initial top does not pad a fast cycle`() {
+        val kind = ExerciseKind.SQUAT
+        val counter = ExerciseCounter(kind)
+        hold(counter, pose(kind, 170.0), 0L, 20_000L)
+        counter.update(pose(kind, 130.0), 20_200L)
+        counter.update(pose(kind, 90.0), 20_300L)
+        counter.update(pose(kind, 90.0), 20_480L)
+        counter.update(pose(kind, 170.0), 20_500L)
+        counter.update(pose(kind, 170.0), 20_680L)
+        advance(counter, pose(kind, 170.0), 20_680L, 22_000L)
+        assertEquals(0, counter.reps)
+    }
+
+    @Test
+    fun `pushup resting at the top still counts the next genuine rep`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        hold(counter, pushUp(170.0), 0L, 20_000L)
+        assertEquals(0, counter.reps)
+        counter.update(pushUp(90.0), 20_200L)
+        counter.update(pushUp(100.0), 20_300L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `squat in flight cycle expires after ten seconds`() {
+        val kind = ExerciseKind.SQUAT
+        for (duration in listOf(10_000L, 10_001L)) {
+            val counter = ExerciseCounter(kind)
+            counter.update(pose(kind, 170.0), 0L)
+            counter.update(pose(kind, 170.0), 180L)
+            counter.update(pose(kind, 130.0), 200L)
+            counter.update(pose(kind, 90.0), 400L)
+            counter.update(pose(kind, 90.0), 580L)
+            val returnedAt = 200L + duration - 180L
+            advance(counter, pose(kind, 90.0), 580L, returnedAt - 200L)
+            counter.update(pose(kind, 170.0), returnedAt)
+            counter.update(pose(kind, 170.0), returnedAt + 180L)
+            assertEquals(if (duration == 10_000L) 1 else 0, counter.reps)
+        }
+    }
+
+    @Test
+    fun `pushup holding the bottom for twelve seconds adds no extra rep`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0), 0L)
+        counter.update(pushUp(90.0), 200L)
+        counter.update(pushUp(100.0), 400L)
+        assertEquals(1, counter.reps)
+        hold(counter, pushUp(90.0), 600L, 12_000L)
+        counter.update(pushUp(170.0), 12_200L)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `squat 500ms intervals are allowed but 501ms gaps discard the movement`() {
+        val kind = ExerciseKind.SQUAT
+        for (gap in listOf(500L, 501L)) {
             val counter = ExerciseCounter(kind)
             primeBottom(counter)
-            repeat(8) {
-                counter.update(pose(kind, if (it % 2 == 0) 170.0 else 145.0), 1_000L + it * 100L)
-            }
+            counter.update(pose(kind, 170.0), 800L + gap)
+            counter.update(pose(kind, 170.0), 980L + gap)
+            assertEquals(if (gap == 500L) 1 else 0, counter.reps)
+        }
+    }
+
+    @Test
+    fun `pushup gaps keep earned reps but discard the pending swing`() {
+        for (gap in listOf(500L, 501L)) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            counter.update(pushUp(170.0), 0L)
+            counter.update(pushUp(120.0), 200L)
+            counter.update(pushUp(120.0), 200L + gap)
+            counter.update(pushUp(90.0), 400L + gap)
+            counter.update(pushUp(100.0), 600L + gap)
+            assertEquals(if (gap == 500L) 1 else 0, counter.reps)
+        }
+        val kept = ExerciseCounter(ExerciseKind.PUSH_UP)
+        kept.update(pushUp(170.0), 0L)
+        kept.update(pushUp(90.0), 200L)
+        kept.update(pushUp(100.0), 400L)
+        kept.update(pushUp(170.0), 1_200L)
+        assertEquals(1, kept.reps)
+    }
+
+    @Test
+    fun `squat duplicate regressing and overflowing timestamps discard the cycle`() {
+        val kind = ExerciseKind.SQUAT
+        for (timestamp in listOf(800L, 700L, Long.MIN_VALUE, Long.MAX_VALUE)) {
+            val counter = ExerciseCounter(kind)
+            primeBottom(counter)
+            counter.update(pose(kind, 170.0), timestamp)
+            counter.update(pose(kind, 170.0), 1_000L)
+            counter.update(pose(kind, 170.0), 1_200L)
             assertEquals(0, counter.reps)
-            counter.update(pose(kind, 170.0), 1_800L)
-            counter.update(pose(kind, 170.0), 1_980L)
+            cycle(counter, 1_400L)
             assertEquals(1, counter.reps)
         }
     }
 
     @Test
-    fun `cycle minimum is 800ms and a rejected fast cycle cannot mature while stationary`() {
-        for (kind in repetitionKinds) {
-            for (duration in listOf(799L, 800L)) {
-                val counter = ExerciseCounter(kind)
-                counter.update(pose(kind, 170.0), 0L)
-                counter.update(pose(kind, 170.0), 180L)
-                counter.update(pose(kind, 130.0), 200L)
-                counter.update(pose(kind, 90.0), 400L)
-                counter.update(pose(kind, 90.0), 580L)
-                counter.update(pose(kind, 130.0), 600L)
-                counter.update(pose(kind, 170.0), 200L + duration - 180L)
-                counter.update(pose(kind, 170.0), 200L + duration)
-                val expected = if (duration == 800L) 1 else 0
-                assertEquals(expected, counter.reps)
-                advance(counter, pose(kind, 170.0), 200L + duration, 4_000L)
-                assertEquals(expected, counter.reps)
-            }
-        }
-    }
-
-    @Test
-    fun `waiting at the initial top does not pad a fast cycle`() {
-        for (kind in repetitionKinds) {
-            val counter = ExerciseCounter(kind)
-            hold(counter, pose(kind, 170.0), 0L, 20_000L)
-            counter.update(pose(kind, 130.0), 20_200L)
-            counter.update(pose(kind, 90.0), 20_300L)
-            counter.update(pose(kind, 90.0), 20_480L)
-            counter.update(pose(kind, 170.0), 20_500L)
-            counter.update(pose(kind, 170.0), 20_680L)
-            advance(counter, pose(kind, 170.0), 20_680L, 22_000L)
+    fun `pushup bad timestamps discard the pending swing but not earned reps`() {
+        for (timestamp in listOf(800L, 700L, Long.MIN_VALUE, Long.MAX_VALUE)) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            counter.update(pushUp(170.0), 0L)
+            counter.update(pushUp(170.0), 200L)
+            counter.update(pushUp(130.0), 400L)
+            counter.update(pushUp(120.0), 800L)
+            counter.update(pushUp(120.0), timestamp)
+            counter.update(pushUp(120.0), 1_000L)
+            counter.update(pushUp(90.0), 1_200L)
+            counter.update(pushUp(100.0), 1_400L)
             assertEquals(0, counter.reps)
-        }
-    }
-
-    @Test
-    fun `an in flight cycle expires after ten seconds`() {
-        for (kind in repetitionKinds) {
-            for (duration in listOf(10_000L, 10_001L)) {
-                val counter = ExerciseCounter(kind)
-                counter.update(pose(kind, 170.0), 0L)
-                counter.update(pose(kind, 170.0), 180L)
-                counter.update(pose(kind, 130.0), 200L)
-                counter.update(pose(kind, 90.0), 400L)
-                counter.update(pose(kind, 90.0), 580L)
-                val returnedAt = 200L + duration - 180L
-                advance(counter, pose(kind, 90.0), 580L, returnedAt - 200L)
-                counter.update(pose(kind, 170.0), returnedAt)
-                counter.update(pose(kind, 170.0), returnedAt + 180L)
-                assertEquals(if (duration == 10_000L) 1 else 0, counter.reps)
-            }
-        }
-    }
-
-    @Test
-    fun `500ms intervals are allowed but 501ms gaps discard the movement`() {
-        for (kind in repetitionKinds) {
-            for (gap in listOf(500L, 501L)) {
-                val counter = ExerciseCounter(kind)
-                primeBottom(counter)
-                counter.update(pose(kind, 170.0), 800L + gap)
-                counter.update(pose(kind, 170.0), 980L + gap)
-                assertEquals(if (gap == 500L) 1 else 0, counter.reps)
-            }
-        }
-    }
-
-    @Test
-    fun `duplicate regressing and overflowing timestamps discard the cycle`() {
-        for (kind in repetitionKinds) {
-            for (timestamp in listOf(800L, 700L, Long.MIN_VALUE, Long.MAX_VALUE)) {
-                val counter = ExerciseCounter(kind)
-                primeBottom(counter)
-                counter.update(pose(kind, 170.0), timestamp)
-                counter.update(pose(kind, 170.0), 1_000L)
-                counter.update(pose(kind, 170.0), 1_200L)
-                assertEquals(0, counter.reps)
-                cycle(counter, 1_400L)
-                assertEquals(1, counter.reps)
-            }
-        }
-    }
-
-    @Test
-    fun `missing pose and a side switch discard partial cycles`() {
-        for (kind in repetitionKinds) {
-            for (switchSide in listOf(false, true)) {
-                val counter = ExerciseCounter(kind)
-                primeBottom(counter)
-                counter.update(if (switchSide) pose(kind, 90.0, 1) else null, 1_000L)
-                val side = if (switchSide) 1 else 0
-                counter.update(pose(kind, 170.0, side), 1_200L)
-                counter.update(pose(kind, 170.0, side), 1_400L)
-                assertEquals(0, counter.reps)
-                cycle(counter, 1_600L, side = side)
-                assertEquals(1, counter.reps)
-            }
-        }
-    }
-
-    @Test
-    fun `pause preserves earned repetitions and points but not a partial movement`() {
-        for (kind in repetitionKinds) {
-            val counter = ExerciseCounter(kind)
-            cycle(counter, 0L)
             cycle(counter, 1_600L)
-            primeBottom(counter, 3_200L)
-            counter.pause()
-            counter.pause()
-            assertEquals(2, counter.reps)
-            assertEquals(0, counter.points)
-            assertTrue(counter.feedback.contains("tạm dừng"))
-            counter.update(pose(kind, 170.0), 4_200L)
-            counter.update(pose(kind, 170.0), 4_400L)
-            assertEquals(2, counter.reps)
-            cycle(counter, 4_600L)
-            assertEquals(3, counter.reps)
-            assertEquals(if (kind == ExerciseKind.PUSH_UP) 1 else 0, counter.points)
+            assertEquals(1, counter.reps)
         }
     }
 
     @Test
-    fun `low confidence in any required landmark resets a cycle`() {
-        for (kind in repetitionKinds) {
-            for (index in requiredIndices(kind)) {
-                val counter = ExerciseCounter(kind)
-                primeBottom(counter)
-                counter.update(changePoint(pose(kind, 90.0), index) { it.copy(confidence = 0.699f) }, 1_000L)
-                counter.update(pose(kind, 170.0), 1_200L)
-                counter.update(pose(kind, 170.0), 1_400L)
-                assertEquals("$kind landmark $index", 0, counter.reps)
-            }
+    fun `squat missing pose and a side switch discard partial cycles`() {
+        val kind = ExerciseKind.SQUAT
+        for (switchSide in listOf(false, true)) {
+            val counter = ExerciseCounter(kind)
+            primeBottom(counter)
+            counter.update(if (switchSide) pose(kind, 90.0, 1) else null, 1_000L)
+            val side = if (switchSide) 1 else 0
+            counter.update(pose(kind, 170.0, side), 1_200L)
+            counter.update(pose(kind, 170.0, side), 1_400L)
+            assertEquals(0, counter.reps)
+            cycle(counter, 1_600L, side = side)
+            assertEquals(1, counter.reps)
+        }
+    }
+
+    @Test
+    fun `pushup missing pose and a side switch discard the pending swing`() {
+        for (switchSide in listOf(false, true)) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            counter.update(pushUp(170.0), 0L)
+            counter.update(pushUp(130.0), 200L)
+            counter.update(if (switchSide) pushUp(120.0, 1) else null, 400L)
+            val side = if (switchSide) 1 else 0
+            counter.update(pushUp(120.0, side), 600L)
+            counter.update(pushUp(90.0, side), 800L)
+            counter.update(pushUp(100.0, side), 1_000L)
+            assertEquals(0, counter.reps)
+            cycle(counter, 1_200L, side = side)
+            assertEquals(1, counter.reps)
+        }
+    }
+
+    @Test
+    fun `squat pause preserves earned repetitions and points but not a partial movement`() {
+        val kind = ExerciseKind.SQUAT
+        val counter = ExerciseCounter(kind)
+        cycle(counter, 0L)
+        cycle(counter, 1_600L)
+        primeBottom(counter, 3_200L)
+        counter.pause()
+        counter.pause()
+        assertEquals(2, counter.reps)
+        assertEquals(0, counter.points)
+        assertTrue(counter.feedback.contains("tạm dừng"))
+        counter.update(pose(kind, 170.0), 4_200L)
+        counter.update(pose(kind, 170.0), 4_400L)
+        assertEquals(2, counter.reps)
+        cycle(counter, 4_600L)
+        assertEquals(3, counter.reps)
+        assertEquals(0, counter.points)
+    }
+
+    @Test
+    fun `pushup pause preserves earned reps but not a pending swing`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(counter, 0L)
+        cycle(counter, 1_600L)
+        counter.update(pushUp(170.0), 3_200L)
+        counter.update(pushUp(130.0), 3_400L)
+        counter.pause()
+        assertEquals(2, counter.reps)
+        assertTrue(counter.feedback.contains("tạm dừng"))
+        counter.update(pushUp(120.0), 4_200L)
+        counter.update(pushUp(90.0), 4_400L)
+        counter.update(pushUp(100.0), 4_600L)
+        assertEquals(2, counter.reps)
+        cycle(counter, 4_800L)
+        assertEquals(3, counter.reps)
+        assertEquals(1, counter.points)
+    }
+
+    @Test
+    fun `squat low confidence in any required landmark resets a cycle`() {
+        val kind = ExerciseKind.SQUAT
+        for (index in requiredIndices(kind)) {
+            val counter = ExerciseCounter(kind)
+            primeBottom(counter)
+            counter.update(changePoint(pose(kind, 90.0), index) { it.copy(confidence = 0.699f) }, 1_000L)
+            counter.update(pose(kind, 170.0), 1_200L)
+            counter.update(pose(kind, 170.0), 1_400L)
+            assertEquals("landmark $index", 0, counter.reps)
+        }
+    }
+
+    @Test
+    fun `pushup low confidence in any required landmark resets the pending swing`() {
+        for (index in requiredIndices(ExerciseKind.PUSH_UP)) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            counter.update(pushUp(170.0), 0L)
+            counter.update(pushUp(130.0), 200L)
+            counter.update(changePoint(pushUp(120.0), index) { it.copy(confidence = 0.699f) }, 400L)
+            counter.update(pushUp(120.0), 600L)
+            counter.update(pushUp(90.0), 800L)
+            counter.update(pushUp(100.0), 1_000L)
+            assertEquals("landmark $index", 0, counter.reps)
         }
     }
 
@@ -426,14 +626,14 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `sagging hips and bent knees invalidate horizontal pushups and plank`() {
+    fun `sagging hips invalidate plank but pushup tolerates imperfect form`() {
         for (index in listOf(3, 4)) {
             val bend: (ExercisePose) -> ExercisePose = { input ->
                 changePoint(input, index) { it.copy(y = it.y + 150f) }
             }
             val push = ExerciseCounter(ExerciseKind.PUSH_UP)
             cycle(push, 0L, transform = bend)
-            assertEquals(0, push.reps)
+            assertEquals(1, push.reps)
             val plankCounter = ExerciseCounter(ExerciseKind.PLANK)
             hold(plankCounter, bend(plank()), 0L, 6_000L)
             assertEquals(0L, plankCounter.plankMillis)
@@ -629,13 +829,13 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `diagonal view counts pushups but front view asks to turn the phone`() {
-        val diagonal = ExerciseCounter(ExerciseKind.PUSH_UP)
-        cycle(diagonal, 0L, transform = { withOther(rotate(it, 90.0), 120.0) })
-        assertEquals(1, diagonal.reps)
-        assertEquals(CameraView.DIAGONAL, diagonal.view)
+    fun `side view counts pushups but front without world asks to turn the phone`() {
+        val side = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(side, 0L, transform = { withOther(it, 120.0) })
+        assertEquals(1, side.reps)
+        assertEquals(CameraView.SIDE, side.view)
         val front = ExerciseCounter(ExerciseKind.PUSH_UP)
-        cycle(front, 0L, transform = { withOther(rotate(it, 90.0), 200.0) })
+        cycle(front, 0L, transform = { withOther(it, 300.0) })
         assertEquals(0, front.reps)
         assertEquals(CameraView.FRONT, front.view)
         assertTrue(front.correction != null)
@@ -760,7 +960,8 @@ class ExerciseCounterTest {
         val angles = listOf(170.0, 170.0, 130.0, 90.0, 90.0, 130.0, 170.0, 170.0)
         val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
         angles.forEachIndexed { index, degrees ->
-            counter.update(pushUp(170.0).copy(world = worldChain(180.0, degrees)), index * 200L)
+            // Front view: the 2D elbow is foreshortened, so the world arm angle must drive.
+            counter.update(withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees)), index * 200L)
         }
         assertEquals(1, counter.reps)
     }
