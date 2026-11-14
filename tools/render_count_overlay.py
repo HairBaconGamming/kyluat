@@ -57,10 +57,10 @@ def draw(frame, vals, count, width):
                 continue
             pts[i] = (int(x), int(y), c if c is not None else 0.0)
     for a, b in CONNECTIONS:
-        if a in pts and b in pts and pts[a][2] >= 0.7 and pts[b][2] >= 0.7:
+        if a in pts and b in pts and pts[a][2] >= 0.5 and pts[b][2] >= 0.5:
             cv2.line(frame, pts[a][:2], pts[b][:2], (0, 255, 0), 2)
     for i, (x, y, c) in pts.items():
-        if c >= 0.7:
+        if c >= 0.5:
             cv2.circle(frame, (x, y), 4, (0, 255, 0), -1)
     text = str(count)
     scale, thick = 1.6, 4

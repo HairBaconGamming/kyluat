@@ -20,16 +20,14 @@ class PoseReplayTest {
             val expected = Regex("expected=(\\d+)").find(meta)?.groupValues?.get(1)?.toInt()
             reader.readLine()
             val counter = ExerciseCounter(kind)
-            val stabilizer = PoseStabilizer()
-            val upperStabilizer = PoseStabilizer().apply { upperBody = true }
+            val stabilizer = PoseStabilizer().apply { upperBody = kind == ExerciseKind.PUSH_UP }
             val byTime = sortedMapOf<Long, MutableList<ExercisePose>>()
             reader.forEachLine { line -> parse(line)?.let { (t, pose) -> byTime.getOrPut(t) { mutableListOf() }.add(pose) } }
             reader.close()
             var reps = 0
             var correction: String? = null
             for ((t, candidates) in byTime) {
-                var pose = stabilizer.update(candidates, t)
-                if (pose == null && kind == ExerciseKind.PUSH_UP) pose = upperStabilizer.update(candidates, t)
+                val pose = stabilizer.update(candidates, t)
                 counter.update(pose, t)
                 if (counter.reps != reps) {
                     reps = counter.reps
@@ -72,9 +70,13 @@ class PoseReplayTest {
         val ankle = point(17) ?: return null
         val elbow = point(5) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
         val wrist = point(8) ?: BodyPoint(shoulder.x, shoulder.y, 0f)
-        val chain = listOf(world(26), world(30), world(34), world(38), world(42), world(46))
+        val chain = listOf(world(26), world(30), world(34), world(38))
             .takeIf { it.all { p -> p != null && p.confidence >= 0.5f } }
-            ?.let { WorldChain(it[0]!!, it[1]!!, it[2]!!, it[3]!!, it[4]!!, it[5]!!) }
+            ?.let {
+                val kneeWorld = world(42)?.takeIf { p -> p.confidence >= 0.5f } ?: WorldPoint(0f, 0f, 0f, 0f)
+                val ankleWorld = world(46)?.takeIf { p -> p.confidence >= 0.5f } ?: WorldPoint(0f, 0f, 0f, 0f)
+                WorldChain(it[0]!!, it[1]!!, it[2]!!, it[3]!!, kneeWorld, ankleWorld)
+            }
         return cells[0].toLong() to ExercisePose(
             shoulder, elbow, wrist, hip, knee, ankle, cells[1].toInt(),
             otherShoulder = point(20), otherHip = point(23), world = chain

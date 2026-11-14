@@ -73,7 +73,7 @@ class PoseStabilizerTest {
     @Test
     fun `low confidence cores are unusable`() {
         val stabilizer = PoseStabilizer()
-        val weak = standing().let { it.copy(hip = it.hip.copy(confidence = 0.6f)) }
+        val weak = standing().let { it.copy(hip = it.hip.copy(confidence = 0.499f)) }
         assertNull(stabilizer.update(listOf(weak), 0L))
     }
 
@@ -86,6 +86,64 @@ class PoseStabilizerTest {
         assertNull(full.update(listOf(partial), 0L))
         val upper = PoseStabilizer().apply { upperBody = true }
         assertNotNull(upper.update(listOf(partial), 0L))
+    }
+
+    @Test
+    fun `upper body acquires a visible arm before accepting low visibility`() {
+        val stabilizer = PoseStabilizer().apply { upperBody = true }
+        val weak = standing().let {
+            it.copy(elbow = it.elbow.copy(confidence = 0.15f), wrist = it.wrist.copy(confidence = 0.2f))
+        }
+        assertNull(stabilizer.update(listOf(weak), 0L))
+        assertNotNull(stabilizer.update(listOf(standing()), 100L))
+        val moved = weak.copy(elbow = weak.elbow.copy(x = weak.elbow.x + 20f))
+        val tracked = stabilizer.update(listOf(moved), 200L)!!
+        assertTrue(tracked.elbow.x > weak.elbow.x)
+        assertEquals(0.15f, tracked.elbow.confidence, 0f)
+        assertNotNull(stabilizer.update(listOf(moved), 900L))
+        assertNull(stabilizer.update(emptyList(), 1_301L))
+        assertNull(stabilizer.update(listOf(weak), 1_400L))
+    }
+
+    @Test
+    fun `upper body still rejects a lost torso and nonfinite arms`() {
+        for (field in listOf("torso", "x", "confidence")) {
+            val stabilizer = PoseStabilizer().apply { upperBody = true }
+            val good = standing()
+            stabilizer.update(listOf(good), 0L)
+            val bad = when (field) {
+                "torso" -> good.copy(hip = good.hip.copy(confidence = 0.1f))
+                "x" -> good.copy(elbow = good.elbow.copy(x = Float.NaN))
+                else -> good.copy(wrist = good.wrist.copy(confidence = Float.POSITIVE_INFINITY))
+            }
+            assertEquals(good, stabilizer.update(listOf(bad), 400L))
+            assertNull(stabilizer.update(listOf(bad), 401L))
+        }
+    }
+
+    @Test
+    fun `upper body requires visible arms on a newly tracked side`() {
+        val stabilizer = PoseStabilizer().apply { upperBody = true }
+        val good = standing(side = 0)
+        stabilizer.update(listOf(good), 0L)
+        val other = standing(side = 1).let {
+            it.copy(elbow = it.elbow.copy(confidence = 0.2f), wrist = it.wrist.copy(confidence = 0.2f))
+        }
+        assertEquals(good, stabilizer.update(listOf(other), 100L))
+        assertNull(stabilizer.update(listOf(other), 500L))
+        assertEquals(1, stabilizer.update(listOf(standing(side = 1)), 700L)!!.side)
+    }
+
+    @Test
+    fun `upper body missing arms expire even when the torso remains visible`() {
+        val stabilizer = PoseStabilizer().apply { upperBody = true }
+        val good = standing()
+        stabilizer.update(listOf(good), 0L)
+        val missing = good.copy(elbow = good.shoulder.copy(confidence = 0f), wrist = good.shoulder.copy(confidence = 0f))
+        assertEquals(good, stabilizer.update(listOf(missing), 100L))
+        assertEquals(good, stabilizer.update(listOf(missing), 400L))
+        assertNull(stabilizer.update(listOf(missing), 401L))
+        assertNull(stabilizer.update(listOf(missing), 1_000L))
     }
 
     @Test

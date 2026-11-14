@@ -133,14 +133,16 @@ def main():
                     return (lm.x, lm.y, lm.z, lm.visibility if lm.visibility is not None else 0.0)
 
                 for side, ids in enumerate(SIDES):
-                    core_pts = [point(i) for i in (ids[0], ids[3], ids[4], ids[5])]
-                    if any(p is None for p in core_pts):
+                    shoulder = point(ids[0])
+                    hip = point(ids[3])
+                    if shoulder is None or hip is None:
                         continue
-                    shoulder = core_pts[0]
                     elbow = point(ids[1]) or (shoulder[0], shoulder[1], 0.0)
                     wrist = point(ids[2]) or (shoulder[0], shoulder[1], 0.0)
+                    knee = point(ids[4]) or (hip[0], hip[1], 0.0)
+                    ankle = point(ids[5]) or (hip[0], hip[1], 0.0)
                     other = [point(i) for i in OTHER[side]]
-                    values = [shoulder, elbow, wrist, core_pts[1], core_pts[2], core_pts[3]] + other
+                    values = [shoulder, elbow, wrist, hip, knee, ankle] + other
                     wvalues = [wpoint(i) for i in ids]
                     cells = [fmt(v) for p in values for v in (p if p else (None, None, None))]
                     cells += [fmt(v) for p in wvalues for v in (p if p else (None, None, None, None))]

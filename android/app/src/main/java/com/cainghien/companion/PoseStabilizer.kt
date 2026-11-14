@@ -16,7 +16,10 @@ class PoseStabilizer {
     private var pendingSideSince: Long = 0L
 
     fun update(candidates: List<ExercisePose>, nowMs: Long): ExercisePose? {
-        val usable = candidates.filter { coreUsable(it) }
+        // Acquire a visible arm before tolerating occlusion; camera setup is not a repetition.
+        val usable = candidates.filter {
+            coreUsable(it) && (!upperBody || (pose != null && it.side == currentSide) || confidence(it) >= MIN_CONFIDENCE)
+        }
         val best = usable.maxByOrNull { confidence(it) } ?: return dropout(nowMs)
         if (currentSide == null) {
             currentSide = best.side
@@ -106,8 +109,7 @@ class PoseStabilizer {
                 previous.ankle to next.ankle
             )
         }
-        // A single joint teleport (foot swap, blur) freezes that joint instead of
-        // dropping the whole pose; only a full-body teleport rejects the frame.
+        // Freeze teleporting joints, not merely self-occluded arms with low visibility.
         val gated = core.map { (prev, nxt) ->
             if (distance(prev, nxt) > span * JUMP_RATIO) null else nxt
         }
@@ -157,9 +159,18 @@ class PoseStabilizer {
         if (upperBody) listOf(pose.shoulder, pose.hip, pose.elbow, pose.wrist)
         else listOf(pose.shoulder, pose.hip, pose.knee, pose.ankle)
 
+    // Low arm visibility during self-occlusion must not discard a reliable torso.
     private fun coreUsable(pose: ExercisePose): Boolean =
-        coreJoints(pose).all {
-            it.x.isFinite() && it.y.isFinite() && it.confidence.isFinite() && it.confidence >= MIN_CONFIDENCE
+        if (upperBody) {
+            listOf(pose.shoulder, pose.hip).all {
+                it.x.isFinite() && it.y.isFinite() && it.confidence.isFinite() && it.confidence >= MIN_CONFIDENCE
+            } && listOf(pose.elbow, pose.wrist).all {
+                it.x.isFinite() && it.y.isFinite() && it.confidence.isFinite() && it.confidence > 0f
+            }
+        } else {
+            coreJoints(pose).all {
+                it.x.isFinite() && it.y.isFinite() && it.confidence.isFinite() && it.confidence >= MIN_CONFIDENCE
+            }
         }
 
     private fun confidence(pose: ExercisePose): Float =
@@ -176,7 +187,7 @@ class PoseStabilizer {
         const val SIDE_HOLD_MS = 600L
         const val TAU_MS = 90.0
         const val JUMP_RATIO = 0.8
-        const val MIN_CONFIDENCE = 0.7f
+        const val MIN_CONFIDENCE = 0.5f
         const val MIN_SEGMENT_PX = 8.0
     }
 }

@@ -73,11 +73,8 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private var extremum = Extremum.NONE
     private var extremumSince: Long = 0L
     private var cycleSince: Long? = null
-    private var pushPeak = 0.0
-    private var pushCandidate = 180.0
-    private var pushSwing = 0.0
-    private var pushArmed = true
-    private var pushValley = 0.0
+    private val imagePushCycle = PushCycle()
+    private val worldPushCycle = PushCycle()
     private var pushLastRep = -PUSH_MIN_REP_MS
     private var lastTime: Long? = null
     private var lastSide: Int? = null
@@ -168,15 +165,10 @@ class ExerciseCounter(val kind: ExerciseKind) {
         if (kind == ExerciseKind.PLANK) {
             lastTime?.let { plankMillis += nowMs - it }
             feedback = "Giữ thân thẳng, chống cẳng tay và thở đều."
+        } else if (kind == ExerciseKind.PUSH_UP) {
+            updatePushCycle(pose, nowMs)
         } else {
             val jointAngle = when {
-                // Side view: the 2D elbow is clean and stable; world 3D can read low at the
-                // top on some footage. Front/diagonal: 2D foreshortens, so prefer world 3D.
-                kind == ExerciseKind.PUSH_UP && view == CameraView.SIDE ->
-                    angle(pose.shoulder, pose.elbow, pose.wrist)
-                kind == ExerciseKind.PUSH_UP ->
-                    pose.world?.let { angle3(it.shoulder, it.elbow, it.wrist) }
-                        ?: angle(pose.shoulder, pose.elbow, pose.wrist)
                 pose.world != null -> angle3(pose.world.hip, pose.world.knee, pose.world.ankle)
                 view == CameraView.SIDE -> angle(pose.hip, pose.knee, pose.ankle)
                 else -> squatDepthAngle(pose)
@@ -192,10 +184,6 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     private fun updateCycle(jointAngle: Double, nowMs: Long) {
-        if (kind == ExerciseKind.PUSH_UP) {
-            updatePushCycle(jointAngle, nowMs)
-            return
-        }
         cycleSince?.let {
             if (nowMs - it > MAX_CYCLE_MS) clearInFlight()
         }
@@ -266,46 +254,85 @@ class ExerciseCounter(val kind: ExerciseKind) {
         }
     }
 
-    // Fast reps and partial lockouts never dwell at a 150° top, so a push-up is credited at
-    // each confirmed valley: deep enough, descended PUSH_AMP from a peak, and followed by a
-    // PUSH_CONFIRM rise so one long descent cannot count twice. The swing is measured during
-    // the descent so merely rising from a low start is not a rep. After a rep the angle must
-    // rise PUSH_REARM above the counted valley before a new descent can count, so resting at
-    // the bottom and standing up is not a second rep.
-    private fun updatePushCycle(jointAngle: Double, nowMs: Long) {
-        if (!pushArmed) {
-            if (jointAngle >= pushValley + PUSH_REARM) {
-                pushArmed = true
-                pushPeak = jointAngle
-                pushCandidate = jointAngle
-                pushSwing = 0.0
-            } else {
-                feedback = if (jointAngle <= PUSH_BOTTOM + 10.0) riseFeedback() else lowerFeedback()
-                return
-            }
+    private fun updatePushCycle(pose: ExercisePose, nowMs: Long) {
+        val imageAngle = angle(pose.shoulder, pose.elbow, pose.wrist)
+        val worldAngle = pose.world?.let { angle3(it.shoulder, it.elbow, it.wrist) }
+        val ready = nowMs - pushLastRep >= PUSH_MIN_REP_MS
+        // Independent histories preserve a real descent without treating a source switch as motion.
+        val imageCounted = imagePushCycle.update(imageAngle, ready)
+        val worldCounted = if (worldAngle != null) worldPushCycle.update(worldAngle, ready)
+            else false.also { worldPushCycle.reset(preserveSuppression = true) }
+        val usesWorld = view != CameraView.SIDE && worldAngle != null
+        val counted = if (usesWorld) worldCounted else imageCounted
+        if (counted) {
+            reps += 1
+            pushLastRep = nowMs
+            // The unselected source must not credit the same descent after a view change.
+            if (usesWorld) imagePushCycle.suppress(imageAngle) else worldPushCycle.suppress(worldAngle)
         }
-        pushPeak = maxOf(pushPeak, jointAngle)
-        var counted = false
-        if (jointAngle <= pushCandidate) {
-            pushCandidate = jointAngle
-            pushSwing = maxOf(pushSwing, pushPeak - pushCandidate)
-        } else if (jointAngle >= pushCandidate + PUSH_CONFIRM) {
-            counted = pushCandidate <= PUSH_BOTTOM && pushSwing >= PUSH_AMP &&
-                nowMs - pushLastRep >= PUSH_MIN_REP_MS
-            if (counted) {
-                reps += 1
-                pushLastRep = nowMs
-                pushArmed = false
-                pushValley = pushCandidate
-            }
-            pushPeak = jointAngle
-            pushCandidate = 180.0
-            pushSwing = 0.0
-        }
+        val jointAngle = if (usesWorld) worldAngle!! else imageAngle
         feedback = when {
             counted -> "Đã ghi nhận. ${lowerFeedback()}"
             jointAngle <= PUSH_BOTTOM + 10.0 -> riseFeedback()
             else -> lowerFeedback()
+        }
+    }
+
+    private class PushCycle {
+        private var peak = 0.0
+        private var candidate = 180.0
+        private var swing = 0.0
+        private var armed = true
+        private var valley = 0.0
+        private var suppressed = false
+        private var suppressedValley = 180.0
+
+        fun update(jointAngle: Double, ready: Boolean): Boolean {
+            if (suppressed) {
+                suppressedValley = minOf(suppressedValley, jointAngle)
+                if (jointAngle < suppressedValley + PUSH_REARM) return false
+                reset()
+            }
+            if (!armed) {
+                if (jointAngle < valley + PUSH_REARM) return false
+                armed = true
+                peak = jointAngle
+                candidate = jointAngle
+                swing = 0.0
+            }
+            peak = maxOf(peak, jointAngle)
+            var counted = false
+            if (jointAngle <= candidate) {
+                candidate = jointAngle
+                swing = maxOf(swing, peak - candidate)
+            } else if (jointAngle >= candidate + PUSH_CONFIRM) {
+                counted = candidate <= PUSH_BOTTOM && swing >= PUSH_AMP && ready
+                if (counted) {
+                    armed = false
+                    valley = candidate
+                }
+                peak = jointAngle
+                candidate = 180.0
+                swing = 0.0
+            }
+            return counted
+        }
+
+        fun suppress(jointAngle: Double?) {
+            suppressed = true
+            suppressedValley = minOf(candidate, jointAngle ?: 180.0, if (armed) 180.0 else valley)
+        }
+
+        fun reset(preserveSuppression: Boolean = false) {
+            peak = 0.0
+            candidate = 180.0
+            swing = 0.0
+            armed = true
+            valley = 0.0
+            if (!preserveSuppression) {
+                suppressed = false
+                suppressedValley = 180.0
+            }
         }
     }
 
@@ -320,11 +347,8 @@ class ExerciseCounter(val kind: ExerciseKind) {
         extremum = Extremum.NONE
         extremumSince = 0L
         cycleSince = null
-        pushPeak = 0.0
-        pushCandidate = 180.0
-        pushSwing = 0.0
-        pushArmed = true
-        pushValley = 0.0
+        imagePushCycle.reset()
+        worldPushCycle.reset()
         pushLastRep = -PUSH_MIN_REP_MS
         lastTime = null
         lastSide = null
@@ -363,7 +387,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     private fun orientationOk(pose: ExercisePose, view: CameraView): Boolean = when (view) {
-        CameraView.SIDE -> horizontal(pose, 0.5)
+        CameraView.SIDE -> horizontal(pose, 0.75)
         CameraView.FRONT -> kind == ExerciseKind.SQUAT && shouldersLevel(pose)
         CameraView.DIAGONAL -> horizontal(pose, 1.0) || shouldersLevel(pose)
         CameraView.UNKNOWN -> false
@@ -389,7 +413,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
         p.x.isFinite() && p.y.isFinite() && p.confidence.isFinite() && p.confidence >= MIN_CONFIDENCE
 
     private fun startingFeedback(): String = when (kind) {
-        ExerciseKind.PUSH_UP -> "Duỗi thẳng tay, giữ thân thẳng để bắt đầu."
+        ExerciseKind.PUSH_UP -> "Chống tay xuống sàn, vào tư thế thoải mái để bắt đầu."
         ExerciseKind.SQUAT -> "Đứng thẳng, duỗi chân để bắt đầu."
         ExerciseKind.PLANK -> "Chống cẳng tay, giữ thân thẳng và gần song song với sàn."
     }
@@ -401,7 +425,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     private fun riseFeedback(): String = if (kind == ExerciseKind.PUSH_UP) {
-        "Đẩy người lên, duỗi thẳng tay."
+        "Đẩy người lên trong tầm sức của bạn."
     } else {
         "Đứng lên, duỗi thẳng chân."
     }
@@ -409,15 +433,12 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private fun landmarksValid(pose: ExercisePose): Boolean {
         val points = when (kind) {
             ExerciseKind.SQUAT -> listOf(pose.shoulder, pose.hip, pose.knee, pose.ankle)
-            // Push-up reps come from the elbow cycle; legs are optional so a close side-on
-            // phone that only frames head-to-hip still counts.
             ExerciseKind.PUSH_UP -> listOf(pose.shoulder, pose.elbow, pose.wrist, pose.hip)
             ExerciseKind.PLANK -> listOf(pose.shoulder, pose.elbow, pose.wrist, pose.hip, pose.knee, pose.ankle)
         }
-        if (points.any { !it.x.isFinite() || !it.y.isFinite() ||
-                !it.confidence.isFinite() || it.confidence < MIN_CONFIDENCE
-            }
-        ) return false
+        if (points.any { !it.x.isFinite() || !it.y.isFinite() || !it.confidence.isFinite() }) return false
+        val visible = if (kind == ExerciseKind.PUSH_UP) listOf(pose.shoulder, pose.hip) else points
+        if (visible.any { it.confidence < MIN_CONFIDENCE }) return false
         val segments = when (kind) {
             ExerciseKind.SQUAT -> listOf(pose.shoulder to pose.hip, pose.hip to pose.knee, pose.knee to pose.ankle)
             ExerciseKind.PUSH_UP -> listOf(pose.shoulder to pose.elbow, pose.elbow to pose.wrist, pose.shoulder to pose.hip)
@@ -451,9 +472,9 @@ class ExerciseCounter(val kind: ExerciseKind) {
     private fun forearmSupport(pose: ExercisePose): Boolean {
         val elbowAngle = angle(pose.shoulder, pose.elbow, pose.wrist)
         val upperArm = distance(pose.shoulder, pose.elbow)
-        return elbowAngle in 65.0..110.0 &&
-            pose.elbow.y.toDouble() - pose.shoulder.y >= upperArm * 0.6 &&
-            abs(pose.elbow.x.toDouble() - pose.shoulder.x) <= upperArm * 0.6
+        return elbowAngle in 45.0..135.0 &&
+            pose.elbow.y.toDouble() - pose.shoulder.y >= upperArm * 0.35 &&
+            abs(pose.elbow.x.toDouble() - pose.shoulder.x) <= upperArm * 0.9
     }
 
     private fun distance(a: BodyPoint, b: BodyPoint): Double {
@@ -486,10 +507,9 @@ class ExerciseCounter(val kind: ExerciseKind) {
     }
 
     private companion object {
-        const val MIN_CONFIDENCE = 0.7f
+        const val MIN_CONFIDENCE = 0.5f
         const val MIN_SEGMENT_PX = 8.0
-        // World landmarks read ~159° on a straight torso at low resolution.
-        const val STRAIGHT_ANGLE = 150.0
+        const val STRAIGHT_ANGLE = 135.0
         const val DEPARTURE_MARGIN = 5.0
         const val STABLE_MS = 120L
         const val MIN_CYCLE_MS = 800L
@@ -502,7 +522,7 @@ class ExerciseCounter(val kind: ExerciseKind) {
         // Push-up valley detector: depth, swing below the recent peak, confirmation rise,
         // re-arm rise above the counted valley, and refractory gap between credited reps.
         const val PUSH_BOTTOM = 100.0
-        const val PUSH_AMP = 35.0
+        const val PUSH_AMP = 30.0
         const val PUSH_CONFIRM = 10.0
         const val PUSH_REARM = 20.0
         const val PUSH_MIN_REP_MS = 300L

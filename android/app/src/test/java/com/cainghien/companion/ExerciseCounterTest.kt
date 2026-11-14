@@ -385,8 +385,8 @@ class ExerciseCounterTest {
         for (gap in listOf(500L, 501L)) {
             val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
             counter.update(pushUp(170.0), 0L)
-            counter.update(pushUp(120.0), 200L)
-            counter.update(pushUp(120.0), 200L + gap)
+            counter.update(pushUp(115.0), 200L)
+            counter.update(pushUp(115.0), 200L + gap)
             counter.update(pushUp(90.0), 400L + gap)
             counter.update(pushUp(100.0), 600L + gap)
             assertEquals(if (gap == 500L) 1 else 0, counter.reps)
@@ -421,9 +421,9 @@ class ExerciseCounterTest {
             counter.update(pushUp(170.0), 0L)
             counter.update(pushUp(170.0), 200L)
             counter.update(pushUp(130.0), 400L)
-            counter.update(pushUp(120.0), 800L)
-            counter.update(pushUp(120.0), timestamp)
-            counter.update(pushUp(120.0), 1_000L)
+            counter.update(pushUp(115.0), 800L)
+            counter.update(pushUp(115.0), timestamp)
+            counter.update(pushUp(115.0), 1_000L)
             counter.update(pushUp(90.0), 1_200L)
             counter.update(pushUp(100.0), 1_400L)
             assertEquals(0, counter.reps)
@@ -454,9 +454,9 @@ class ExerciseCounterTest {
             val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
             counter.update(pushUp(170.0), 0L)
             counter.update(pushUp(130.0), 200L)
-            counter.update(if (switchSide) pushUp(120.0, 1) else null, 400L)
+            counter.update(if (switchSide) pushUp(115.0, 1) else null, 400L)
             val side = if (switchSide) 1 else 0
-            counter.update(pushUp(120.0, side), 600L)
+            counter.update(pushUp(115.0, side), 600L)
             counter.update(pushUp(90.0, side), 800L)
             counter.update(pushUp(100.0, side), 1_000L)
             assertEquals(0, counter.reps)
@@ -495,7 +495,7 @@ class ExerciseCounterTest {
         counter.pause()
         assertEquals(2, counter.reps)
         assertTrue(counter.feedback.contains("tạm dừng"))
-        counter.update(pushUp(120.0), 4_200L)
+        counter.update(pushUp(115.0), 4_200L)
         counter.update(pushUp(90.0), 4_400L)
         counter.update(pushUp(100.0), 4_600L)
         assertEquals(2, counter.reps)
@@ -510,7 +510,7 @@ class ExerciseCounterTest {
         for (index in requiredIndices(kind)) {
             val counter = ExerciseCounter(kind)
             primeBottom(counter)
-            counter.update(changePoint(pose(kind, 90.0), index) { it.copy(confidence = 0.699f) }, 1_000L)
+            counter.update(changePoint(pose(kind, 90.0), index) { it.copy(confidence = 0.499f) }, 1_000L)
             counter.update(pose(kind, 170.0), 1_200L)
             counter.update(pose(kind, 170.0), 1_400L)
             assertEquals("landmark $index", 0, counter.reps)
@@ -519,12 +519,12 @@ class ExerciseCounterTest {
 
     @Test
     fun `pushup low confidence in any required landmark resets the pending swing`() {
-        for (index in requiredIndices(ExerciseKind.PUSH_UP)) {
+        for (index in listOf(0, 3)) {
             val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
             counter.update(pushUp(170.0), 0L)
             counter.update(pushUp(130.0), 200L)
-            counter.update(changePoint(pushUp(120.0), index) { it.copy(confidence = 0.699f) }, 400L)
-            counter.update(pushUp(120.0), 600L)
+            counter.update(changePoint(pushUp(115.0), index) { it.copy(confidence = 0.499f) }, 400L)
+            counter.update(pushUp(115.0), 600L)
             counter.update(pushUp(90.0), 800L)
             counter.update(pushUp(100.0), 1_000L)
             assertEquals("landmark $index", 0, counter.reps)
@@ -532,15 +532,24 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `confidence of exactly point seven is accepted`() {
+    fun `confidence of exactly point five is accepted`() {
         for (kind in repetitionKinds) {
             val counter = ExerciseCounter(kind)
-            cycle(counter, 0L, transform = { mapPoints(it) { point -> point.copy(confidence = 0.7f) } })
+            cycle(counter, 0L, transform = { mapPoints(it) { point -> point.copy(confidence = 0.5f) } })
             assertEquals(1, counter.reps)
         }
         val counter = ExerciseCounter(ExerciseKind.PLANK)
-        hold(counter, mapPoints(plank()) { it.copy(confidence = 0.7f) }, 0L, 10_000L)
+        hold(counter, mapPoints(plank()) { it.copy(confidence = 0.5f) }, 0L, 10_000L)
         assertEquals(1, counter.points)
+    }
+
+    @Test
+    fun `pushup accepts occluded arms and a thirty degree descent`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        cycle(counter, 0L, top = 125.0, bottom = 94.0, transform = {
+            it.copy(elbow = it.elbow.copy(confidence = 0.15f), wrist = it.wrist.copy(confidence = 0.2f))
+        })
+        assertEquals(1, counter.reps)
     }
 
     @Test
@@ -684,19 +693,19 @@ class ExerciseCounterTest {
     }
 
     @Test
-    fun `plank only accepts forearm elbow angles from 65 to 110 degrees`() {
+    fun `plank accepts relaxed forearm angles but not straight arms`() {
         for (side in 0..1) {
-            for (degrees in listOf(64.9, 65.1, 90.0, 109.9, 110.1, 170.0)) {
+            for (degrees in listOf(44.9, 45.1, 60.0, 90.0, 120.0, 134.9, 135.1, 170.0)) {
                 val counter = ExerciseCounter(ExerciseKind.PLANK)
                 hold(counter, plank(degrees, side), 0L, 10_000L)
-                assertEquals("angle $degrees side $side", if (degrees in 65.0..110.0) 1 else 0, counter.points)
+                assertEquals("angle $degrees side $side", if (degrees in 45.0..135.0) 1 else 0, counter.points)
             }
         }
     }
 
     @Test
     fun `plank requires elbows below and reasonably under the shoulders`() {
-        for (rotation in listOf(45.0, -45.0, 180.0)) {
+        for (rotation in listOf(75.0, -75.0, 180.0)) {
             val base = plank()
             val moved = rotate(base, rotation, base.shoulder)
             val wrongArms = base.copy(elbow = moved.elbow, wrist = moved.wrist)
@@ -708,6 +717,26 @@ class ExerciseCounterTest {
         val straightArms = ExerciseCounter(ExerciseKind.PLANK)
         hold(straightArms, pushUp(170.0), 0L, 6_000L)
         assertEquals(0, straightArms.points)
+    }
+
+    @Test
+    fun `plank tolerates moderate hip bends and elbow offsets`() {
+        for (offset in listOf(-60f, 60f)) {
+            val base = plank()
+            val counter = ExerciseCounter(ExerciseKind.PLANK)
+            hold(counter, base.copy(hip = base.hip.copy(y = base.hip.y + offset)), 0L, 10_000L)
+            assertEquals(1, counter.points)
+        }
+        for (rotation in listOf(-45.0, 45.0)) {
+            val base = plank()
+            val moved = rotate(base, rotation, base.shoulder)
+            val counter = ExerciseCounter(ExerciseKind.PLANK)
+            hold(counter, base.copy(elbow = moved.elbow, wrist = moved.wrist), 0L, 10_000L)
+            assertEquals(1, counter.points)
+        }
+        val tilted = ExerciseCounter(ExerciseKind.PLANK)
+        hold(tilted, rotate(plank(), 25.0), 0L, 10_000L)
+        assertEquals(1, tilted.points)
     }
 
     @Test
@@ -745,7 +774,7 @@ class ExerciseCounterTest {
                     13_599L
                 }
                 "confidence" -> {
-                    counter.update(plank().let { it.copy(wrist = it.wrist.copy(confidence = 0.69f)) }, 13_099L)
+                    counter.update(plank().let { it.copy(wrist = it.wrist.copy(confidence = 0.49f)) }, 13_099L)
                     13_599L
                 }
                 "posture" -> {
@@ -966,6 +995,135 @@ class ExerciseCounterTest {
         assertEquals(1, counter.reps)
     }
 
+    @Test
+    fun `changing between world and image angles cannot manufacture a repetition`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        val stabilizer = PoseStabilizer().apply { upperBody = true }
+        val base = ExercisePose(
+            point(200.0, 200.0), point(200.0, 300.0), point(300.0, 300.0),
+            point(300.0, 360.0), point(400.0, 380.0), point(500.0, 400.0), 0,
+            otherShoulder = point(280.0, 200.0), otherHip = point(380.0, 360.0),
+            world = worldChain(180.0, 135.0)
+        )
+        repeat(6) { index ->
+            val pose = if (index % 2 == 0) base else base.copy(
+                elbow = base.elbow.copy(confidence = 0.49f),
+                wrist = base.wrist.copy(confidence = 0.49f), world = null
+            )
+            counter.update(stabilizer.update(listOf(pose), index * 200L), index * 200L)
+        }
+        assertEquals(CameraView.DIAGONAL, counter.view)
+        assertEquals(0, counter.reps)
+        listOf(170.0, 130.0, 90.0, 120.0, 170.0).forEachIndexed { index, degrees ->
+            val t = 1_200L + index * 200L
+            val pose = base.copy(world = worldChain(180.0, degrees))
+            counter.update(stabilizer.update(listOf(pose), t), t)
+        }
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `view changes preserve descent in the newly selected coordinate space`() {
+        for (toWorld in listOf(false, true)) {
+            val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+            listOf(170.0, 130.0, 90.0, 90.0, 90.0, 100.0).forEachIndexed { index, degrees ->
+                val base = pushUp(if (toWorld) 170.0 else degrees)
+                    .copy(world = worldChain(180.0, if (toWorld) degrees else 170.0))
+                val front = if (index == 0) !toWorld else toWorld
+                counter.update(if (front) withOther(base, 300.0) else base, index * 200L)
+            }
+            assertEquals(if (toWorld) CameraView.FRONT else CameraView.SIDE, counter.view)
+            assertEquals(1, counter.reps)
+        }
+    }
+
+    @Test
+    fun `view changes cannot count a stationary arm with differing image and world angles`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        repeat(24) { index ->
+            val base = pushUp(90.0).copy(world = worldChain(180.0, 135.0))
+            val pose = if (index / 6 % 2 == 0) base else withOther(base, 300.0)
+            counter.update(pose, index * 200L)
+        }
+        assertEquals(0, counter.reps)
+    }
+
+    @Test
+    fun `switching to a delayed world valley cannot credit the same rep twice`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        counter.update(pushUp(170.0).copy(world = worldChain(180.0, 170.0)), 0L)
+        counter.update(pushUp(90.0).copy(world = worldChain(180.0, 130.0)), 200L)
+        counter.update(pushUp(100.0).copy(world = worldChain(180.0, 90.0)), 400L)
+        assertEquals(1, counter.reps)
+        listOf(90.0, 90.0, 90.0, 100.0, 130.0).forEachIndexed { index, degrees ->
+            val pose = withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees))
+            counter.update(pose, 600L + index * 200L)
+        }
+        assertEquals(CameraView.FRONT, counter.view)
+        assertEquals(1, counter.reps)
+        listOf(170.0, 90.0, 100.0).forEachIndexed { index, degrees ->
+            val pose = withOther(pushUp(170.0), 300.0).copy(world = worldChain(180.0, degrees))
+            counter.update(pose, 1_600L + index * 200L)
+        }
+        assertEquals(2, counter.reps)
+    }
+
+    @Test
+    fun `a source still descending after the other source counts must rearm before earning`() {
+        for (toWorld in listOf(false, true)) {
+            for (smooth in listOf(false, true)) {
+                val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+                val stabilizer = PoseStabilizer().apply { upperBody = true }
+                val fast = listOf(170.0, 90.0, 110.0, 170.0, 170.0, 170.0)
+                val slow = listOf(170.0, 170.0, 150.0, 140.0, 90.0, 110.0)
+                fast.indices.forEach { index ->
+                    val base = pushUp(if (toWorld) fast[index] else slow[index])
+                        .copy(world = worldChain(180.0, if (toWorld) slow[index] else fast[index]))
+                    val front = if (toWorld) index > 0 else index == 0
+                    val pose = if (front) withOther(base, 300.0) else base
+                    val t = index * 200L
+                    counter.update(if (smooth) stabilizer.update(listOf(pose), t) else pose, t)
+                }
+                assertEquals("toWorld=$toWorld smooth=$smooth", 1, counter.reps)
+                listOf(170.0, 170.0, 90.0, 90.0, 130.0, 170.0, 170.0).forEachIndexed { index, degrees ->
+                    val base = pushUp(degrees).copy(world = worldChain(180.0, degrees))
+                    val pose = if (toWorld) withOther(base, 300.0) else base
+                    val t = 1_200L + index * 200L
+                    counter.update(if (smooth) stabilizer.update(listOf(pose), t) else pose, t)
+                }
+                assertEquals("next rep toWorld=$toWorld smooth=$smooth", 2, counter.reps)
+            }
+        }
+    }
+
+    @Test
+    fun `world dropout cannot remove suppression of an already credited descent`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        val image = listOf(170.0, 90.0, 110.0, 170.0, 170.0, 170.0)
+        val world = listOf(170.0, 170.0, 150.0, null, 90.0, 110.0)
+        image.indices.forEach { index ->
+            val base = pushUp(image[index]).copy(world = world[index]?.let { worldChain(180.0, it) })
+            val pose = if (index == 0) base else withOther(base, 300.0)
+            counter.update(pose, index * 200L)
+        }
+        assertEquals(CameraView.FRONT, counter.view)
+        assertEquals(1, counter.reps)
+    }
+
+    @Test
+    fun `moving torso with missing arms cannot earn repetitions`() {
+        val counter = ExerciseCounter(ExerciseKind.PUSH_UP)
+        val stabilizer = PoseStabilizer().apply { upperBody = true }
+        counter.update(stabilizer.update(listOf(pushUp(170.0)), 0L), 0L)
+        repeat(20) { index ->
+            val body = pushUp(if (index % 4 < 2) 90.0 else 170.0)
+            val missing = body.copy(elbow = body.shoulder.copy(confidence = 0f), wrist = body.shoulder.copy(confidence = 0f))
+            val t = (index + 1) * 100L
+            counter.update(stabilizer.update(listOf(missing), t), t)
+        }
+        assertEquals(0, counter.reps)
+    }
+
     private fun worldPoint(x: Double, y: Double, z: Double) =
         WorldPoint(x.toFloat(), y.toFloat(), z.toFloat(), 0.99f)
 
@@ -1006,7 +1164,8 @@ class ExerciseCounterTest {
         bottom: Double = 90.0,
         transform: (ExercisePose) -> ExercisePose = { it }
     ) {
-        val angles = listOf(top, top, 130.0, bottom, bottom, 130.0, top, top)
+        val middle = (top + bottom) / 2.0
+        val angles = listOf(top, top, middle, bottom, bottom, middle, top, top)
         angles.forEachIndexed { index, degrees ->
             counter.update(transform(pose(counter.kind, degrees, side)), start + index * 200L)
         }

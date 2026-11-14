@@ -68,9 +68,6 @@ class ExerciseActivity : ComponentActivity() {
     private lateinit var segViews: List<TextView>
     private var counter = ExerciseCounter(ExerciseKind.PUSH_UP)
     private val stabilizer = PoseStabilizer()
-    // Fallback for push-ups whose legs are out of frame; the full-body stabilizer stays
-    // primary so the tuned full-body path is unchanged when legs are visible.
-    private val upperStabilizer = PoseStabilizer().apply { upperBody = true }
     private var creditedPoints = 0
     private var lastCorrection: String? = null
     private var frontCamera = true
@@ -318,7 +315,6 @@ class ExerciseActivity : ComponentActivity() {
         stopCamera()
         counter = ExerciseCounter(ExerciseKind.values()[index])
         stabilizer.reset()
-        upperStabilizer.reset()
         creditedPoints = 0
         lastCorrection = null
         title.text = segViews[index].text
@@ -474,7 +470,8 @@ class ExerciseActivity : ComponentActivity() {
                             cameraError("Camera đang bận hoặc bị gián đoạn. Đóng app khác dùng camera rồi thử lại.")
                         }
                     }
-                    feedback.text = "Đưa toàn thân vào khung hình; app tự nhận góc nhìn."
+                    feedback.text = if (counter.kind == ExerciseKind.PUSH_UP) "Đưa vai, tay và hông vào khung hình."
+                        else "Đưa toàn thân vào khung hình; app tự nhận góc nhìn."
                 } catch (error: Exception) {
                     cameraError("Không mở được camera. Bạn vẫn dùng được các tính năng khác; hãy thử lại.")
                 }
@@ -536,10 +533,8 @@ class ExerciseActivity : ComponentActivity() {
             }
             val now = result.timestampMs()
             val candidates = bodyCandidates(result, active)
-            var body = stabilizer.update(candidates, now)
-            if (body == null && counter.kind == ExerciseKind.PUSH_UP) {
-                body = upperStabilizer.update(candidates, now)
-            }
+            stabilizer.upperBody = counter.kind == ExerciseKind.PUSH_UP
+            val body = stabilizer.update(candidates, now)
             // Candidates are already in view space; no second projection.
             counter.update(body, now)
             val delta = counter.points - creditedPoints
@@ -550,7 +545,8 @@ class ExerciseActivity : ComponentActivity() {
             skeleton.show(fullViewLandmarks(result, active))
             val visibleBottom = (if (sessionBar.visibility == View.VISIBLE) sessionBar.top
                 else bottomPanel.top).toFloat()
-            placementCue = Framing.feetCue(body?.ankle?.y, visibleBottom)
+            placementCue = if (counter.kind == ExerciseKind.PUSH_UP) null
+                else Framing.feetCue(body?.ankle?.y, visibleBottom)
             speakCorrection(placementCue ?: counter.correction)
             feedback.text = placementCue ?: counter.feedback
             render()
@@ -661,7 +657,6 @@ class ExerciseActivity : ComponentActivity() {
         camera = null
         provider?.unbindAll()
         stabilizer.reset()
-        upperStabilizer.reset()
         lastCorrection = null
         placementCue = null
         voice.reset()
